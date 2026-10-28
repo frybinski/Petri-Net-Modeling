@@ -1,0 +1,26 @@
+{
+  "name": "@pnm/sim",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Timed discrete-event simulation of Petri nets with an event stream",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker-client": "./src/worker-client.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pnm/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "fast-check": "^4.10.2",
+    "vitest": "^5.0.5"
+  }
+}
