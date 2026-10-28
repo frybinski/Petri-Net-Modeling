@@ -584,9 +584,13 @@ export function applyEvents(
 
   // The log: what happened to every event.
   const handled: Handled[] = [];
-  const flashes: Flash[] = prev.flashes.filter((f) => now - f.startedAt < flashMs);
+  // One flash per element: a newer event at an element lets the flash start over.
+  const flashing = new Map<Id, Flash>();
+  for (const f of prev.flashes) {
+    if (now - f.startedAt < flashMs) flashing.set(f.elementId, f);
+  }
   const flash = (elementId: Id, eventId: number): void => {
-    if (flashMs > 0) flashes.push({ elementId, eventId, startedAt: now });
+    if (flashMs > 0) flashing.set(elementId, { elementId, eventId, startedAt: now });
   };
   const counterEvents = new Map<number, Id[]>();
   for (const [placeId, ids] of touchedCounters) {
@@ -632,7 +636,7 @@ export function applyEvents(
   const log = [...prev.handled, ...handled];
   return {
     motions: [...carried, ...fresh],
-    flashes,
+    flashes: [...flashing.values()],
     counters,
     handled: log.length > logLimit ? log.slice(log.length - logLimit) : log,
   };

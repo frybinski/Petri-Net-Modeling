@@ -382,6 +382,32 @@ describe('applyEvents: other events', () => {
     expect(isAnimating(anim, 50 + 700)).toBe(false);
   });
 
+  it('keeps one flash per element, started by the newest event', () => {
+    const first = applyEvents(
+      EMPTY_ANIMATION,
+      [
+        { id: 1, t: 0, type: 'spawn', transitionId: 't_in', caseId: 'C-0' },
+        { id: 2, t: 0, type: 'spawn', transitionId: 't_in', caseId: 'C-1' },
+      ],
+      resting,
+      resting,
+      0,
+      options,
+    );
+    expect(first.flashes).toEqual([{ elementId: 't_in', eventId: 2, startedAt: 0 }]);
+    // Both events are in the log all the same.
+    expect(first.handled.map((h) => h.eventId)).toEqual([1, 2]);
+    const second = applyEvents(
+      first,
+      [{ id: 3, t: 1, type: 'spawn', transitionId: 't_in', caseId: 'C-2' }],
+      resting,
+      resting,
+      200,
+      options,
+    );
+    expect(second.flashes).toEqual([{ elementId: 't_in', eventId: 3, startedAt: 200 }]);
+  });
+
   it('finds the place of a case of the initial marking', () => {
     const anim = applyEvents(
       EMPTY_ANIMATION,

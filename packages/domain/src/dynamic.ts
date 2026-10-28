@@ -6,7 +6,7 @@ import {
   type AnimationState,
   type SpriteSample,
 } from './animation';
-import { distance } from './geometry';
+import { distance, pointInRect } from './geometry';
 import {
   cellSize,
   cellStyleOf,
@@ -253,7 +253,16 @@ export function buildDynamicScene(
             lineWidth: blocked ? 2.6 : 2,
           });
         } else {
-          for (const [rx, ry, rw, rh] of regions) {
+          for (const region of regions) {
+            const [rx, ry, rw, rh] = region;
+            // A room only lights up while a firing is in one of its slots (all of them if blocked).
+            if (
+              entry.kind === 'rooms' &&
+              !blocked &&
+              !slots.some((slot, index) => busySlots.has(index) && pointInRect(slot, region))
+            ) {
+              continue;
+            }
             const inset = entry.kind === 'rooms' ? 5 : 0;
             layers.transitions.push({
               layer: 'transitions',

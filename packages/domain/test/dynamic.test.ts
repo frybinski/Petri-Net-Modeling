@@ -20,6 +20,7 @@ import {
   paintBackdrop,
   paintLayers,
   paintScene,
+  SpriteCache,
   type DomainView,
   type DrawCommand,
   type LayoutState,
@@ -390,4 +391,89 @@ describe('frame budget', () => {
       );
     }
   }, 30_000);
+});
+
+describe('rooms', () => {
+  it('light up one by one, by the firings in their slots', () => {
+    const office = example('smart-office');
+    const officeView = office.domainView as DomainView;
+    const officeContext = layoutContext(office, officeView);
+    const officeScene = buildStaticScene(office, officeView);
+    const meet = officeView.transitions['o_meet'];
+    if (meet?.kind !== 'rooms') throw new Error('o_meet is not a rooms transition');
+    const frame = buildDynamicScene(
+      officeContext,
+      officeScene,
+      layoutTokens(office, officeView, {
+        time: 10,
+        marking: {},
+        running: [
+          { firingId: 1, transitionId: 'o_meet', start: 0, end: 900, slot: 1, caseIds: ['M-1'] },
+        ],
+      }),
+      EMPTY_ANIMATION,
+      { now: 0 },
+    );
+    const frames = frame.layers.transitions.filter(
+      (c) => c.op === 'rect' && c.elementId === 'o_meet' && c.stroke === 'ok',
+    );
+    expect(meet.rooms!.length).toBeGreaterThan(1);
+    expect(frames).toHaveLength(1);
+  });
+});
+
+describe('the sprite cache', () => {
+  it('renders each sprite once and blits it afterwards', () => {
+    const created: number[] = [];
+    const { ctx: inner } = recordingContext();
+    const cache = new SpriteCache((width, height) => {
+      created.push(width, height);
+      return { width, height, getContext: () => inner };
+    });
+    const { ctx, calls } = recordingContext();
+    const frame = dynamic({
+      marking: { q: [1, 1, 1, 1] },
+      meta: { q: metas(4) },
+    });
+    paintLayers(ctx, frame.layers, LIGHT_PALETTE, { scale: 2, sprites: cache });
+    paintLayers(ctx, frame.layers, LIGHT_PALETTE, { scale: 2, sprites: cache });
+    // One image for the parcel, eight blits (4 sprites, two frames).
+    expect(created).toHaveLength(2);
+    expect(calls.get('drawImage')).toBe(8);
+    // Without the cache the sprites are drawn as paths.
+    const plain = recordingContext();
+    paintLayers(plain.ctx, frame.layers, LIGHT_PALETTE, { scale: 2 });
+    expect(plain.calls.get('drawImage') ?? 0).toBe(0);
+    expect(plain.calls.get('save')).toBe(plain.calls.get('restore'));
+  });
+
+  it('keeps separate images per direction for sprites that have a front', () => {
+    const created: number[] = [];
+    const { ctx: inner } = recordingContext();
+    const cache = new SpriteCache((width, height) => {
+      created.push(width);
+      return { width, height, getContext: () => inner };
+    });
+    const { ctx } = recordingContext();
+    const person = (angle: number): DrawCommand => ({
+      layer: 'tokens',
+      op: 'sprite',
+      sprite: 'person',
+      x: 10,
+      y: 10,
+      size: 18,
+      angle,
+    });
+    const layers = {
+      decor: [],
+      arcs: [],
+      places: [],
+      transitions: [],
+      tokens: [person(0), person(0.01), person(Math.PI / 2), person(-Math.PI / 2)],
+      labels: [],
+      highlight: [],
+    };
+    paintLayers(ctx, layers, LIGHT_PALETTE, { scale: 1, sprites: cache });
+    expect(created).toHaveLength(3);
+  });
 });

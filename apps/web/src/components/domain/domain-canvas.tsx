@@ -4,6 +4,7 @@ import {
   hitTest,
   paintBackdrop,
   paintLayers,
+  SpriteCache,
   spriteSize,
   staticLayoutState,
   visitedTransitions,
@@ -116,6 +117,15 @@ export function DomainCanvas() {
   const pendingSync = useRef(false);
   const [animator] = useState(() => new DomainAnimator());
   const [staticLayer] = useState(() => new StaticLayer());
+  const [spriteCache] = useState(
+    () =>
+      new SpriteCache((width, height) => {
+        const surface = document.createElement('canvas');
+        surface.width = width;
+        surface.height = height;
+        return surface;
+      }),
+  );
   const [card, setCard] = useState<{ id: string; anchor: AnchorRect } | null>(null);
   const [cursor, setCursor] = useState<'default' | 'pointer' | 'grabbing'>('default');
   const [pickerAnchor, setPickerAnchor] = useState<{ id: string; anchor: AnchorRect } | null>(null);
@@ -194,7 +204,7 @@ export function DomainCanvas() {
         }),
       });
       if (dynamic) {
-        paintLayers(ctx, dynamic.layers, current, { scale: wanted });
+        paintLayers(ctx, dynamic.layers, current, { scale: wanted, sprites: spriteCache });
         canvas.dataset['sprites'] = String(dynamic.sprites.length);
         canvas.dataset['moving'] = String(dynamic.sprites.filter((s) => s.moving).length);
       }
@@ -210,7 +220,7 @@ export function DomainCanvas() {
     if (useEditorStore.getState().simPlaying || animator.isAnimating(now)) {
       schedulePaintRef.current();
     }
-  }, [animator, staticLayer]);
+  }, [animator, staticLayer, spriteCache]);
 
   const schedulePaint = useCallback((): void => {
     if (frame.current !== 0) return;
