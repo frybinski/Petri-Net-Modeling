@@ -654,6 +654,33 @@ export function fillMissing(
   return domainViewSchema.parse({ ...view, places, transitions, arcs, provenance });
 }
 
+/**
+ * Adds a straight path for every arc that the view has no path for (arcs of resource slots and of
+ * hidden elements get none). The new entries have the provenance `generic`; everything else stays
+ * as it is.
+ */
+export function fillArcs(
+  net: PetriNet,
+  view: DomainView,
+  options: { at?: string } = {},
+): DomainView {
+  const at = options.at ?? new Date().toISOString();
+  const { width, height } = view.meta.canvas;
+  const existing = view.arcs ?? {};
+  const fresh = arcPaths(
+    net,
+    view.places,
+    view.transitions,
+    (_id, source, target) => !(arcKey(source, target) in existing),
+    width,
+    height,
+  );
+  if (Object.keys(fresh).length === 0) return view;
+  const provenance = { ...view.provenance };
+  for (const key of Object.keys(fresh)) provenance[provenanceKey.arc(key)] = stamp(at);
+  return { ...view, arcs: { ...existing, ...fresh }, provenance };
+}
+
 /** The view with the hash of the current net. */
 export function withNetHash(net: PetriNet, view: DomainView): DomainView {
   return { ...view, netHash: netHash(net) };

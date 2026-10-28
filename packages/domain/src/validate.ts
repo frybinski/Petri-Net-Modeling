@@ -63,7 +63,11 @@ function formatPath(path: ReadonlyArray<PropertyKey>): string {
   return out === '' ? '(root)' : out;
 }
 
-function schemaDiagnostics(net: PetriNet, error: ZodError): DomainDiagnostic[] {
+/**
+ * Turns the issues of a failed schema check into diagnostics of rule V1, with the element of the
+ * net they are about. Fields that describe behaviour get a message that says so.
+ */
+export function schemaDiagnostics(net: PetriNet, error: ZodError): DomainDiagnostic[] {
   const placeIds = new Set(net.places.map((p) => p.id));
   const transitionIds = new Set(net.transitions.map((t) => t.id));
   const out: DomainDiagnostic[] = [];
