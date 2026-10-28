@@ -729,7 +729,7 @@ export function buildScene(
           layer: 'tokens',
           elementId: place.id,
           op: 'text',
-          x: small ? x + w - 10 : x + w / 2,
+          x: small ? x + w - 8 : x + w / 2,
           y: small ? y + h / 2 : y + h / 2 + 14,
           text: String(count),
           size: small ? 13 : 15,

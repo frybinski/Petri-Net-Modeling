@@ -471,6 +471,14 @@ export const en = {
       ['Drag from a node ring', 'Draw an arc (Alt+drag works anywhere on the node)'],
       ['Scroll, Ctrl+scroll', 'Move the canvas, zoom (pinch also zooms)'],
       ['Space+drag, middle button', 'Pan the canvas (while simulating only the middle button)'],
+      [
+        'Hover in the domain view',
+        'Lights up the same element in the net, and the other way round',
+      ],
+      [
+        'Drag, wheel in the domain view',
+        'Pan the sheet (Ctrl+wheel, pinch and double click zoom and fit)',
+      ],
     ] as ReadonlyArray<readonly [string, string]>,
     groups: {
       tools: 'Tools',
@@ -526,11 +534,11 @@ export const en = {
     status: 'Status',
     noProblems: '0 problems',
     problems: 'Problems',
-    origin: 'Origin of the entries',
+    origin: 'Origin',
     originGeneric: 'generic',
     originUser: 'user',
     originLlm: 'LLM',
-    hash: 'Net structure',
+    hash: 'Hash',
     hashOk: 'The view matches the net.',
     hashStale: 'The net has changed since the view was made.',
     actions: 'Actions',

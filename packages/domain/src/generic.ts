@@ -37,7 +37,7 @@ export const DEFAULT_CANVAS = { width: 1200, height: 700 };
 /** Space between the nodes of the net and the border of the canvas. */
 const MARGIN = 80;
 const STATION_SIZE = 56;
-const SINK_SIZE: [number, number] = [56, 40];
+const SINK_SIZE: [number, number] = [72, 40];
 const SLOT_PITCH = 24;
 const MAX_SLOTS = 36;
 /** How far a path runs when it has no neighbour to lead to. */

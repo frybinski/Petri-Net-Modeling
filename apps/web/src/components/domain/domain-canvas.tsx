@@ -444,6 +444,7 @@ export function DomainCanvas() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerLeave}
+        onDoubleClick={fit}
       />
       {scene ? <DomainZoomControls onZoom={zoomBy} onFit={fit} /> : null}
       {!analysis.present ? (
