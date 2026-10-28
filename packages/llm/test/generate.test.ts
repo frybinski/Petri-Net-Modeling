@@ -138,6 +138,19 @@ describe('generateDomainView', () => {
     expect(result.prompt.user).toBe(provider.calls[0]?.user);
   });
 
+  it('does not show the model the answer: an example with the net itself is left out', async () => {
+    const provider = createFakeProvider([{ json: modelAnswer(view) }]);
+    await generateDomainView(net, provider, { description: 'x', now: clock() });
+    const user = provider.calls[0]?.user ?? '';
+    expect(user).toContain('### Example 1: Smart Office');
+    expect(user).not.toContain('Paketzentrum\n');
+    expect(user.match(/### Example/g)).toHaveLength(1);
+    const other = loadExample('order-processing');
+    const second = createFakeProvider([{ text: 'no' }]);
+    await generateDomainView(other.net, second, { description: 'x', maxRounds: 1, now: clock() });
+    expect(second.calls[0]?.user.match(/### Example/g)).toHaveLength(2);
+  });
+
   it('sets the hash of the net, whatever the model wrote', async () => {
     const answer = { ...modelAnswer(view), netHash: 'fnv1a64:0000000000000000', provenance: {} };
     const provider = createFakeProvider([{ json: answer }]);

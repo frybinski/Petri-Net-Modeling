@@ -52,7 +52,10 @@ export interface GenerateOptions {
   canvas?: Canvas;
   /** Requests at most this many times (first answer plus repairs). Default 3. */
   maxRounds?: number;
-  /** Worked examples for the prompt. Default: parcel center and smart office. */
+  /**
+   * Worked examples for the prompt. Default: parcel center and smart office, except one that has
+   * the structure of the net itself.
+   */
   examples?: PromptExample[];
   onProgress?: (progress: GenerateProgress) => void;
   signal?: AbortSignal;
@@ -80,6 +83,12 @@ export interface GenerateResult {
   /** The first request. */
   prompt: Prompt;
   canvas: Canvas;
+}
+
+/** The worked examples, without one that has the structure of this very net: no free answer. */
+function examplesFor(net: PetriNet): PromptExample[] {
+  const own = netHash(net);
+  return defaultExamples().filter((example) => netHash(example.net) !== own);
 }
 
 function iso(ms: number): string {
@@ -136,7 +145,7 @@ export async function generateDomainView(
     net,
     description: options.description,
     canvas,
-    examples: options.examples ?? defaultExamples(),
+    examples: options.examples ?? examplesFor(net),
     schema: answerSchema(),
   });
   const compact = compactNet(net);
