@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useAutoFocus } from '../../lib/use-auto-focus';
 import { useEditorStore } from '../../store/editor-store';
 
@@ -7,10 +7,12 @@ interface NodeLabelProps {
   name: string;
   renaming: boolean;
   kind: 'place' | 'transition';
+  /** Extra lines below the name (type, token labels). */
+  children?: ReactNode;
 }
 
 /** Name below a node. Turns into a text input on double click. */
-export function NodeLabel({ id, name, renaming, kind }: NodeLabelProps) {
+export function NodeLabel({ id, name, renaming, kind, children }: NodeLabelProps) {
   return (
     <div className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2">
       {renaming ? (
@@ -20,6 +22,7 @@ export function NodeLabel({ id, name, renaming, kind }: NodeLabelProps) {
           {name === '' ? ' ' : name}
         </span>
       )}
+      {children}
     </div>
   );
 }

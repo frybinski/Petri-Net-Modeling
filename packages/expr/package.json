@@ -1,0 +1,24 @@
+{
+  "name": "@pnm/expr",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Expression language for guards and arc inscriptions (adapter around JSONata)",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jsonata": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "vitest": "^5.0.5"
+  }
+}

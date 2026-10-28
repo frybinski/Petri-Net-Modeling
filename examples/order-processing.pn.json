@@ -1,0 +1,240 @@
+{
+  "version": "1.0",
+  "profile": "json-net",
+  "name": "Order processing",
+  "types": {
+    "Order": {
+      "type": "object",
+      "required": [
+        "id",
+        "amount",
+        "customer"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "customer": {
+          "type": "string"
+        }
+      }
+    },
+    "Customer": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Invoice": {
+      "type": "object",
+      "required": [
+        "order",
+        "customer",
+        "total"
+      ],
+      "properties": {
+        "order": {
+          "type": "string"
+        },
+        "customer": {
+          "type": "string"
+        },
+        "total": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "places": [
+    {
+      "id": "incoming",
+      "name": "Incoming orders",
+      "type": "Order",
+      "position": {
+        "x": 0,
+        "y": 120
+      }
+    },
+    {
+      "id": "approved",
+      "name": "Approved orders",
+      "type": "Order",
+      "position": {
+        "x": 420,
+        "y": 40
+      }
+    },
+    {
+      "id": "rejected",
+      "name": "Rejected orders",
+      "type": "Order",
+      "position": {
+        "x": 420,
+        "y": 200
+      }
+    },
+    {
+      "id": "customers",
+      "name": "Customers",
+      "type": "Customer",
+      "position": {
+        "x": 680,
+        "y": 220
+      }
+    },
+    {
+      "id": "invoices",
+      "name": "Invoices",
+      "type": "Invoice",
+      "position": {
+        "x": 940,
+        "y": 40
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "approve",
+      "name": "Approve",
+      "guard": "$o.amount > 0",
+      "position": {
+        "x": 210,
+        "y": 40
+      }
+    },
+    {
+      "id": "reject",
+      "name": "Reject",
+      "guard": "$o.amount <= 0",
+      "position": {
+        "x": 210,
+        "y": 200
+      }
+    },
+    {
+      "id": "invoice",
+      "name": "Create invoice",
+      "guard": "$o.customer = $c.id",
+      "position": {
+        "x": 680,
+        "y": 40
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "incoming",
+      "target": "approve",
+      "weight": 1,
+      "inscription": "$o"
+    },
+    {
+      "id": "a2",
+      "source": "approve",
+      "target": "approved",
+      "weight": 1,
+      "inscription": "$o"
+    },
+    {
+      "id": "a3",
+      "source": "incoming",
+      "target": "reject",
+      "weight": 1,
+      "inscription": "$o"
+    },
+    {
+      "id": "a4",
+      "source": "reject",
+      "target": "rejected",
+      "weight": 1,
+      "inscription": "$o"
+    },
+    {
+      "id": "a5",
+      "source": "approved",
+      "target": "invoice",
+      "weight": 1,
+      "inscription": "$o"
+    },
+    {
+      "id": "a6",
+      "source": "customers",
+      "target": "invoice",
+      "weight": 1,
+      "inscription": "$c"
+    },
+    {
+      "id": "a7",
+      "source": "invoice",
+      "target": "customers",
+      "weight": 1,
+      "inscription": "$c"
+    },
+    {
+      "id": "a8",
+      "source": "invoice",
+      "target": "invoices",
+      "weight": 1,
+      "inscription": "{ \"order\": $o.id, \"customer\": $c.name, \"total\": $o.amount }"
+    }
+  ],
+  "marking": {
+    "incoming": [
+      {
+        "id": "A-1",
+        "amount": 12.5,
+        "customer": "c1"
+      },
+      {
+        "id": "A-2",
+        "amount": 80,
+        "customer": "c2"
+      },
+      {
+        "id": "A-3",
+        "amount": -5,
+        "customer": "c1"
+      },
+      {
+        "id": "A-4",
+        "amount": 40,
+        "customer": "c1"
+      }
+    ],
+    "approved": [
+      {
+        "id": "A-0",
+        "amount": 30,
+        "customer": "c1"
+      },
+      {
+        "id": "A-9",
+        "amount": 99,
+        "customer": "c2"
+      }
+    ],
+    "customers": [
+      {
+        "id": "c1",
+        "name": "Ada Lovelace"
+      },
+      {
+        "id": "c2",
+        "name": "Alan Turing"
+      }
+    ]
+  }
+}

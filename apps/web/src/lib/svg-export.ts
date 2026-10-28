@@ -1,4 +1,5 @@
-import type { Id, Marking, PetriNet, Position } from '@pnm/core';
+import { tokenLabel, type Id, type Marking, type PetriNet, type Position } from '@pnm/core';
+import { truncate } from './inscriptions';
 import {
   PARALLEL_ARC_BEND,
   PLACE_SHAPE,
@@ -18,6 +19,8 @@ export interface SvgExportOptions {
   padding?: number;
   /** Draw on a dark background. */
   dark?: boolean;
+  /** Draw guards, arc inscriptions and place types of JSON nets (default true). */
+  inscriptions?: boolean;
 }
 
 interface Palette {
@@ -93,6 +96,8 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
   const palette = options.dark ? DARK : LIGHT;
   const padding = options.padding ?? 40;
   const marking = options.marking ?? net.marking;
+  const json = net.profile === 'json-net';
+  const showInscriptions = json && (options.inscriptions ?? true);
 
   const endpoints = new Map<Id, Endpoint>();
   for (const p of net.places) endpoints.set(p.id, { center: p.position, shape: PLACE_SHAPE });
@@ -110,7 +115,8 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
   for (const { center, shape } of endpoints.values()) {
     const { width, height } = shapeSize(shape);
     extend(center.x - width / 2, center.y - height / 2);
-    extend(center.x + width / 2, center.y + height / 2 + 24); // room for the label below
+    extend(center.x + width / 2, center.y + height / 2 + 24 + (json ? 28 : 0)); // room for the labels below
+    if (json) extend(center.x - 80, center.y - height / 2 - 16); // room for guards above
   }
   for (const a of net.annotations ?? []) {
     extend(a.position.x, a.position.y);
@@ -168,7 +174,12 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
     out.push(
       `<polygon points="${arrowHeadPoints(geometry.tip, geometry.angle)}" fill="${palette.stroke}"/>`,
     );
-    if (arc.weight !== 1) {
+    const inscription = showInscriptions ? (arc.inscription ?? '').trim() : '';
+    if (inscription !== '') {
+      out.push(
+        `<text x="${geometry.label.x}" y="${geometry.label.y - 6}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="${palette.text}" stroke="${palette.background}" stroke-width="4" paint-order="stroke">${escapeXml(truncate(inscription, 24))}</text>`,
+      );
+    } else if (arc.weight !== 1) {
       out.push(
         `<text x="${geometry.label.x}" y="${geometry.label.y - 6}" text-anchor="middle" fill="${palette.text}" stroke="${palette.background}" stroke-width="4" paint-order="stroke" font-weight="600">${arc.weight}</text>`,
       );
@@ -183,7 +194,13 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
     out.push(
       `<g><circle cx="${x}" cy="${y}" r="${PLACE_SHAPE.kind === 'circle' ? PLACE_SHAPE.radius : 20}" fill="${palette.fill}" stroke="${palette.stroke}" stroke-width="2"/>`,
     );
-    if (count > 0 && count <= MAX_TOKEN_DOTS) {
+    if (json) {
+      if (count > 0) {
+        out.push(
+          `<text x="${x}" y="${y + 5}" text-anchor="middle" font-weight="600" fill="${palette.text}">${count}</text>`,
+        );
+      }
+    } else if (count > 0 && count <= MAX_TOKEN_DOTS) {
       for (const o of tokenDotOffsets(count)) {
         out.push(`<circle cx="${x + o.x}" cy="${y + o.y}" r="3.4" fill="${palette.text}"/>`);
       }
@@ -198,6 +215,20 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
       );
     }
     out.push(labelSvg(place.name, place.position, 36, palette));
+    let line = 36;
+    if (showInscriptions && place.type !== undefined) {
+      line += 13;
+      out.push(
+        `<text x="${x}" y="${y + line}" text-anchor="middle" font-size="10" font-style="italic" fill="${palette.muted}">${escapeXml(place.type)}</text>`,
+      );
+    }
+    if (json && count > 0 && count <= 3) {
+      line += 13;
+      const labels = (marking[place.id] ?? []).map((t) => tokenLabel(t, 18)).join('  ');
+      out.push(
+        `<text x="${x}" y="${y + line}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="10" fill="${palette.muted}">${escapeXml(labels)}</text>`,
+      );
+    }
     out.push('</g>');
   }
 
@@ -208,6 +239,12 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
       `<g><rect x="${x - 20}" y="${y - 30}" width="40" height="60" rx="3" fill="${palette.fill}" stroke="${palette.stroke}" stroke-width="2"/>`,
     );
     out.push(labelSvg(t.name, t.position, 46, palette));
+    const guard = showInscriptions ? (t.guard ?? '').trim() : '';
+    if (guard !== '') {
+      out.push(
+        `<text x="${x}" y="${y - 36}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="10" fill="${palette.muted}">[ ${escapeXml(truncate(guard, 34))} ]</text>`,
+      );
+    }
     out.push('</g>');
   }
 

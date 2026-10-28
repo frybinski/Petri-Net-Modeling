@@ -1,6 +1,6 @@
 {
   "name": "@pnm/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "UI-independent Petri net model, validation, firing rule and file format",
   "license": "MIT",
@@ -16,6 +16,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@pnm/expr": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

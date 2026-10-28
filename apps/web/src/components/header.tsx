@@ -104,6 +104,21 @@ export function Header() {
     },
   ];
 
+  const showInscriptions = useUiStore((s) => s.showInscriptions);
+  const toggleInscriptions = useUiStore((s) => s.toggleInscriptions);
+  const viewSections: MenuSection[] = [
+    {
+      items: [
+        {
+          id: 'show-inscriptions',
+          label: en.menu.showInscriptions,
+          checked: showInscriptions,
+          onSelect: toggleInscriptions,
+        },
+      ],
+    },
+  ];
+
   const layoutSections: MenuSection[] = [
     {
       items: [
@@ -167,6 +182,8 @@ export function Header() {
         disabled={simulating}
         data-testid="menu-layout"
       />
+
+      <Menu label={en.menu.view} sections={viewSections} data-testid="menu-view" />
 
       <button
         type="button"

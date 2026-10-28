@@ -215,3 +215,26 @@ body {
 .react-flow.mode-simulate .react-flow__handle {
   display: none;
 }
+
+/* Syntax colours of the code editors (JSONata and JSON). */
+:root {
+  --syn-string: #0f766e;
+  --syn-number: #b45309;
+  --syn-keyword: #9333ea;
+  --syn-variable: #4338ca;
+  --syn-function: #1d4ed8;
+  --syn-property: #18181b;
+  --syn-operator: #be123c;
+  --syn-punctuation: #62626c;
+}
+
+:root[data-theme='dark'] {
+  --syn-string: #5eead4;
+  --syn-number: #fbbf24;
+  --syn-keyword: #c4b5fd;
+  --syn-variable: #a5b4fc;
+  --syn-function: #7dd3fc;
+  --syn-property: #f4f4f5;
+  --syn-operator: #fda4af;
+  --syn-punctuation: #a1a1aa;
+}

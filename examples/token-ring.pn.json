@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "profile": "json-net",
+  "name": "Token ring",
+  "types": {
+    "Hops": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "places": [
+    {
+      "id": "a",
+      "name": "Station A",
+      "type": "Hops",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "b",
+      "name": "Station B",
+      "type": "Hops",
+      "position": {
+        "x": 360,
+        "y": 0
+      }
+    },
+    {
+      "id": "c",
+      "name": "Station C",
+      "type": "Hops",
+      "position": {
+        "x": 180,
+        "y": 260
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "ab",
+      "name": "A to B",
+      "guard": "$n < 10",
+      "position": {
+        "x": 180,
+        "y": 0
+      }
+    },
+    {
+      "id": "bc",
+      "name": "B to C",
+      "guard": "$n < 10",
+      "position": {
+        "x": 290,
+        "y": 150
+      }
+    },
+    {
+      "id": "ca",
+      "name": "C to A",
+      "guard": "$n < 10",
+      "position": {
+        "x": 70,
+        "y": 150
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "a",
+      "target": "ab",
+      "weight": 1,
+      "inscription": "$n"
+    },
+    {
+      "id": "a2",
+      "source": "ab",
+      "target": "b",
+      "weight": 1,
+      "inscription": "$n + 1"
+    },
+    {
+      "id": "a3",
+      "source": "b",
+      "target": "bc",
+      "weight": 1,
+      "inscription": "$n"
+    },
+    {
+      "id": "a4",
+      "source": "bc",
+      "target": "c",
+      "weight": 1,
+      "inscription": "$n + 1"
+    },
+    {
+      "id": "a5",
+      "source": "c",
+      "target": "ca",
+      "weight": 1,
+      "inscription": "$n"
+    },
+    {
+      "id": "a6",
+      "source": "ca",
+      "target": "a",
+      "weight": 1,
+      "inscription": "$n + 1"
+    }
+  ],
+  "marking": {
+    "a": [
+      0,
+      3
+    ],
+    "c": [
+      7
+    ]
+  }
+}

@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { makeJsonNet } from './helpers';
 import {
   addAnnotation,
+  addToken,
+  addType,
+  removeToken,
+  removeType,
+  renameType,
+  setGuard,
+  setInscription,
+  setPlaceType,
+  setProfile,
+  setTokens,
+  updateToken,
+  updateType,
   alignNodes,
   distributeNodes,
   addArc,
@@ -283,5 +296,101 @@ describe('alignment', () => {
     const v = distributeNodes(net, ['a', 'b', 'c'], 'vertical');
     expect(pos(v, 'b')).toEqual({ x: 30, y: 50 });
     expect(distributeNodes(net, ['a', 'b'], 'horizontal')).toBe(net);
+  });
+});
+
+describe('higher net operations', () => {
+  const start = (): PetriNet =>
+    makeJsonNet({
+      types: { A: { type: 'string' }, B: { type: 'integer' } },
+      places: [
+        { id: 'p', type: 'A', tokens: ['x', 'y'] },
+        { id: 'q', type: 'A' },
+      ],
+      transitions: [{ id: 't', guard: 'true' }],
+      arcs: [{ from: 'p', to: 't', inscription: '$a' }],
+    });
+
+  it('addType adds a schema and validates the name', () => {
+    const net = addType(start(), 'C', { type: 'boolean' });
+    expect(net.types['C']).toEqual({ type: 'boolean' });
+    expect(() => addType(net, 'C', {})).toThrow(NetOpError);
+    expect(() => addType(net, '1bad', {})).toThrow(NetOpError);
+  });
+
+  it('renameType updates all places that use the type', () => {
+    const net = renameType(start(), 'A', 'Text');
+    expect(Object.keys(net.types)).toEqual(['Text', 'B']);
+    expect(net.places.map((p) => p.type)).toEqual(['Text', 'Text']);
+    expect(() => renameType(start(), 'A', 'B')).toThrow(NetOpError);
+    expect(() => renameType(start(), 'Z', 'Y')).toThrow(NetOpError);
+    expect(renameType(start(), 'A', 'A').types).toEqual(start().types);
+  });
+
+  it('updateType replaces the schema', () => {
+    const net = updateType(start(), 'A', { type: 'number' });
+    expect(net.types['A']).toEqual({ type: 'number' });
+    expect(() => updateType(start(), 'Z', {})).toThrow(NetOpError);
+  });
+
+  it('removeType detaches the places', () => {
+    const net = removeType(start(), 'A');
+    expect(Object.keys(net.types)).toEqual(['B']);
+    expect(net.places.every((p) => p.type === undefined && !('type' in p))).toBe(true);
+    const unchanged = start();
+    expect(removeType(unchanged, 'Z')).toBe(unchanged);
+  });
+
+  it('setPlaceType assigns and clears a type', () => {
+    const typed = setPlaceType(start(), 'q', 'B');
+    expect(typed.places[1]!.type).toBe('B');
+    expect('type' in setPlaceType(typed, 'q', undefined).places[1]!).toBe(false);
+    expect(() => setPlaceType(start(), 'q', 'Z')).toThrow(NetOpError);
+    expect(() => setPlaceType(start(), 't', 'A')).toThrow(NetOpError);
+  });
+
+  it('setGuard and setInscription set and clear text', () => {
+    const net = setGuard(start(), 't', '$a = "x"');
+    expect(net.transitions[0]!.guard).toBe('$a = "x"');
+    expect('guard' in setGuard(net, 't', '  ').transitions[0]!).toBe(false);
+    const arc = setInscription(start(), 'arc0', '$b, $c');
+    expect(arc.arcs[0]!.inscription).toBe('$b, $c');
+    expect('inscription' in setInscription(arc, 'arc0', undefined).arcs[0]!).toBe(false);
+    expect(() => setGuard(start(), 'p', 'x')).toThrow(NetOpError);
+    expect(() => setInscription(start(), 'nope', 'x')).toThrow(NetOpError);
+  });
+
+  it('manages initial tokens', () => {
+    let net = setTokens(start(), 'q', ['a', { id: 1 }]);
+    expect(net.marking['q']).toEqual(['a', { id: 1 }]);
+    net = addToken(net, 'q', 'c');
+    expect(net.marking['q']).toEqual(['a', { id: 1 }, 'c']);
+    net = updateToken(net, 'q', 1, 42);
+    expect(net.marking['q']).toEqual(['a', 42, 'c']);
+    net = removeToken(net, 'q', 0);
+    expect(net.marking['q']).toEqual([42, 'c']);
+    net = setTokens(net, 'q', []);
+    expect('q' in net.marking).toBe(false);
+  });
+
+  it('rejects invalid tokens and indices, and does not alias the input', () => {
+    expect(() => addToken(start(), 'q', null as never)).toThrow(NetOpError);
+    expect(() => setTokens(start(), 'q', [() => 1] as never)).toThrow(NetOpError);
+    expect(() => updateToken(start(), 'p', 5, 'z')).toThrow(NetOpError);
+    expect(() => removeToken(start(), 'q', 0)).toThrow(NetOpError);
+    expect(() => addToken(start(), 'nope', 1)).toThrow(NetOpError);
+    const token = { id: 1 };
+    const net = addToken(start(), 'q', token);
+    token.id = 2;
+    expect(net.marking['q']).toEqual([{ id: 1 }]);
+  });
+
+  it('setProfile switches the class and keeps the higher fields', () => {
+    const net = setProfile(start(), 'pt-net');
+    expect(net.profile).toBe('pt-net');
+    expect(net.types).toEqual(start().types);
+    expect(net.arcs[0]!.inscription).toBe('$a');
+    const same = start();
+    expect(setProfile(same, 'json-net')).toBe(same);
   });
 });

@@ -8,6 +8,8 @@ import { FlowCanvas } from './components/canvas/flow-canvas';
 import { Header } from './components/header';
 import { PropertiesPanel } from './components/properties-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
+import { TokenDialog } from './components/tokens/token-dialog';
+import { TypeDialog } from './components/types/type-dialog';
 import { SimulationPanel } from './components/simulation-panel';
 import { StatusBar } from './components/status-bar';
 import { Toaster } from './components/toaster';
@@ -17,6 +19,7 @@ import { restoreAutosave, startAutosave } from './lib/autosave';
 import { handleShortcut } from './lib/commands';
 import { openFileGuarded, registerFileInput } from './lib/files';
 import { selectIsDirty, useEditorStore } from './store/editor-store';
+import { useUiStore } from './store/ui-store';
 
 let restoreStarted = false;
 
@@ -28,6 +31,8 @@ export function App() {
   const mode = useEditorStore((s) => s.mode);
   const netName = useEditorStore((s) => s.net.name);
   const dirty = useEditorStore(selectIsDirty);
+  const typeDialog = useUiStore((s) => s.typeDialog);
+  const tokenDialog = useUiStore((s) => s.tokenDialog);
   const [dropActive, setDropActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +134,16 @@ export function App() {
       <Toaster />
       <ConfirmDialog />
       <ShortcutsDialog />
+      {tokenDialog ? (
+        <TokenDialog
+          key={`${tokenDialog.placeId}:${tokenDialog.index ?? 'new'}`}
+          placeId={tokenDialog.placeId}
+          index={tokenDialog.index}
+        />
+      ) : null}
+      {typeDialog ? (
+        <TypeDialog key={typeDialog.name ?? '(new)'} original={typeDialog.name} />
+      ) : null}
       <input
         ref={fileInputRef}
         type="file"

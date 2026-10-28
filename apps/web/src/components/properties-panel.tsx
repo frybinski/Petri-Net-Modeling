@@ -15,8 +15,13 @@ import { en } from '../i18n/en';
 import { nameOf } from '../lib/flow-model';
 import { useEditorStore } from '../store/editor-store';
 import { Button, IconButton } from './ui/button';
-import { NumberField, TextField } from './ui/fields';
-import type { AlignMode, DistributeAxis } from '@pnm/core';
+import { NumberField, SelectField, TextField } from './ui/fields';
+import { TokensSection } from './tokens/tokens-section';
+import { TypesSection } from './types/types-section';
+import { useUiStore } from '../store/ui-store';
+import { InscriptionField } from './inscription-field';
+import { arcDirection, boundVariables } from '../lib/inscriptions';
+import type { AlignMode, DistributeAxis, Profile } from '@pnm/core';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -60,10 +65,7 @@ function NetProperties() {
     <>
       <Section title={en.properties.net}>
         <TextField label={en.properties.name} value={net.name} onCommit={renameNet} />
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted">{en.properties.profile}</span>
-          <span className="text-sm">{en.properties.profilePt}</span>
-        </div>
+        <ProfileSwitch />
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted">{en.properties.counts}</span>
           <span className="text-sm" data-testid="net-counts">
@@ -71,10 +73,70 @@ function NetProperties() {
           </span>
         </div>
       </Section>
+      {net.profile === 'json-net' ? (
+        <Section title={en.types.title}>
+          <TypesSection />
+        </Section>
+      ) : null}
       <Section title={en.properties.nothingSelected}>
         <p className="m-0 text-sm text-muted">{en.properties.nothingSelectedHint}</p>
       </Section>
     </>
+  );
+}
+
+const PROFILES: Array<{ profile: Profile; label: string; testId: string }> = [
+  { profile: 'pt-net', label: en.properties.profilePt, testId: 'profile-pt' },
+  { profile: 'json-net', label: en.properties.profileJson, testId: 'profile-json' },
+];
+
+/** Switch between the two net classes. Switching is an undoable edit and loses no data. */
+function ProfileSwitch() {
+  const profile = useEditorStore((s) => s.net.profile);
+  const hasHigherFields = useEditorStore(
+    (s) =>
+      Object.keys(s.net.types).length > 0 ||
+      s.net.places.some((p) => p.type !== undefined) ||
+      s.net.transitions.some((t) => t.guard !== undefined) ||
+      s.net.arcs.some((a) => a.inscription !== undefined),
+  );
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const setProfile = useEditorStore((s) => s.setProfile);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted" id="profile-label">
+        {en.properties.profile}
+      </span>
+      <div
+        role="group"
+        aria-labelledby="profile-label"
+        className="flex rounded-md border border-border-strong p-0.5"
+      >
+        {PROFILES.map((item) => (
+          <button
+            key={item.profile}
+            type="button"
+            aria-pressed={profile === item.profile}
+            disabled={locked}
+            onClick={() => {
+              setProfile(item.profile);
+            }}
+            data-testid={item.testId}
+            className="inline-flex h-7 flex-1 items-center justify-center rounded px-2 text-xs font-medium text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:bg-accent aria-pressed:text-accent-contrast"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <p className="m-0 text-[11px] text-muted">
+        {profile === 'pt-net' ? en.properties.profilePtHint : en.properties.profileJsonHint}
+      </p>
+      {profile === 'pt-net' && hasHigherFields ? (
+        <p className="m-0 text-[11px] text-warn" data-testid="profile-ignored-note">
+          {en.properties.profileIgnoredNote}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -98,6 +160,7 @@ function PlaceProperties({ id }: { id: string }) {
   const place = useEditorStore((s) => s.net.places.find((p) => p.id === id));
   const tokens = useEditorStore((s) => s.net.marking[id]?.length ?? 0);
   const locked = useEditorStore((s) => s.mode === 'simulate');
+  const higher = useEditorStore((s) => s.net.profile === 'json-net');
   const updatePlace = useEditorStore((s) => s.updatePlace);
   const setTokens = useEditorStore((s) => s.setTokens);
   if (!place) return null;
@@ -112,17 +175,22 @@ function PlaceProperties({ id }: { id: string }) {
         disabled={locked}
         data-testid="prop-name"
       />
-      <NumberField
-        label={en.properties.initialTokens}
-        value={tokens}
-        min={0}
-        max={place.capacity}
-        disabled={locked}
-        onCommit={(n) => {
-          setTokens(id, n ?? 0);
-        }}
-        data-testid="prop-tokens"
-      />
+      {higher ? <PlaceTypeField placeId={id} /> : null}
+      {higher ? (
+        <TokensSection placeId={id} />
+      ) : (
+        <NumberField
+          label={en.properties.initialTokens}
+          value={tokens}
+          min={0}
+          max={place.capacity}
+          disabled={locked}
+          onCommit={(n) => {
+            setTokens(id, n ?? 0);
+          }}
+          data-testid="prop-tokens"
+        />
+      )}
       <NumberField
         label={en.properties.capacity}
         value={place.capacity}
@@ -142,11 +210,54 @@ function PlaceProperties({ id }: { id: string }) {
   );
 }
 
+function PlaceTypeField({ placeId }: { placeId: string }) {
+  const type = useEditorStore((s) => s.net.places.find((p) => p.id === placeId)?.type);
+  const types = useEditorStore((s) => s.net.types);
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const setPlaceType = useEditorStore((s) => s.setPlaceType);
+  const openTypeDialog = useUiStore((s) => s.openTypeDialog);
+  const known = type !== undefined && Object.hasOwn(types, type);
+  const options = [
+    { value: '', label: en.types.untyped },
+    ...Object.keys(types).map((name) => ({ value: name, label: name })),
+    ...(type !== undefined && !known ? [{ value: type, label: en.types.unknownType(type) }] : []),
+  ];
+  return (
+    <div className="flex flex-col gap-1" id="place-type-section">
+      <SelectField
+        label={en.types.placeType}
+        value={type ?? ''}
+        options={options}
+        disabled={locked}
+        onChange={(value) => {
+          setPlaceType(placeId, value === '' ? undefined : value);
+        }}
+        data-testid="prop-type"
+      />
+      {known ? (
+        <button
+          type="button"
+          onClick={() => {
+            openTypeDialog(type);
+          }}
+          className="self-start text-xs font-medium text-accent hover:underline"
+          data-testid="edit-type-link"
+        >
+          {en.types.edit}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function TransitionProperties({ id }: { id: string }) {
   const transition = useEditorStore((s) => s.net.transitions.find((t) => t.id === id));
+  const net = useEditorStore((s) => s.net);
   const locked = useEditorStore((s) => s.mode === 'simulate');
   const updateTransition = useEditorStore((s) => s.updateTransition);
   if (!transition) return null;
+  const higher = net.profile === 'json-net';
+  const bound = higher ? boundVariables(net, id) : [];
   return (
     <Section title={en.elements.transition}>
       <TextField
@@ -158,9 +269,51 @@ function TransitionProperties({ id }: { id: string }) {
         disabled={locked}
         data-testid="prop-name"
       />
+      {higher ? (
+        <>
+          <InscriptionField
+            label={en.inscriptions.guard}
+            kind="guard"
+            value={transition.guard ?? ''}
+            bound={bound.map((v) => v.name)}
+            placeholder={en.inscriptions.guardPlaceholder}
+            hint={en.inscriptions.guardHint}
+            disabled={locked}
+            onCommit={(guard) => {
+              updateTransition(id, { guard: guard.trim() === '' ? undefined : guard });
+            }}
+            data-testid="prop-guard"
+          />
+          <BoundVariables variables={bound} />
+        </>
+      ) : null}
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
       <DeleteButton />
     </Section>
+  );
+}
+
+function BoundVariables({ variables }: { variables: ReturnType<typeof boundVariables> }) {
+  return (
+    <div className="flex flex-col gap-1" data-testid="bound-variables">
+      <span className="text-xs font-medium text-muted">{en.inscriptions.boundVariables}</span>
+      {variables.length === 0 ? (
+        <p className="m-0 text-[11px] text-muted">{en.inscriptions.noBoundVariables}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+          {variables.map((v) => (
+            <li key={v.name} className="flex items-baseline gap-2 text-xs">
+              <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono font-semibold text-accent">
+                ${v.name}
+              </code>
+              <span className="truncate text-muted" title={v.placeName}>
+                {v.placeName}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -171,6 +324,10 @@ function ArcProperties({ id }: { id: string }) {
   const updateArc = useEditorStore((s) => s.updateArc);
   const reverseArc = useEditorStore((s) => s.reverseArc);
   if (!arc) return null;
+  const direction = net.profile === 'json-net' ? arcDirection(net, id) : null;
+  const hasInscription = (arc.inscription ?? '').trim() !== '';
+  const transitionId = direction === 'input' ? arc.target : arc.source;
+  const bound = direction === 'output' ? boundVariables(net, transitionId).map((v) => v.name) : [];
   return (
     <Section title={en.elements.arc}>
       <div className="flex items-center gap-2 text-sm">
@@ -193,11 +350,30 @@ function ArcProperties({ id }: { id: string }) {
           <div className="truncate">{nameOf(net, arc.target)}</div>
         </div>
       </div>
+      {direction ? (
+        <InscriptionField
+          label={en.inscriptions.inscription}
+          kind={direction}
+          value={arc.inscription ?? ''}
+          bound={bound}
+          placeholder={
+            direction === 'input'
+              ? en.inscriptions.inputPlaceholder
+              : en.inscriptions.outputPlaceholder
+          }
+          hint={direction === 'input' ? en.inscriptions.inputHint : en.inscriptions.outputHint}
+          disabled={locked}
+          onCommit={(inscription) => {
+            updateArc(id, { inscription: inscription.trim() === '' ? undefined : inscription });
+          }}
+          data-testid="prop-inscription"
+        />
+      ) : null}
       <NumberField
         label={en.properties.weight}
         value={arc.weight}
         min={1}
-        hint={en.properties.weightHint}
+        hint={hasInscription ? en.inscriptions.weightIgnored : en.properties.weightHint}
         disabled={locked}
         onCommit={(weight) => {
           if (weight !== undefined) updateArc(id, { weight });

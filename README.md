@@ -6,11 +6,13 @@ logic can later run in a command line tool, behind an API, or inside an LLM proc
 
 ![The editor in simulation mode, showing the traffic light example](docs/images/editor.png)
 
-**Status: 0.1.0 (milestones M0 and M1).** The editor handles place/transition nets (P/T nets). The file format and
-the model are already prepared for higher nets with typed tokens, guards and arc inscriptions; their semantics follow
-in M2. See [`PLAN.md`](PLAN.md) for the overall plan and
-[`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md) for the plan of this increment (both in
-German).
+![A JSON net: order processing with typed tokens, guards, inscriptions and a binding list](docs/images/json-net.png)
+
+**Status: 0.2.0 (milestones M0 to M2).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
+inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
+[`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md) and
+[`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md) for the plans of the increments (in German).
 
 ## Features
 
@@ -23,6 +25,18 @@ German).
 - Simulation mode: enabled transitions are highlighted green, click to fire, random step, reset, firing history.
 - Light and dark theme, accessible components with visible focus rings and ARIA labels.
 - Bundled examples: producer/consumer, traffic light, dining philosophers, mutual exclusion.
+
+JSON nets (switch the net class in the properties panel):
+
+- Type management: types are JSON Schemas, edited in a dialog with syntax highlighting, error marks, templates and a
+  "test a value" area.
+- Arc inscriptions and guards in code editors with JSONata highlighting, live syntax checks, variable completion
+  (`Ctrl+Space`) and warnings for unbound variables; shown on the canvas (View > Show inscriptions).
+- Token lists per place with a type aware editor; tokens that violate the place type are flagged.
+- Simulation with computed bindings: a transition with several bindings opens a list to choose from (arrow keys and
+  Enter work), the history records the binding of every step, evaluation problems are reported in the status bar.
+- JSON net examples: order processing, token ring, dining philosophers with typed tokens.
+- A place/transition net is the special case without types, guards and inscriptions; switching the class loses no data.
 
 ## Quick start
 
@@ -42,7 +56,7 @@ Run from the repository root.
 | `pnpm dev`       | Start the Vite dev server for the web app.                         |
 | `pnpm build`     | Typecheck all packages and build the web app into `apps/web/dist`. |
 | `pnpm test`      | Run all unit and component tests (Vitest).                         |
-| `pnpm test:e2e`  | Run the Playwright smoke tests against the dev server.             |
+| `pnpm test:e2e`  | Run the Playwright tests against the dev server.                   |
 | `pnpm lint`      | ESLint with zero warnings allowed.                                 |
 | `pnpm typecheck` | `tsc --noEmit` in every package.                                   |
 | `pnpm format`    | Format everything with Prettier (`format:check` only verifies).    |
@@ -61,21 +75,25 @@ PNM_CHROMIUM_PATH=/path/to/chromium pnpm test:e2e
 
 ```
 apps/web          @pnm/web     React 19 + Vite + Tailwind 4 editor (React Flow canvas)
-packages/core     @pnm/core    Net model, operations, validation, firing rule, file format (Zod only)
+packages/expr     @pnm/expr    Expression language adapter (JSONata): guards, output inscriptions, input inscriptions
+packages/core     @pnm/core    Net model, operations, validation, firing rules, bindings, types, file format
 packages/layout   @pnm/layout  ELK-based automatic layout
 examples/         Example nets (*.pn.json), also used as regression tests and shown in the app
 docs/             Architecture decisions (adr/), file format (format.md), plans (plan/)
 .github/          CI and GitHub Pages deployment
 ```
 
-`@pnm/core` has no browser or React dependency. The web app talks to it only through immutable operations such as
-`addPlace`, `addArc` or `fire`, which return new nets.
+`@pnm/core` and `@pnm/expr` have no browser or React dependency. The web app talks to the core only through immutable
+operations such as `addPlace`, `addArc` or `setInscription`, which return new nets, and through `findEnabled` and
+`fireBinding` for the firing rule.
 
 ## Documentation
 
-- [File format](docs/format.md): the `.pn.json` structure, validation codes and the P/T firing rule.
+- [File format](docs/format.md): the `.pn.json` structure, types, inscriptions, evaluation rules, validation codes and
+  the P/T firing rule.
+- [Expressions](docs/expressions.md): a short guide to guards and inscriptions for modelers.
 - [Architecture decision records](docs/adr): monorepo and TypeScript, React Flow canvas, JSON net profile, document
-  history.
+  history, JSONata expressions.
 - [Changelog](CHANGELOG.md)
 
 ## Deployment

@@ -1,0 +1,147 @@
+{
+  "version": "1.0",
+  "profile": "json-net",
+  "name": "Dining philosophers (JSON)",
+  "types": {
+    "Philosopher": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "Fork": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "places": [
+    {
+      "id": "thinking",
+      "name": "Thinking",
+      "type": "Philosopher",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "eating",
+      "name": "Eating",
+      "type": "Philosopher",
+      "position": {
+        "x": 640,
+        "y": 0
+      }
+    },
+    {
+      "id": "forks",
+      "name": "Forks",
+      "type": "Fork",
+      "position": {
+        "x": 320,
+        "y": 220
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "take",
+      "name": "Take both forks",
+      "guard": "$l.id = $p.id and $r.id = $p.id % 3 + 1",
+      "position": {
+        "x": 320,
+        "y": 0
+      }
+    },
+    {
+      "id": "release",
+      "name": "Put down forks",
+      "position": {
+        "x": 320,
+        "y": -160
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "thinking",
+      "target": "take",
+      "weight": 1,
+      "inscription": "$p"
+    },
+    {
+      "id": "a2",
+      "source": "forks",
+      "target": "take",
+      "weight": 1,
+      "inscription": "$l, $r"
+    },
+    {
+      "id": "a3",
+      "source": "take",
+      "target": "eating",
+      "weight": 1,
+      "inscription": "$p"
+    },
+    {
+      "id": "a4",
+      "source": "eating",
+      "target": "release",
+      "weight": 1,
+      "inscription": "$p"
+    },
+    {
+      "id": "a5",
+      "source": "release",
+      "target": "thinking",
+      "weight": 1,
+      "inscription": "$p"
+    },
+    {
+      "id": "a6",
+      "source": "release",
+      "target": "forks",
+      "weight": 1,
+      "inscription": "[{ \"id\": $p.id }, { \"id\": $p.id % 3 + 1 }]"
+    }
+  ],
+  "marking": {
+    "thinking": [
+      {
+        "id": 1
+      },
+      {
+        "id": 2
+      },
+      {
+        "id": 3
+      }
+    ],
+    "forks": [
+      {
+        "id": 1
+      },
+      {
+        "id": 2
+      },
+      {
+        "id": 3
+      }
+    ]
+  }
+}

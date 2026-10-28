@@ -51,6 +51,7 @@ export function exportSvg(): void {
   const fileName = `${fileStem(net.name)}.svg`;
   const svg = netToSvg(net, {
     dark,
+    inscriptions: useUiStore.getState().showInscriptions,
     ...(mode === 'simulate' && simMarking ? { marking: simMarking } : {}),
   });
   downloadText(fileName, svg, 'image/svg+xml');
