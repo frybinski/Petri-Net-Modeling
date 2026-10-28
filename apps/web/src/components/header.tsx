@@ -24,6 +24,7 @@ import { runAutoLayout } from '../lib/layout-action';
 import { selectCanRedo, selectCanUndo, selectIsDirty, useEditorStore } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
+import { ViewSwitch } from './domain/view-switch';
 import { Menu, type MenuSection } from './ui/menu';
 import { Tooltip } from './ui/tooltip';
 import { TextField } from './ui/fields';
@@ -238,6 +239,8 @@ export function Header() {
           </Tooltip>
         ) : null}
       </div>
+
+      <ViewSwitch />
 
       <div
         role="group"

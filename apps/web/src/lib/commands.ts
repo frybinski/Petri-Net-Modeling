@@ -2,9 +2,10 @@ import { deleteSelection } from './delete';
 import { chooseFile, exportSvg, saveNet } from './files';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
+import { getDomainViewApi } from './domain-view-api';
 import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
-import { useUiStore } from '../store/ui-store';
+import { useUiStore, type ViewMode } from '../store/ui-store';
 
 export type CommandGroup = 'tools' | 'editing' | 'view' | 'simulation';
 
@@ -110,6 +111,19 @@ function toolCommand(tool: Tool, label: string, key: string): Command {
       editor().setTool(tool);
     },
     inSimulation: tool === 'select',
+  };
+}
+
+function viewCommand(id: string, label: string, key: string, mode: ViewMode): Command {
+  return {
+    id,
+    label,
+    group: 'view',
+    keys: [{ key }],
+    inSimulation: true,
+    run: () => {
+      useUiStore.getState().setViewMode(mode);
+    },
   };
 }
 
@@ -335,7 +349,9 @@ export const commands: Command[] = [
     group: 'view',
     keys: [{ key: 'f' }],
     run: () => {
-      getViewApi()?.fitView();
+      const mode = useUiStore.getState().viewMode;
+      if (mode !== 'domain') getViewApi()?.fitView();
+      if (mode !== 'net') getDomainViewApi()?.fitView();
     },
     inSimulation: true,
   },
@@ -345,7 +361,9 @@ export const commands: Command[] = [
     group: 'view',
     keys: [{ key: '0', mod: true }],
     run: () => {
-      getViewApi()?.resetZoom();
+      const mode = useUiStore.getState().viewMode;
+      if (mode !== 'domain') getViewApi()?.resetZoom();
+      if (mode !== 'net') getDomainViewApi()?.resetZoom();
     },
     inSimulation: true,
   },
@@ -359,6 +377,9 @@ export const commands: Command[] = [
     },
     inSimulation: true,
   },
+  viewCommand('view-net', 'Show the net editor', '1', 'net'),
+  viewCommand('view-domain', 'Show the domain view', '2', 'domain'),
+  viewCommand('view-both', 'Show the net and the domain view', '3', 'both'),
   {
     id: 'simulate',
     label: 'Toggle simulation',

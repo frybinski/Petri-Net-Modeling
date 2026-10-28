@@ -576,6 +576,15 @@ body {
   opacity: 1;
 }
 
+.react-flow .react-flow__node[data-linked='true'] .pn-hover-ring {
+  display: block;
+  opacity: 1;
+}
+
+.react-flow .react-flow__node[data-linked='true'] .pn-svg {
+  filter: drop-shadow(var(--node-shadow));
+}
+
 .alt-held .react-flow.tool-select:not(.mode-simulate) .react-flow__node:hover .pn-hover-ring {
   opacity: 0.55;
 }

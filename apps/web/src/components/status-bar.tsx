@@ -3,6 +3,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon, X } 
 import { en } from '../i18n/en';
 import { commandById, shortcutText } from '../lib/commands';
 import { useDiagnostics } from '../lib/use-diagnostics';
+import { getDomainViewApi } from '../lib/domain-view-api';
 import { getViewApi } from '../lib/view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
@@ -34,6 +35,8 @@ export function StatusBar() {
   const toggleSnap = useUiStore((s) => s.toggleSnap);
   const showMinimap = useUiStore((s) => s.showMinimap);
   const toggleMinimap = useUiStore((s) => s.toggleMinimap);
+  const viewMode = useUiStore((s) => s.viewMode);
+  const domainZoom = useUiStore((s) => s.domainZoom);
   const diagnosticsOpen = useUiStore((s) => s.diagnosticsOpen);
   const setDiagnosticsOpen = useUiStore((s) => s.setDiagnosticsOpen);
 
@@ -102,23 +105,46 @@ export function StatusBar() {
       {selectionCount > 0 ? <span>{en.status.selected(selectionCount)}</span> : null}
 
       <div className="ml-auto flex items-center gap-1">
-        <Tooltip
-          content={en.canvas.resetZoom}
-          shortcut={shortcutText(commandById('zoom-reset'))}
-          side="top"
-        >
-          <button
-            type="button"
-            aria-label={`${en.status.zoom} ${Math.round(zoom * 100)}%. ${en.canvas.resetZoom}`}
-            onClick={() => {
-              getViewApi()?.resetZoom();
-            }}
-            className="inline-flex h-6 min-w-12 items-center justify-center rounded px-1.5 tabular-nums transition-colors hover:bg-surface-hover"
-            data-testid="zoom-level"
+        {viewMode !== 'domain' ? (
+          <Tooltip
+            content={en.canvas.resetZoom}
+            shortcut={shortcutText(commandById('zoom-reset'))}
+            side="top"
           >
-            {Math.round(zoom * 100)}%
-          </button>
-        </Tooltip>
+            <button
+              type="button"
+              aria-label={`${en.status.zoom} ${Math.round(zoom * 100)}%. ${en.canvas.resetZoom}`}
+              onClick={() => {
+                getViewApi()?.resetZoom();
+              }}
+              className="inline-flex h-6 min-w-12 items-center justify-center rounded px-1.5 tabular-nums transition-colors hover:bg-surface-hover"
+              data-testid="zoom-level"
+            >
+              {viewMode === 'both' ? `${en.domain.net} ` : ''}
+              {Math.round(zoom * 100)}%
+            </button>
+          </Tooltip>
+        ) : null}
+        {viewMode !== 'net' ? (
+          <Tooltip
+            content={en.domain.resetZoom}
+            shortcut={shortcutText(commandById('zoom-reset'))}
+            side="top"
+          >
+            <button
+              type="button"
+              aria-label={`${en.domain.title} ${en.status.zoom} ${Math.round(domainZoom * 100)}%. ${en.domain.resetZoom}`}
+              onClick={() => {
+                getDomainViewApi()?.resetZoom();
+              }}
+              className="inline-flex h-6 min-w-12 items-center justify-center rounded px-1.5 tabular-nums transition-colors hover:bg-surface-hover"
+              data-testid="domain-zoom-level"
+            >
+              {viewMode === 'both' ? `${en.domain.domain} ` : ''}
+              {Math.round(domainZoom * 100)}%
+            </button>
+          </Tooltip>
+        ) : null}
         <IconButton
           size="sm"
           label={en.status.grid}

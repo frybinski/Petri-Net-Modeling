@@ -25,6 +25,7 @@ import {
   reverseArc as coreReverseArc,
   setInitialTokens,
   setPlaceType as corePlaceType,
+  setDomainView as coreSetDomainView,
   setProfile as coreSetProfile,
   setSimulationSettings as coreSetSimulationSettings,
   setTokens as coreSetTokens,
@@ -214,6 +215,8 @@ export interface EditorState {
   renameNet(name: string): void;
   /** Changes the simulation settings of the net; a key set to `undefined` is removed. */
   updateSimulationSettings(patch: Partial<SimulationSettings>): void;
+  /** Sets the domain view of the net, or removes it with `undefined`. One undo step. */
+  setDomainView(view: unknown): void;
   align(mode: AlignMode): void;
   distribute(axis: DistributeAxis): void;
   applyLayout(positions: Record<Id, Position>): void;
@@ -845,6 +848,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     updateSimulationSettings(patch) {
       edit((net) => coreSetSimulationSettings(net, patch));
+    },
+    setDomainView(view) {
+      edit((net) => coreSetDomainView(net, view));
     },
     align(mode) {
       edit((net) => alignNodes(net, get().selection, mode));

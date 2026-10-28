@@ -68,6 +68,9 @@ importers:
       '@pnm/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@pnm/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@pnm/expr':
         specifier: workspace:*
         version: link:../../packages/expr

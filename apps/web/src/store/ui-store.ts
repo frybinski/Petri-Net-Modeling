@@ -5,6 +5,23 @@ export type Theme = 'light' | 'dark';
 
 export type SimTab = 'enabled' | 'trace' | 'metrics';
 
+/** Which views fill the workspace: the net editor, the domain view, or both one above the other. */
+export type ViewMode = 'net' | 'domain' | 'both';
+
+/** The tab of the right panel next to the properties or simulation panel. */
+export type RightTab = 'main' | 'domain';
+
+/** The element the pointer is on, in either view; the other view highlights it too. */
+export interface HoverState {
+  id: string | null;
+  source: 'net' | 'domain' | null;
+}
+
+/** Share of the workspace height that the net gets in the split view. */
+export const SPLIT_MIN = 0.25;
+export const SPLIT_MAX = 0.75;
+export const SPLIT_DEFAULT = 0.5;
+
 export type ToastKind = 'info' | 'success' | 'error';
 
 export interface Toast {
@@ -74,6 +91,18 @@ interface UiState {
   confirm: ConfirmRequest | null;
   shortcutsOpen: boolean;
   diagnosticsOpen: boolean;
+  viewMode: ViewMode;
+  rightTab: RightTab;
+  /** Share of the height for the net in the split view (between `SPLIT_MIN` and `SPLIT_MAX`). */
+  splitRatio: number;
+  hover: HoverState;
+  /** Zoom of the domain view, for the status bar. */
+  domainZoom: number;
+  setViewMode(mode: ViewMode): void;
+  setRightTab(tab: RightTab): void;
+  setSplitRatio(ratio: number): void;
+  setHover(id: string | null, source: 'net' | 'domain'): void;
+  setDomainZoom(zoom: number): void;
   setTheme(theme: Theme): void;
   toggleTheme(): void;
   toggleSnap(): void;
@@ -101,6 +130,7 @@ const SCROLL_ZOOM_KEY = 'pnm:scroll-zoom';
 const THEME_KEY = 'pnm:theme';
 const INSCRIPTIONS_KEY = 'pnm:inscriptions';
 const BOTTLENECK_KEY = 'pnm:bottleneck';
+const SPLIT_KEY = 'pnm:split';
 
 /** Queue lengths for the yellow and red ring on the canvas. */
 export const DEFAULT_BOTTLENECK = { warn: 6, critical: 10 };
@@ -114,6 +144,11 @@ function readBottleneck(): { warn: number; critical: number } {
     }
   }
   return DEFAULT_BOTTLENECK;
+}
+
+function readSplit(): number {
+  const raw = Number(readStored(SPLIT_KEY));
+  return Number.isFinite(raw) && raw >= SPLIT_MIN && raw <= SPLIT_MAX ? raw : SPLIT_DEFAULT;
 }
 
 function readStored(key: string): string | null {
@@ -162,6 +197,38 @@ export const useUiStore = create<UiState>()((set, get) => ({
   confirm: null,
   shortcutsOpen: false,
   diagnosticsOpen: false,
+  viewMode: 'net',
+  rightTab: 'main',
+  splitRatio: readSplit(),
+  hover: { id: null, source: null },
+  domainZoom: 1,
+
+  setViewMode(mode) {
+    // The domain panel is the one that belongs to the domain view; the net view has no tabs.
+    set({
+      viewMode: mode,
+      rightTab: mode === 'net' ? 'main' : 'domain',
+      hover: { id: null, source: null },
+    });
+  },
+  setRightTab(tab) {
+    set({ rightTab: tab });
+  },
+  setSplitRatio(ratio) {
+    const clamped = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ratio));
+    writeStored(SPLIT_KEY, String(Math.round(clamped * 1000) / 1000));
+    set({ splitRatio: clamped });
+  },
+  setHover(id, source) {
+    const current = get().hover;
+    // A view only clears a hover that it set itself.
+    if (id === null && current.source !== source) return;
+    if (current.id === id && current.source === source) return;
+    set({ hover: { id, source: id === null ? null : source } });
+  },
+  setDomainZoom(zoom) {
+    if (get().domainZoom !== zoom) set({ domainZoom: zoom });
+  },
 
   setTheme(theme) {
     applyTheme(theme);

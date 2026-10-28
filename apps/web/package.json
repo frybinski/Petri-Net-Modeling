@@ -25,6 +25,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@lezer/highlight": "^1.2.5",
     "@pnm/core": "workspace:*",
+    "@pnm/domain": "workspace:*",
     "@pnm/expr": "workspace:*",
     "@pnm/io": "workspace:*",
     "@pnm/layout": "workspace:*",

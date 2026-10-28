@@ -2,18 +2,16 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from './components/confirm-dialog';
-import { DiagnosticsPanel } from './components/diagnostics-panel';
-import { EmptyHint } from './components/empty-hint';
-import { FlowCanvas } from './components/canvas/flow-canvas';
 import { Header } from './components/header';
 import { PropertiesPanel } from './components/properties-panel';
+import { SimulationPanel } from './components/simulation-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
 import { TokenDialog } from './components/tokens/token-dialog';
 import { TypeDialog } from './components/types/type-dialog';
-import { SimulationPanel } from './components/simulation-panel';
 import { StatusBar } from './components/status-bar';
 import { Toaster } from './components/toaster';
 import { ToolPalette } from './components/tool-palette';
+import { Workspace } from './components/workspace';
 import { TooltipProvider } from './components/ui/tooltip';
 import { en } from './i18n/en';
 import { restoreAutosave, startAutosave } from './lib/autosave';
@@ -30,6 +28,7 @@ function hasFiles(event: DragEvent): boolean {
 
 export function App() {
   const mode = useEditorStore((s) => s.mode);
+  const viewMode = useUiStore((s) => s.viewMode);
   const netName = useEditorStore((s) => s.net.name);
   const dirty = useEditorStore(selectIsDirty);
   const typeDialog = useUiStore((s) => s.typeDialog);
@@ -112,11 +111,8 @@ export function App() {
         >
           <Header />
           <div className="flex min-h-0 flex-1">
-            <ToolPalette />
-            <main className="relative min-w-0 flex-1" aria-label={en.canvas.label}>
-              <FlowCanvas />
-              <EmptyHint />
-              <DiagnosticsPanel />
+            {viewMode !== 'domain' ? <ToolPalette /> : null}
+            <Workspace>
               {dropActive ? (
                 <div
                   className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80 text-accent"
@@ -128,7 +124,7 @@ export function App() {
                   </span>
                 </div>
               ) : null}
-            </main>
+            </Workspace>
             {mode === 'simulate' ? <SimulationPanel /> : <PropertiesPanel />}
           </div>
           <StatusBar />

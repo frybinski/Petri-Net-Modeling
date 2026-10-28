@@ -36,3 +36,20 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+// jsdom has no canvas: give components a context that accepts every call.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  const recorder = new Proxy({} as Record<string, unknown>, {
+    get(store, key: string) {
+      if (key in store) return store[key];
+      if (key === 'measureText') return () => ({ width: 20 });
+      return () => undefined;
+    },
+    set(store, key: string, value: unknown) {
+      store[key] = value;
+      return true;
+    },
+  });
+  HTMLCanvasElement.prototype.getContext = (() =>
+    recorder) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}

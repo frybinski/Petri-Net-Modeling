@@ -146,6 +146,8 @@ export function FlowCanvas() {
   const [hoverId, setHoverId] = useState<Id | null>(null);
   const [card, setCard] = useState<{ id: Id; anchor: AnchorRect } | null>(null);
   const cardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // The element the pointer is on in the domain view, if that is where the pointer is.
+  const linkedId = useUiStore((s) => (s.hover.source === 'domain' ? s.hover.id : null));
 
   const simulating = mode === 'simulate';
   const marking = currentMarking({ net, mode, simMarking });
@@ -219,6 +221,18 @@ export function FlowCanvas() {
   );
   const nodes = useMemo(() => buildFlowNodes(context), [context]);
   const edges = useMemo(() => buildFlowEdges(context), [context]);
+
+  // Light up the node that the domain view is pointing at. Set on the element directly: a hover
+  // must not rebuild all nodes.
+  useEffect(() => {
+    const host = wrapper.current;
+    if (!host || linkedId === null) return;
+    const node = host.querySelector(`.react-flow__node[data-id="${CSS.escape(linkedId)}"]`);
+    node?.setAttribute('data-linked', 'true');
+    return () => {
+      node?.removeAttribute('data-linked');
+    };
+  }, [linkedId]);
 
   const hideCard = useCallback(() => {
     clearTimeout(cardTimer.current);
@@ -652,6 +666,7 @@ export function FlowCanvas() {
           }}
           onNodeMouseEnter={(event, node) => {
             setHoverId(node.id);
+            useUiStore.getState().setHover(node.id, 'net');
             if (node.type !== 'annotation' && event.buttons === 0) {
               scheduleCard(event.currentTarget as HTMLElement, node.id);
             }
@@ -671,6 +686,7 @@ export function FlowCanvas() {
           }}
           onNodeMouseLeave={() => {
             setHoverId(null);
+            useUiStore.getState().setHover(null, 'net');
             hideCard();
           }}
           onNodeDragStart={hideCard}
