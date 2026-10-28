@@ -102,6 +102,10 @@ interface UiState {
   domainControls: boolean;
   /** The case that the domain view follows: its sprites are ringed, a card lists its steps. */
   followedCase: string | null;
+  /** The domain view is in the mode "Edit layout": handles show and drags change the view. */
+  domainEdit: boolean;
+  /** Asks the JSON editor of the domain panel to show a place in the text. */
+  jsonReveal: { path: string; nonce: number } | null;
   setViewMode(mode: ViewMode): void;
   setRightTab(tab: RightTab): void;
   setSplitRatio(ratio: number): void;
@@ -109,6 +113,10 @@ interface UiState {
   setDomainZoom(zoom: number): void;
   toggleDomainControls(): void;
   followCase(caseId: string | null): void;
+  setDomainEdit(on: boolean): void;
+  toggleDomainEdit(): void;
+  /** Shows the place `path` (for example `places.p1.path[0]`) in the JSON editor of the panel. */
+  revealJson(path: string): void;
   setTheme(theme: Theme): void;
   toggleTheme(): void;
   toggleSnap(): void;
@@ -211,6 +219,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   domainZoom: 1,
   domainControls: readStored(DOMAIN_CONTROLS_KEY) !== 'off',
   followedCase: null,
+  domainEdit: false,
+  jsonReveal: null,
 
   setViewMode(mode) {
     // The domain panel is the one that belongs to the domain view; the net view has no tabs.
@@ -245,6 +255,15 @@ export const useUiStore = create<UiState>()((set, get) => ({
   },
   followCase(caseId) {
     if (get().followedCase !== caseId) set({ followedCase: caseId });
+  },
+  setDomainEdit(on) {
+    if (get().domainEdit !== on) set({ domainEdit: on });
+  },
+  toggleDomainEdit() {
+    set({ domainEdit: !get().domainEdit });
+  },
+  revealJson(path) {
+    set({ jsonReveal: { path, nonce: (get().jsonReveal?.nonce ?? 0) + 1 } });
   },
 
   setTheme(theme) {

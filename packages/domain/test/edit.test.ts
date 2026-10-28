@@ -12,6 +12,7 @@ import {
   MIN_SIZE,
   movePoint,
   moveEntry,
+  moveRoom,
   moveSlot,
   newDecor,
   ref,
@@ -609,5 +610,35 @@ describe('decor', () => {
     expect(decorAt(view, [300, 50])).toBe(0);
     expect(decorAt(view, [200, 302])).toBe(2);
     expect(decorAt(view, [600, 50])).toBeNull();
+  });
+});
+
+describe('moveRoom', () => {
+  it('moves one room and leaves the box and the other rooms', () => {
+    const view = smallView();
+    const area: DomainView = {
+      ...view,
+      transitions: {
+        ...view.transitions,
+        work: {
+          kind: 'rooms',
+          box: [300, 100, 200, 100],
+          slots: [[400, 150]],
+          rooms: [
+            [300, 100, 100, 100],
+            [400, 100, 100, 100],
+          ],
+        },
+      },
+    };
+    const next = moveRoom(area, ref('transitions', 'work'), 1, [13, 5], { ...OPTIONS, snap: GRID });
+    expect(next.transitions['work']).toMatchObject({
+      box: [300, 100, 200, 100],
+      rooms: [
+        [300, 100, 100, 100],
+        [416, 104, 100, 100],
+      ],
+    });
+    expect(moveRoom(area, ref('transitions', 'work'), 5, [1, 1], OPTIONS)).toBe(area);
   });
 });

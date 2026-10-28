@@ -326,6 +326,27 @@ export function moveEntry(
   return next;
 }
 
+/** Moves one room of a `rooms` area by `delta`; the box and the slots stay. */
+export function moveRoom(
+  view: DomainView,
+  target: EntryRef,
+  index: number,
+  delta: Point,
+  options: EditOptions = {},
+): DomainView {
+  const value = current(view, target);
+  if (!value || !('kind' in value) || value.kind !== 'rooms') return view;
+  const room = value.rooms?.[index];
+  if (!room || !value.rooms) return view;
+  const { width, height } = view.meta.canvas;
+  const x = clampRange(snapValue(room[0] + delta[0], options.snap), 0, width - room[2]);
+  const y = clampRange(snapValue(room[1] + delta[1], options.snap), 0, height - room[3]);
+  if (x === room[0] && y === room[1]) return view;
+  const rooms = value.rooms.slice();
+  rooms[index] = [x, y, room[2], room[3]];
+  return commitGeometry(view, target, { ...value, rooms }, options);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Resizing
 

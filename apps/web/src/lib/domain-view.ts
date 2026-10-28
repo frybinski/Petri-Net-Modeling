@@ -3,6 +3,7 @@ import {
   fillMissing,
   genericDomainViewWithLayout,
   normalizeDomainView,
+  removeStale,
   validateDomainView,
   withNetHash,
   type DomainDiagnostic,
@@ -100,7 +101,8 @@ function editable(): boolean {
   return true;
 }
 
-function currentView(): DomainView | null {
+/** The valid domain view of the document, or `null` if there is none or it has errors. */
+export function getDomainView(): DomainView | null {
   const analysis = analyseDomainView(useEditorStore.getState().net);
   return analysis.validation?.view ?? null;
 }
@@ -114,7 +116,7 @@ export function applyViewText(text: string, at = new Date().toISOString()): bool
     notify('error', checked.message);
     return false;
   }
-  const edited = stampEdited(currentView(), normalizeDomainView(checked.view), at);
+  const edited = stampEdited(getDomainView(), normalizeDomainView(checked.view), at);
   state.setDomainView(normalizeDomainView(edited));
   const { errors, warnings } = countSeverities(checked.diagnostics);
   notify(
@@ -147,7 +149,7 @@ async function generate(): Promise<void> {
 /** Makes a generic view of the net, after confirmation if the current one has hand-made entries. */
 export function generateGenericView(): void {
   if (!editable()) return;
-  const view = currentView();
+  const view = getDomainView();
   if (hasHandMadeEntries(view)) {
     useUiStore.getState().askConfirm({
       title: en.domain.replaceTitle,
@@ -166,17 +168,37 @@ export function generateGenericView(): void {
 /** Adds generic entries for what the view lacks and drops entries of removed elements. */
 export function fillMissingEntries(): void {
   if (!editable()) return;
-  const view = currentView();
+  const view = getDomainView();
   if (!view) return;
   const state = useEditorStore.getState();
   state.setDomainView(normalizeDomainView(fillMissing(state.net, view)));
   notify('success', en.domain.filled);
 }
 
+/** Adds generic entries for what the view lacks. Entries of removed elements stay. */
+export function fillMissingOnly(): void {
+  if (!editable()) return;
+  const view = getDomainView();
+  if (!view) return;
+  const state = useEditorStore.getState();
+  state.setDomainView(normalizeDomainView(fillMissing(state.net, view, { dropStale: false })));
+  notify('success', en.domain.filled);
+}
+
+/** Drops the entries of elements that the net no longer has. */
+export function removeStaleEntries(): void {
+  if (!editable()) return;
+  const view = getDomainView();
+  if (!view) return;
+  const state = useEditorStore.getState();
+  state.setDomainView(normalizeDomainView(removeStale(state.net, view)));
+  notify('success', en.domain.staleRemoved);
+}
+
 /** Records the current structure of the net as the one the view is made for. */
 export function updateViewHash(): void {
   if (!editable()) return;
-  const view = currentView();
+  const view = getDomainView();
   if (!view) return;
   const state = useEditorStore.getState();
   state.setDomainView(normalizeDomainView(withNetHash(state.net, view)));
@@ -192,7 +214,7 @@ export function removeDomainView(): void {
 /** Changes the header of the view (theme, name, entity, canvas size). */
 export function updateViewMeta(patch: (meta: DomainMeta) => DomainMeta): void {
   if (!editable()) return;
-  const view = currentView();
+  const view = getDomainView();
   if (!view) return;
   const next = { ...view, meta: patch(view.meta) };
   const state = useEditorStore.getState();

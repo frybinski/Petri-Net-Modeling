@@ -3,6 +3,8 @@ export interface DomainViewApi {
   fitView(): void;
   /** Sets the zoom to 100 %, keeping the center of the view. */
   resetZoom(): void;
+  /** Cancels the drag of the mode "Edit layout" that is going on. Returns true if there was one. */
+  cancelDrag(): boolean;
 }
 
 let current: DomainViewApi | null = null;

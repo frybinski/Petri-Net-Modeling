@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { en } from '../../i18n/en';
@@ -28,6 +29,7 @@ import { paletteFor } from '../../lib/domain-theme';
 import { openGenerateDialog } from '../../lib/domain-generation';
 import { analyseDomainView, generateGenericView } from '../../lib/domain-view';
 import { registerDomainViewApi } from '../../lib/domain-view-api';
+import { EMPTY_OVERLAY, paintEditOverlay, type EditOverlay } from '../../lib/domain-edit-paint';
 import { StaticLayer } from '../../lib/static-layer';
 import { useCaseTrail } from '../../lib/use-case-trail';
 import {
@@ -38,6 +40,7 @@ import {
   type ViewRect,
   type Viewport,
 } from '../../lib/viewport';
+import { useDomainEditStore } from '../../store/domain-edit-store';
 import { useEditorStore } from '../../store/editor-store';
 import { onSimEvents, onSimJump } from '../../store/sim-log';
 import { useUiStore } from '../../store/ui-store';
@@ -47,7 +50,11 @@ import { DomainBindingPicker } from './domain-binding-picker';
 import { DomainCaseCard } from './domain-case-card';
 import { DomainControls } from './domain-controls';
 import { DomainHoverCard } from './domain-hover-card';
+import { DomainContextMenu } from './domain-context-menu';
 import { DomainKpis } from './domain-kpis';
+import { DomainLabelEditor, DomainReadout } from './domain-label-editor';
+import { useDomainEditing } from './use-domain-editing';
+import { ContextMenuRoot, ContextMenuTrigger } from '../ui/context-menu';
 
 /** The pointer rests this long on an element before its card appears. */
 export const DOMAIN_CARD_DELAY = 300;
@@ -97,6 +104,9 @@ export function DomainCanvas() {
   const viewMode = useUiStore((s) => s.viewMode);
   const setDomainZoom = useUiStore((s) => s.setDomainZoom);
   const setViewMode = useUiStore((s) => s.setViewMode);
+  const domainEdit = useUiStore((s) => s.domainEdit);
+  const decorSelected = useDomainEditStore((s) => s.decor);
+  const renaming = useDomainEditStore((s) => s.renaming);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,13 +135,15 @@ export function DomainCanvas() {
       }),
   );
   const [card, setCard] = useState<{ id: string; anchor: AnchorRect } | null>(null);
-  const [cursor, setCursor] = useState<'default' | 'pointer' | 'grabbing'>('default');
+  const [cursor, setCursor] = useState<string>('default');
   const [pickerAnchor, setPickerAnchor] = useState<{ id: string; anchor: AnchorRect } | null>(null);
   const picker = useEditorStore((s) => s.picker);
 
   const simulating = mode === 'simulate';
   const analysis = useMemo(() => analyseDomainView(net), [net]);
   const view = analysis.validation?.view ?? null;
+  // The mode "Edit layout" needs a valid view and an editable net.
+  const editing = domainEdit && !simulating && view !== null;
   const palette = paletteFor(theme);
   const trail = useCaseTrail(simulating ? followedCase : null);
   const visited = useMemo(() => visitedTransitions(trail), [trail]);
@@ -145,6 +157,7 @@ export function DomainCanvas() {
     visited,
   });
   const paletteRef = useRef({ palette, key: theme });
+  const overlayRef = useRef<EditOverlay>(EMPTY_OVERLAY);
 
   const schedulePaintRef = useRef<() => void>(() => undefined);
 
@@ -212,6 +225,19 @@ export function DomainCanvas() {
           .map((s) => `${s.caseId}@${Math.round(s.point[0])},${Math.round(s.point[1])}`)
           .join(';');
         if (canvas.dataset['cases'] !== cases) canvas.dataset['cases'] = cases;
+      }
+      // Frame, handles and placeholders of the mode "Edit layout" stay crisp at any zoom.
+      if (overlayRef.current !== EMPTY_OVERLAY) {
+        paintEditOverlay(ctx, overlayRef.current, viewport.current, dpr, current);
+        canvas.dataset['handles'] = overlayRef.current.handles
+          .filter((h) => h.kind !== 'move')
+          .map(
+            (h) =>
+              `${h.kind}${h.index !== undefined ? `:${h.index}` : ''}@${Math.round(h.at[0] * 10) / 10},${Math.round(h.at[1] * 10) / 10}`,
+          )
+          .join(';');
+      } else if (canvas.dataset['handles'] !== undefined) {
+        delete canvas.dataset['handles'];
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       canvas.dataset['zoom'] = String(Math.round(zoom * 1000) / 1000);
@@ -419,6 +445,31 @@ export function DomainCanvas() {
     };
   }, [schedulePaint, staticLayer]);
 
+  const hitAt = (px: number, py: number): { elementId: string; kind: string } | null => {
+    const current = animator.staticScene;
+    if (!current) return null;
+    const point = toSheet(viewport.current, px, py);
+    // Thin things (connectors) get a few pixels of slack on screen.
+    return hitTest(current, point, 4 / viewport.current.zoom);
+  };
+
+  const editor = useDomainEditing({
+    animator,
+    viewportRef: viewport,
+    net,
+    view,
+    editing,
+    selection,
+    decor: decorSelected,
+    overlayRef,
+    schedulePaint,
+    hitAt,
+  });
+  const cancelEditRef = useRef(editor.cancel);
+  useEffect(() => {
+    cancelEditRef.current = editor.cancel;
+  });
+
   // Zoom and fit for the buttons, the status bar and the keyboard shortcuts.
   const zoomBy = useCallback(
     (factor: number): void => {
@@ -437,6 +488,7 @@ export function DomainCanvas() {
         const current = viewport.current;
         setViewport(zoomAround(current, 1 / current.zoom, width / 2, height / 2));
       },
+      cancelDrag: () => cancelEditRef.current(),
     });
     return () => {
       registerDomainViewApi(null);
@@ -489,14 +541,6 @@ export function DomainCanvas() {
   const pointerPosition = (event: { clientX: number; clientY: number }): [number, number] => {
     const rect = canvasRef.current?.getBoundingClientRect();
     return [event.clientX - (rect?.left ?? 0), event.clientY - (rect?.top ?? 0)];
-  };
-
-  const hitAt = (px: number, py: number): { elementId: string; kind: string } | null => {
-    const current = animator.staticScene;
-    if (!current) return null;
-    const point = toSheet(viewport.current, px, py);
-    // Thin things (connectors) get a few pixels of slack on screen.
-    return hitTest(current, point, 4 / viewport.current.zoom);
   };
 
   /** The case under the pointer while simulating. */
@@ -552,6 +596,11 @@ export function DomainCanvas() {
       drag.current = null;
       return;
     }
+    // The mode "Edit layout" takes the press when it lands on something it can edit.
+    if (editing) {
+      event.currentTarget.focus({ preventScroll: true });
+      if (editor.pointerDown(event, px, py)) return;
+    }
     drag.current = {
       startX: px,
       startY: py,
@@ -585,6 +634,7 @@ export function DomainCanvas() {
       }
       return;
     }
+    if (editing && editor.pointerMove(event, px, py)) return;
     const active = drag.current;
     if (active && event.buttons !== 0) {
       const dx = px - active.startX;
@@ -602,9 +652,11 @@ export function DomainCanvas() {
     if (event.pointerType === 'touch') return;
     const hit = hitAt(px, py);
     const id = hit?.elementId ?? null;
-    setCursor(id || caseAt(px, py) ? 'pointer' : 'default');
+    if (editing) setCursor(editor.cursor ?? 'default');
+    else setCursor(id || caseAt(px, py) ? 'pointer' : 'default');
     useUiStore.getState().setHover(id, 'domain');
-    if (id === null) hideCard();
+    // The card would cover the handles while editing.
+    if (id === null || editing) hideCard();
     else if (cardTimer.current === undefined && card?.id !== id) showCardFor(id);
     else if (card && card.id !== id) {
       setCard(null);
@@ -616,6 +668,11 @@ export function DomainCanvas() {
     const [px, py] = pointerPosition(event);
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    if (editing && editor.pointerUp(event, event.type === 'pointercancel')) {
+      drag.current = null;
+      setCursor('default');
+      return;
+    }
     const active = drag.current;
     drag.current = null;
     setCursor('default');
@@ -647,8 +704,25 @@ export function DomainCanvas() {
             }
           }
         }
-      } else if (!event.shiftKey) store.clearSelection();
+      } else if (!event.shiftKey) {
+        store.clearSelection();
+        useDomainEditStore.getState().selectDecor(null);
+      }
     }
+  };
+
+  const onDoubleClick = (event: ReactMouseEvent<HTMLCanvasElement>): void => {
+    if (editing) {
+      const [px, py] = pointerPosition(event);
+      if (editor.doubleClick(px, py)) return;
+    }
+    fit();
+  };
+
+  const onContextMenu = (event: ReactMouseEvent<HTMLCanvasElement>): void => {
+    if (!editing) return;
+    const [px, py] = pointerPosition(event);
+    editor.contextMenu(px, py);
   };
 
   const onPointerLeave = (): void => {
@@ -666,21 +740,44 @@ export function DomainCanvas() {
       className="relative h-full w-full overflow-hidden bg-canvas"
       data-testid="domain-view"
     >
-      <canvas
-        ref={canvasRef}
-        role="img"
-        aria-label={summary}
-        data-testid="domain-canvas"
-        data-hover={hover.id ?? ''}
-        className="absolute inset-0 h-full w-full touch-none"
-        style={{ cursor }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onPointerLeave={onPointerLeave}
-        onDoubleClick={fit}
-      />
+      <ContextMenuRoot
+        onOpenChange={(open) => {
+          if (!open) useDomainEditStore.getState().setMenu(null);
+        }}
+      >
+        <ContextMenuTrigger asChild disabled={!editing}>
+          <canvas
+            ref={canvasRef}
+            role={editing ? 'application' : 'img'}
+            aria-label={summary}
+            aria-roledescription={editing ? en.domain.editCanvasRole : undefined}
+            tabIndex={0}
+            data-testid="domain-canvas"
+            data-hover={hover.id ?? ''}
+            data-editing={editing}
+            className="absolute inset-0 h-full w-full touch-none outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+            style={{ cursor: editing && editor.cursor ? editor.cursor : cursor }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onPointerLeave={onPointerLeave}
+            onDoubleClick={onDoubleClick}
+            onContextMenu={onContextMenu}
+          />
+        </ContextMenuTrigger>
+        {editing ? <DomainContextMenu /> : null}
+      </ContextMenuRoot>
+      {editing && renaming && view ? (
+        <DomainLabelEditor
+          key={`${renaming.section}.${renaming.key}`}
+          entry={renaming}
+          view={view}
+          net={net}
+          getViewport={() => viewport.current}
+        />
+      ) : null}
+      {editing ? <DomainReadout /> : null}
       {view ? <DomainControls /> : null}
       {view ? <DomainKpis /> : null}
       {view ? <DomainZoomControls onZoom={zoomBy} onFit={fit} /> : null}
