@@ -129,7 +129,7 @@ describe('domain canvas', () => {
     });
     useEditorStore.setState({
       simRunning: [
-        { firingId: 1, transitionId: 't_scan', start: 0, end: 20, slot: 0, caseIds: [] },
+        { firingId: 1, transitionId: 't_scan', start: 0, end: 20, slot: 0, caseIds: ['P-1'] },
       ],
     });
     await waitFor(() => {

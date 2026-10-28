@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { en } from '../../i18n/en';
 import { formatOrigin, type DomainCardModel } from '../../lib/domain-hover';
+import { formatSpan } from '../../lib/sim-format';
 import type { AnchorRect } from '../canvas/hover-card';
 
 const GAP = 10;
@@ -67,6 +68,76 @@ export function DomainHoverCard({ model, anchor }: { model: DomainCardModel; anc
             <dt className="text-muted">{en.domain.tokens}</dt>
             <dd className="m-0 font-medium text-fg" data-testid="domain-card-tokens">
               {model.tokens}
+            </dd>
+          </>
+        ) : null}
+        {model.status !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardStatus}</dt>
+            <dd
+              className="m-0 font-medium text-fg"
+              data-testid="domain-card-status"
+              data-status={model.status}
+            >
+              {en.domain.stationStatus[model.status]}
+            </dd>
+          </>
+        ) : null}
+        {model.level !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardStatus}</dt>
+            <dd
+              className={`m-0 font-medium ${model.level === 'crit' ? 'text-danger' : 'text-warn'}`}
+              data-testid="domain-card-level"
+            >
+              {en.domain.queueLevel[model.level]}
+            </dd>
+          </>
+        ) : null}
+        {model.slots !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardSlots}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-slots">
+              {en.domain.cardSlotsValue(model.slots.busy, model.slots.capacity)}
+            </dd>
+          </>
+        ) : null}
+        {model.waiting !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardWaiting}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-waiting">
+              {model.waiting}
+            </dd>
+          </>
+        ) : null}
+        {model.waitingCases !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardWaitingCases}</dt>
+            <dd className="m-0 font-mono text-[11px] text-fg">
+              {model.waitingCases.ids.join(', ')}
+              {model.waitingCases.more > 0
+                ? ` ${en.domain.moreCases(model.waitingCases.more)}`
+                : ''}
+            </dd>
+          </>
+        ) : null}
+        {model.meanWait !== undefined && model.meanWait !== null ? (
+          <>
+            <dt className="text-muted">{en.domain.cardMeanWait}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums">{formatSpan(model.meanWait)}</dd>
+          </>
+        ) : null}
+        {model.free !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardFree}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums">{model.free}</dd>
+          </>
+        ) : null}
+        {model.utilization !== undefined && model.utilization !== null ? (
+          <>
+            <dt className="text-muted">{en.domain.cardUtilization}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-use">
+              {Math.round(model.utilization * 100)}%
             </dd>
           </>
         ) : null}

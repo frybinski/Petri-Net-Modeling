@@ -16,26 +16,38 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
-/** The viewport that shows the whole sheet, centered, in a view of the given size. */
+/** Space that floating controls take at the edges of the view, in CSS pixels. */
+export interface Insets {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
+/**
+ * The viewport that shows the whole sheet, centered, in a view of the given size. `insets` keep
+ * the sheet clear of controls that float over the view.
+ */
 export function fitViewport(
   sheet: { width: number; height: number },
   view: { width: number; height: number },
+  insets: Insets = {},
 ): Viewport {
   if (view.width <= 0 || view.height <= 0 || sheet.width <= 0 || sheet.height <= 0) {
     return { x: 0, y: 0, zoom: 1 };
   }
+  const { top = 0, bottom = 0, left = 0, right = 0 } = insets;
+  const width = Math.max(1, view.width - left - right);
+  const height = Math.max(1, view.height - top - bottom);
   const zoom = Math.min(
     MAX_FIT_ZOOM,
     clampZoom(
-      Math.min(
-        (view.width - 2 * FIT_PADDING) / sheet.width,
-        (view.height - 2 * FIT_PADDING) / sheet.height,
-      ),
+      Math.min((width - 2 * FIT_PADDING) / sheet.width, (height - 2 * FIT_PADDING) / sheet.height),
     ),
   );
   return {
-    x: (view.width - sheet.width * zoom) / 2,
-    y: (view.height - sheet.height * zoom) / 2,
+    x: left + (width - sheet.width * zoom) / 2,
+    y: top + (height - sheet.height * zoom) / 2,
     zoom,
   };
 }
