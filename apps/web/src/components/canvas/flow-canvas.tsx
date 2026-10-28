@@ -279,7 +279,6 @@ export function FlowCanvas() {
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowNode>[]) => {
       applySelection(changes);
-      let positions: Record<Id, Position> | null = null;
       let sizes: Map<Id, { width: number; height: number }> | null = null;
       const dragged: Array<{ id: Id; position: Position }> = [];
       for (const change of changes) {
@@ -292,7 +291,9 @@ export function FlowCanvas() {
         }
       }
       if (dragged.length > 0) {
-        positions = { ...(useEditorStore.getState().dragPositions ?? {}) };
+        const positions: Record<Id, Position> = {
+          ...(useEditorStore.getState().dragPositions ?? {}),
+        };
         const grid = useUiStore.getState().snapToGrid ? GRID_SIZE : null;
         for (const move of snapDragged(dragged, grid)) positions[move.id] = move.position;
         useEditorStore.getState().setDragPositions(positions);
