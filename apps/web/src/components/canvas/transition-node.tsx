@@ -80,6 +80,7 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
           <span
             className="pn-detail pn-pill absolute bottom-full left-1/2 mb-2 -translate-x-1/2 font-mono text-[11px]"
             data-testid="guard-label"
+            data-no-hovercard
           >
             [ {truncate(guard, GUARD_LABEL_LENGTH)} ]
           </span>

@@ -23,6 +23,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { en } from '../../i18n/en';
+import { buildHoverCard } from '../../lib/hover-card';
 import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
 import { GRID_SIZE, snap, snapDragged } from '../../lib/geometry';
 import { registerViewApi } from '../../lib/view-api';
@@ -33,6 +34,7 @@ import { AnnotationNode } from './annotation-node';
 import { ArcEdge } from './arc-edge';
 import { ArcPreview } from './arc-preview';
 import { ConnectionLine } from './connection-line';
+import { HoverCard, type AnchorRect } from './hover-card';
 import { PlaceNode } from './place-node';
 import { TransitionNode } from './transition-node';
 import { ZoomControls } from './zoom-controls';
@@ -44,6 +46,9 @@ const nodeTypes: NodeTypes = {
   annotation: AnnotationNode,
 };
 const edgeTypes: EdgeTypes = { arc: ArcEdge };
+
+/** The pointer rests this long on a node before its hover card appears. */
+export const HOVER_CARD_DELAY = 300;
 
 export function FlowCanvas() {
   const net = useEditorStore((s) => s.net);
@@ -81,6 +86,8 @@ export function FlowCanvas() {
   );
   const [cursor, setCursor] = useState<Position | null>(null);
   const [hoverId, setHoverId] = useState<Id | null>(null);
+  const [card, setCard] = useState<{ id: Id; anchor: AnchorRect } | null>(null);
+  const cardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const simulating = mode === 'simulate';
   const marking = currentMarking({ net, mode, simMarking });
@@ -130,6 +137,34 @@ export function FlowCanvas() {
   );
   const nodes = useMemo(() => buildFlowNodes(context), [context]);
   const edges = useMemo(() => buildFlowEdges(context), [context]);
+
+  const hideCard = useCallback(() => {
+    clearTimeout(cardTimer.current);
+    cardTimer.current = undefined;
+    setCard(null);
+  }, []);
+
+  /** Shows the hover card of a node after a short pause of the pointer on it. */
+  const scheduleCard = useCallback((element: HTMLElement, id: Id) => {
+    clearTimeout(cardTimer.current);
+    cardTimer.current = setTimeout(() => {
+      cardTimer.current = undefined;
+      const state = useEditorStore.getState();
+      if (state.renamingId === id || state.picker === id || state.dragPositions !== null) return;
+      const rect = element.getBoundingClientRect();
+      setCard({
+        id,
+        anchor: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      });
+    }, HOVER_CARD_DELAY);
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearTimeout(cardTimer.current);
+    },
+    [],
+  );
 
   const fit = useCallback(
     (duration = 250) => {
@@ -435,6 +470,16 @@ export function FlowCanvas() {
     [screenToFlowPosition, cursor],
   );
 
+  const cardModel = card
+    ? buildHoverCard({
+        net,
+        marking,
+        id: card.id,
+        diagnostics,
+        enabled: simulating ? enabledResults : undefined,
+      })
+    : null;
+
   return (
     <div
       ref={wrapper}
@@ -469,12 +514,32 @@ export function FlowCanvas() {
           }
           lastZoom.current = viewport.zoom;
         }}
-        onNodeMouseEnter={(_event, node) => {
+        onNodeMouseEnter={(event, node) => {
           setHoverId(node.id);
+          if (node.type !== 'annotation' && event.buttons === 0) {
+            scheduleCard(event.currentTarget as HTMLElement, node.id);
+          }
+        }}
+        onNodeMouseMove={(event, node) => {
+          // Pills and markers on a node have tooltips of their own.
+          const over = (event.target as Element).closest('[data-no-hovercard]') !== null;
+          if (over) hideCard();
+          else if (
+            node.type !== 'annotation' &&
+            event.buttons === 0 &&
+            cardTimer.current === undefined &&
+            card?.id !== node.id
+          ) {
+            scheduleCard(event.currentTarget as HTMLElement, node.id);
+          }
         }}
         onNodeMouseLeave={() => {
           setHoverId(null);
+          hideCard();
         }}
+        onNodeDragStart={hideCard}
+        onConnectStart={hideCard}
+        onMoveStart={hideCard}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
@@ -519,6 +584,7 @@ export function FlowCanvas() {
         ) : null}
         <ArcPreview cursor={cursor} hoverId={hoverId} />
       </ReactFlow>
+      {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}
     </div>
   );
 }
