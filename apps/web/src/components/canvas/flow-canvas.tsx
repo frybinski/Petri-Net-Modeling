@@ -359,7 +359,7 @@ export function FlowCanvas() {
         <ArcPreview cursor={cursor} hoverId={hoverId} />
       </ReactFlow>
       <div
-        className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full border border-border bg-surface/90 px-3 py-1 text-xs text-muted shadow-panel backdrop-blur"
+        className="pointer-events-none absolute top-3 left-1/2 w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-full border border-border bg-surface/90 px-3 py-1 text-xs text-muted shadow-panel backdrop-blur"
         role="status"
         data-testid="tool-hint"
       >

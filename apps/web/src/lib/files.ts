@@ -13,6 +13,7 @@ export function fileStem(name: string): string {
     .join('')
     .replace(/[\\/:*?"<>|]+/g, '-')
     .replace(/\s+/g, '-')
+    .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '');
   return stem === '' ? 'net' : stem;
 }

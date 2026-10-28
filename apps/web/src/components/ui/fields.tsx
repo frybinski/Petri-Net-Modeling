@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 
 /**
  * Local edit buffer for a field. It follows `external` whenever that changes
@@ -68,9 +68,21 @@ export function TextField({
 }: TextFieldProps) {
   const id = useId();
   const [draft, setDraft] = useDraft(value);
+  // Escape reverts the draft and then blurs the field; the blur must not commit.
+  const cancelled = useRef(false);
 
   const commit = (): void => {
+    if (cancelled.current) {
+      cancelled.current = false;
+      return;
+    }
     if (draft !== value) onCommit(draft);
+  };
+
+  const cancel = (element: HTMLElement): void => {
+    cancelled.current = true;
+    setDraft(value);
+    element.blur();
   };
 
   const common = {
@@ -91,10 +103,7 @@ export function TextField({
       rows={4}
       className={`${inputClass} h-auto resize-y py-1.5 ${className}`}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          setDraft(value);
-          event.currentTarget.blur();
-        }
+        if (event.key === 'Escape') cancel(event.currentTarget);
       }}
     />
   ) : (
@@ -104,11 +113,9 @@ export function TextField({
       className={`${inputClass} ${className}`}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
-          commit();
-          event.currentTarget.blur();
+          event.currentTarget.blur(); // the blur handler commits
         } else if (event.key === 'Escape') {
-          setDraft(value);
-          event.currentTarget.blur();
+          cancel(event.currentTarget);
         }
       }}
     />
@@ -162,6 +169,7 @@ export function NumberField({
   const id = useId();
   const hintId = useId();
   const [draft, setDraft] = useDraft(value === undefined ? '' : String(value));
+  const cancelled = useRef(false);
 
   const clamp = (n: number): number => {
     let result = Math.max(min, n);
@@ -220,13 +228,17 @@ export function NumberField({
             setDraft(event.target.value);
           }}
           onBlur={() => {
+            if (cancelled.current) {
+              cancelled.current = false;
+              return;
+            }
             commitText(draft);
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
-              commitText(draft);
-              event.currentTarget.blur();
+              event.currentTarget.blur(); // the blur handler commits
             } else if (event.key === 'Escape') {
+              cancelled.current = true;
               setDraft(value === undefined ? '' : String(value));
               event.currentTarget.blur();
             } else if (event.key === 'ArrowUp') {

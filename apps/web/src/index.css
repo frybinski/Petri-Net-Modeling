@@ -193,7 +193,6 @@ body {
 }
 
 .react-flow__node:hover .react-flow__handle,
-.react-flow__node.selected .react-flow__handle,
 .react-flow.connecting .react-flow__handle {
   opacity: 1;
 }

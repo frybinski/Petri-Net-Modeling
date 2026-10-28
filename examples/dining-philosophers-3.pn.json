@@ -8,15 +8,15 @@
       "id": "think1",
       "name": "Philosopher 1 thinking",
       "position": {
-        "x": 300,
-        "y": -40
+        "x": 220,
+        "y": 60
       }
     },
     {
       "id": "hasleft1",
       "name": "Philosopher 1 has left fork",
       "position": {
-        "x": 300,
+        "x": 540,
         "y": 60
       }
     },
@@ -24,80 +24,80 @@
       "id": "eat1",
       "name": "Philosopher 1 eating",
       "position": {
-        "x": 300,
-        "y": 160
+        "x": 860,
+        "y": 40
       }
     },
     {
       "id": "fork1",
       "name": "Fork 1",
       "position": {
-        "x": 500,
-        "y": 180
+        "x": 220,
+        "y": 280
       }
     },
     {
       "id": "think2",
       "name": "Philosopher 2 thinking",
       "position": {
-        "x": 600,
-        "y": 480
+        "x": 220,
+        "y": 400
       }
     },
     {
       "id": "hasleft2",
       "name": "Philosopher 2 has left fork",
       "position": {
-        "x": 500,
-        "y": 420
+        "x": 540,
+        "y": 240
       }
     },
     {
       "id": "eat2",
       "name": "Philosopher 2 eating",
       "position": {
-        "x": 420,
-        "y": 380
+        "x": 860,
+        "y": 260
       }
     },
     {
       "id": "fork2",
       "name": "Fork 2",
       "position": {
-        "x": 300,
-        "y": 540
+        "x": 220,
+        "y": 180
       }
     },
     {
       "id": "think3",
       "name": "Philosopher 3 thinking",
       "position": {
-        "x": 0,
-        "y": 480
+        "x": 220,
+        "y": 640
       }
     },
     {
       "id": "hasleft3",
       "name": "Philosopher 3 has left fork",
       "position": {
-        "x": 100,
-        "y": 420
+        "x": 540,
+        "y": 640
       }
     },
     {
       "id": "eat3",
       "name": "Philosopher 3 eating",
       "position": {
-        "x": 180,
-        "y": 380
+        "x": 860,
+        "y": 680
       }
     },
     {
       "id": "fork3",
       "name": "Fork 3",
       "position": {
-        "x": 100,
-        "y": 180
+        "x": 220,
+        "y": 520
       }
     }
   ],
@@ -106,72 +106,72 @@
       "id": "left1",
       "name": "P1 takes left fork",
       "position": {
-        "x": 200,
-        "y": 40
+        "x": 380,
+        "y": 60
       }
     },
     {
       "id": "right1",
       "name": "P1 takes right fork",
       "position": {
-        "x": 360,
-        "y": 120
+        "x": 700,
+        "y": 60
       }
     },
     {
       "id": "release1",
       "name": "P1 releases forks",
       "position": {
-        "x": 220,
-        "y": 120
+        "x": 40,
+        "y": 260
       }
     },
     {
       "id": "left2",
       "name": "P2 takes left fork",
       "position": {
-        "x": 580,
-        "y": 340
+        "x": 380,
+        "y": 240
       }
     },
     {
       "id": "right2",
       "name": "P2 takes right fork",
       "position": {
-        "x": 420,
-        "y": 440
+        "x": 700,
+        "y": 280
       }
     },
     {
       "id": "release2",
       "name": "P2 releases forks",
       "position": {
-        "x": 480,
-        "y": 320
+        "x": 40,
+        "y": 500
       }
     },
     {
       "id": "left3",
       "name": "P3 takes left fork",
       "position": {
-        "x": 120,
-        "y": 520
+        "x": 380,
+        "y": 640
       }
     },
     {
       "id": "right3",
       "name": "P3 takes right fork",
       "position": {
-        "x": 120,
-        "y": 340
+        "x": 700,
+        "y": 620
       }
     },
     {
       "id": "release3",
       "name": "P3 releases forks",
       "position": {
-        "x": 200,
-        "y": 460
+        "x": 40,
+        "y": 660
       }
     }
   ],
