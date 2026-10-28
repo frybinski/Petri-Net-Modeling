@@ -3,3 +3,4 @@ export * from './geometry';
 export { netHash } from './hash';
 export * from './validate';
 export * from './generic';
+export * from './convert-legacy';

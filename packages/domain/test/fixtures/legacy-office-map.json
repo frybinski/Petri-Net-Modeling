@@ -1,0 +1,324 @@
+{
+  "theme": "Smart Office",
+  "object": "Person",
+  "viewName": "Grundriss",
+  "token": "person",
+  "laneStyle": "queue",
+  "connectors": false,
+  "speed": 12,
+  "travelClamp": [2, 90],
+  "approachMax": 20,
+  "places": {
+    "o_foyer": {
+      "as": "queue",
+      "lane": [
+        [46, 436],
+        [96, 380],
+        [182, 380]
+      ]
+    },
+    "o_flur": {
+      "as": "queue",
+      "lane": [
+        [224, 332],
+        [330, 332]
+      ]
+    },
+    "o_qDesk": {
+      "as": "queue",
+      "lane": [
+        [548, 272],
+        [300, 272]
+      ]
+    },
+    "o_qRoom": {
+      "as": "queue",
+      "lane": [
+        [640, 250],
+        [800, 250]
+      ]
+    },
+    "o_qCoffee": {
+      "as": "queue",
+      "lane": [
+        [480, 396],
+        [480, 470],
+        [640, 470]
+      ]
+    },
+    "o_exit": {
+      "as": "queue",
+      "lane": [
+        [352, 490],
+        [218, 490]
+      ]
+    },
+    "o_gateIn": {
+      "as": "slots",
+      "of": "o_in"
+    },
+    "o_gateOut": {
+      "as": "slots",
+      "of": "o_out"
+    },
+    "o_desks": {
+      "as": "slots",
+      "of": "o_work"
+    },
+    "o_rooms": {
+      "as": "slots",
+      "of": "o_meet"
+    },
+    "o_coffee": {
+      "as": "slots",
+      "of": "o_coffeeT"
+    },
+    "o_gone": {
+      "as": "exit",
+      "box": [42, 478, 48, 30],
+      "label": "Ausgang"
+    }
+  },
+  "transitions": {
+    "o_arr": {
+      "as": "door",
+      "pos": [16, 440],
+      "label": "Eingang",
+      "sensor": "Türkontakt"
+    },
+    "o_in": {
+      "as": "turnstile",
+      "pos": [200, 380],
+      "slots": [[200, 380]],
+      "label": "Drehkreuz ein",
+      "sensor": "Badge-Leser"
+    },
+    "o_wD": {
+      "as": "waypoint",
+      "pos": [565, 318],
+      "motion": "pass",
+      "label": "Tür Open Space",
+      "sensor": "Bewegungsmelder Flur"
+    },
+    "o_wM": {
+      "as": "waypoint",
+      "pos": [660, 318],
+      "motion": "pass",
+      "label": "Zugang Wartezone",
+      "sensor": "Bewegungsmelder Flur"
+    },
+    "o_work": {
+      "as": "area",
+      "box": [206, 22, 388, 240],
+      "label": "Open Space",
+      "sensor": "Präsenzsensor je Schreibtisch",
+      "slots": [
+        [255, 100],
+        [310, 100],
+        [365, 100],
+        [420, 100],
+        [255, 214],
+        [310, 214],
+        [365, 214],
+        [420, 214],
+        [475, 100],
+        [475, 214],
+        [530, 100],
+        [530, 214]
+      ]
+    },
+    "o_meet": {
+      "as": "rooms",
+      "entry": "hv",
+      "label": "Besprechungsräume",
+      "sensor": "Raumbelegungssensor",
+      "slots": [
+        [664, 92],
+        [792, 92],
+        [920, 92],
+        [771, 456],
+        [913, 456]
+      ],
+      "rooms": [
+        [600, 16, 128, 150],
+        [728, 16, 128, 150],
+        [856, 16, 128, 150],
+        [700, 360, 142, 184],
+        [842, 360, 142, 184]
+      ]
+    },
+    "o_coffeeT": {
+      "as": "machine",
+      "label": "Kaffeemaschine",
+      "sensor": "Smart Plug (Leistungsaufnahme)",
+      "slots": [
+        [664, 470],
+        [664, 420]
+      ],
+      "machines": [
+        [680, 454, 16, 32],
+        [680, 404, 16, 32]
+      ]
+    },
+    "o_out": {
+      "as": "turnstile",
+      "pos": [200, 490],
+      "slots": [[200, 490]],
+      "label": "Drehkreuz aus",
+      "sensor": "Badge-Leser"
+    }
+  },
+  "arcs": {
+    "o_work>o_qCoffee": {
+      "path": [
+        [565, 300],
+        [565, 332],
+        [480, 332],
+        [480, 378]
+      ]
+    },
+    "o_meet>o_qCoffee": {
+      "path": [
+        {
+          "y": 332
+        },
+        [480, 332],
+        [480, 378]
+      ]
+    },
+    "o_coffeeT>o_exit": {
+      "path": [
+        [520, 440],
+        [480, 378],
+        [480, 332],
+        [352, 332]
+      ]
+    },
+    "o_out>o_gone": {
+      "path": [[110, 492]]
+    }
+  },
+  "decor": [
+    {
+      "kind": "room",
+      "rect": [16, 16, 184, 140],
+      "label": "WC"
+    },
+    {
+      "kind": "room",
+      "rect": [16, 156, 184, 144],
+      "label": "Technik"
+    },
+    {
+      "kind": "room",
+      "rect": [200, 16, 400, 284],
+      "label": "Open Space"
+    },
+    {
+      "kind": "room",
+      "rect": [600, 16, 128, 150],
+      "label": "Raum A"
+    },
+    {
+      "kind": "room",
+      "rect": [728, 16, 128, 150],
+      "label": "Raum B"
+    },
+    {
+      "kind": "room",
+      "rect": [856, 16, 128, 150],
+      "label": "Raum C"
+    },
+    {
+      "kind": "room",
+      "rect": [420, 360, 280, 184],
+      "label": "Teeküche",
+      "lx": 96
+    },
+    {
+      "kind": "room",
+      "rect": [700, 360, 142, 184],
+      "label": "Flexraum 1",
+      "sub": "öffnet bei Bedarf"
+    },
+    {
+      "kind": "room",
+      "rect": [842, 360, 142, 184],
+      "label": "Flexraum 2",
+      "sub": "öffnet bei Bedarf"
+    },
+    {
+      "kind": "furn",
+      "rect": [96, 316, 64, 16]
+    },
+    {
+      "kind": "furn",
+      "rect": [676, 388, 24, 146]
+    },
+    {
+      "kind": "furn",
+      "rect": [540, 404, 84, 38]
+    },
+    {
+      "kind": "furn",
+      "rect": [220, 526, 120, 8]
+    },
+    {
+      "kind": "furn",
+      "rect": [872, 268, 98, 20]
+    },
+    {
+      "kind": "label",
+      "pos": [28, 322],
+      "text": "Foyer"
+    },
+    {
+      "kind": "label",
+      "pos": [250, 420],
+      "text": "Garderobe"
+    },
+    {
+      "kind": "label",
+      "pos": [612, 188],
+      "text": "Wartezone"
+    },
+    {
+      "kind": "label",
+      "pos": [880, 334],
+      "text": "Flur"
+    },
+    {
+      "kind": "walls",
+      "w": 5,
+      "segs": [
+        [16, 16, 984, 16],
+        [984, 16, 984, 544],
+        [16, 544, 984, 544],
+        [16, 16, 16, 405],
+        [16, 475, 16, 544],
+        [16, 156, 200, 156],
+        [16, 300, 200, 300],
+        [200, 16, 200, 300],
+        [200, 300, 540, 300],
+        [590, 300, 600, 300],
+        [600, 16, 600, 300],
+        [728, 16, 728, 166],
+        [856, 16, 856, 166],
+        [600, 166, 644, 166],
+        [684, 166, 772, 166],
+        [812, 166, 900, 166],
+        [940, 166, 984, 166],
+        [200, 300, 200, 366],
+        [200, 394, 200, 476],
+        [200, 504, 200, 544],
+        [420, 360, 420, 544],
+        [420, 360, 455, 360],
+        [505, 360, 751, 360],
+        [791, 360, 893, 360],
+        [933, 360, 984, 360],
+        [700, 360, 700, 544],
+        [842, 360, 842, 544]
+      ]
+    }
+  ]
+}

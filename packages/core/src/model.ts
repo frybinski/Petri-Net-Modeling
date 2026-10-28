@@ -92,6 +92,11 @@ export interface PetriNet {
   annotations?: Annotation[];
   /** Settings of the timed simulation. */
   simulation?: SimulationSettings;
+  /**
+   * How the net is drawn in the domain view (`@pnm/domain`). The core stores it and passes it
+   * through without looking at it; `@pnm/domain` checks it.
+   */
+  domainView?: unknown;
 }
 
 export type Node = Place | Transition;

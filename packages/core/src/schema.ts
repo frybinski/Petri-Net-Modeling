@@ -69,6 +69,8 @@ export const netSchema = z.object({
   marking: z.record(z.string(), z.array(tokenSchema)),
   annotations: z.array(annotationSchema).optional(),
   simulation: simulationSchema.optional(),
+  // Passed through; `@pnm/domain` checks the content.
+  domainView: z.unknown().optional(),
 }) satisfies z.ZodType<PetriNet, unknown>;
 
 /** Renders a Zod issue path like `places[2].capacity`. */

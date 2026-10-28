@@ -599,3 +599,15 @@ export function setSimulationSettings(net: PetriNet, patch: Partial<SimulationSe
     ? rest
     : { ...rest, simulation: next as SimulationSettings };
 }
+
+// --- Domain view -----------------------------------------------------------------------------
+
+/**
+ * Sets the domain view of the net, or removes it with `undefined`. The core does not look at the
+ * content (`@pnm/domain` checks it), so a view that is out of date after other edits stays as it
+ * is and is reported by the validation of the view.
+ */
+export function setDomainView(net: PetriNet, view: unknown): PetriNet {
+  const { domainView: _old, ...rest } = net;
+  return view === undefined ? rest : { ...rest, domainView: view };
+}

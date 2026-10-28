@@ -1,0 +1,183 @@
+{
+  "theme": "Paketzentrum",
+  "object": "Paket",
+  "viewName": "Halle",
+  "token": "parcel",
+  "laneStyle": "belt",
+  "places": {
+    "p_in": {
+      "as": "conveyor",
+      "lane": [
+        [96, 280],
+        [214, 280]
+      ]
+    },
+    "p_scanned": {
+      "as": "conveyor",
+      "lane": [
+        [302, 280],
+        [410, 280]
+      ]
+    },
+    "p_sorted": {
+      "as": "conveyor",
+      "lane": [
+        [490, 280],
+        [530, 280]
+      ]
+    },
+    "p_A": {
+      "as": "buffer",
+      "lane": [
+        [592, 150],
+        [778, 150]
+      ]
+    },
+    "p_B": {
+      "as": "buffer",
+      "lane": [
+        [592, 280],
+        [778, 280]
+      ]
+    },
+    "p_E": {
+      "as": "buffer",
+      "lane": [
+        [592, 410],
+        [778, 410]
+      ]
+    },
+    "p_scanner": {
+      "as": "slots",
+      "of": "t_scan"
+    },
+    "p_sorter": {
+      "as": "slots",
+      "of": "t_sort"
+    },
+    "p_dock1": {
+      "as": "slots",
+      "of": "t_loadA"
+    },
+    "p_dock2": {
+      "as": "slots",
+      "of": "t_loadB"
+    },
+    "p_dock3": {
+      "as": "slots",
+      "of": "t_loadE"
+    },
+    "p_done": {
+      "as": "trucks"
+    }
+  },
+  "transitions": {
+    "t_arr": {
+      "as": "dock",
+      "pos": [78, 280],
+      "label": "Wareneingang"
+    },
+    "t_scan": {
+      "as": "station",
+      "box": [228, 222, 62, 116],
+      "label": "Scanner"
+    },
+    "t_sort": {
+      "as": "sorter",
+      "pos": [450, 280],
+      "r": 30,
+      "label": "Sorter"
+    },
+    "t_rA": {
+      "as": "diverter",
+      "pos": [560, 150],
+      "motion": "pass"
+    },
+    "t_rB": {
+      "as": "diverter",
+      "pos": [560, 280],
+      "motion": "pass"
+    },
+    "t_rE": {
+      "as": "diverter",
+      "pos": [560, 410],
+      "motion": "pass"
+    },
+    "t_loadA": {
+      "as": "gate",
+      "box": [792, 126, 44, 48],
+      "label": "Tor 1",
+      "truck": [860, 118, 128, 64]
+    },
+    "t_loadB": {
+      "as": "gate",
+      "box": [792, 256, 44, 48],
+      "label": "Tor 2",
+      "truck": [860, 248, 128, 64]
+    },
+    "t_loadE": {
+      "as": "gate",
+      "box": [792, 386, 44, 48],
+      "label": "Express",
+      "truck": [860, 378, 128, 64]
+    }
+  },
+  "arcs": {
+    "t_loadA>p_done": {
+      "path": [[904, 150]]
+    },
+    "t_loadB>p_done": {
+      "path": [[904, 280]]
+    },
+    "t_loadE>p_done": {
+      "path": [[904, 410]]
+    }
+  },
+  "decor": [
+    {
+      "kind": "text",
+      "pos": [96, 46],
+      "text": "Halle 2 · Sortierung"
+    },
+    {
+      "kind": "zone",
+      "rect": [584, 108, 200, 84],
+      "label": "A"
+    },
+    {
+      "kind": "zone",
+      "rect": [584, 238, 200, 84],
+      "label": "B"
+    },
+    {
+      "kind": "zone",
+      "rect": [584, 368, 200, 84],
+      "label": "Express"
+    },
+    {
+      "kind": "hazard",
+      "rect": [62, 242, 6, 76]
+    },
+    {
+      "kind": "hazard",
+      "rect": [846, 98, 8, 364]
+    },
+    {
+      "kind": "truck",
+      "rect": [4, 250, 54, 60],
+      "cab": "left"
+    },
+    {
+      "kind": "walkway",
+      "from": [96, 506],
+      "to": [786, 506],
+      "label": "Gehweg"
+    },
+    {
+      "kind": "scale",
+      "pos": [880, 532],
+      "px": 80,
+      "label": "5 m"
+    }
+  ]
+}
