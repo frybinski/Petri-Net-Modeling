@@ -362,9 +362,20 @@ function arcPaths(
   return out;
 }
 
-interface GenericParts {
+export interface GenericParts {
   places: Record<Id, PlaceView>;
   transitions: Record<Id, TransitionView>;
+}
+
+/**
+ * The generic entries of all places and transitions of a net for a canvas, without provenance
+ * and without arcs. Used to show a hidden element again and to reset an entry.
+ */
+export function genericEntries(
+  net: PetriNet,
+  canvas: { width: number; height: number },
+): GenericParts {
+  return genericParts(net, canvas.width, canvas.height);
 }
 
 function genericParts(net: PetriNet, width: number, height: number): GenericParts {
@@ -571,7 +582,7 @@ export async function genericDomainViewWithLayout(
 export function fillMissing(
   net: PetriNet,
   view: DomainView,
-  options: GenericOptions = {},
+  options: GenericOptions & { dropStale?: boolean } = {},
 ): DomainView {
   const { width, height } = view.meta.canvas;
   const at = options.at ?? new Date().toISOString();
@@ -580,35 +591,40 @@ export function fillMissing(
   const transitionIds = new Set(net.transitions.map((t) => t.id));
   const arcKeys = new Set(net.arcs.map((a) => arcKey(a.source, a.target)));
 
+  // Stale entries (of elements the net no longer has) are dropped unless the caller keeps them.
+  const dropStale = options.dropStale ?? true;
   const places: Record<Id, PlaceView> = {};
   const transitions: Record<Id, TransitionView> = {};
   const arcs: Record<string, { path: Point[] }> = {};
   const provenance: Record<string, Provenance> = {};
-  for (const [id, entry] of Object.entries(view.places)) if (placeIds.has(id)) places[id] = entry;
-  for (const [id, entry] of Object.entries(view.transitions)) {
-    if (transitionIds.has(id)) transitions[id] = entry;
+  for (const [id, entry] of Object.entries(view.places)) {
+    if (!dropStale || placeIds.has(id)) places[id] = entry;
   }
-  for (const [key, entry] of Object.entries(view.arcs ?? {}))
-    if (arcKeys.has(key)) arcs[key] = entry;
+  for (const [id, entry] of Object.entries(view.transitions)) {
+    if (!dropStale || transitionIds.has(id)) transitions[id] = entry;
+  }
+  for (const [key, entry] of Object.entries(view.arcs ?? {})) {
+    if (!dropStale || arcKeys.has(key)) arcs[key] = entry;
+  }
   for (const [key, entry] of Object.entries(view.provenance)) {
     const rest = key.slice(key.indexOf('.') + 1);
     const known =
       (key.startsWith('places.') && placeIds.has(rest)) ||
       (key.startsWith('transitions.') && transitionIds.has(rest)) ||
       (key.startsWith('arcs.') && arcKeys.has(rest));
-    if (known) provenance[key] = entry;
+    if (!dropStale || known) provenance[key] = entry;
   }
 
   // Entries that break a rule are replaced; the rules are checked on what is left.
   const broken = validateDomainView(net, { ...view, places, transitions, arcs, provenance });
   const badElements = new Set(
     broken.diagnostics
-      .filter((d) => d.severity === 'error' && d.elementId !== undefined)
+      .filter((d) => d.severity === 'error' && d.rule !== 'V2' && d.elementId !== undefined)
       .map((d) => d.elementId!),
   );
   const badArcs = new Set(
     broken.diagnostics
-      .filter((d) => d.severity === 'error' && d.path.startsWith('arcs.'))
+      .filter((d) => d.severity === 'error' && d.rule !== 'V2' && d.path.startsWith('arcs.'))
       .map((d) => d.path.split('.')[1] ?? ''),
   );
   const replaced = new Set<Id>();
@@ -684,4 +700,121 @@ export function fillArcs(
 /** The view with the hash of the current net. */
 export function withNetHash(net: PetriNet, view: DomainView): DomainView {
   return { ...view, netHash: netHash(net) };
+}
+
+/** True if a key of the provenance record names an element that the net has. */
+function provenanceKnown(net: PetriNet, key: string): boolean {
+  const dot = key.indexOf('.');
+  const section = key.slice(0, dot);
+  const rest = key.slice(dot + 1);
+  return (
+    (section === 'places' && net.places.some((p) => p.id === rest)) ||
+    (section === 'transitions' && net.transitions.some((t) => t.id === rest)) ||
+    (section === 'arcs' && net.arcs.some((a) => arcKey(a.source, a.target) === rest))
+  );
+}
+
+/**
+ * Drops the entries (and provenance records) of places, transitions and arcs that the net no
+ * longer has. Everything else, including `netHash`, stays as it is.
+ */
+export function removeStale(net: PetriNet, view: DomainView): DomainView {
+  const placeIds = new Set(net.places.map((p) => p.id));
+  const transitionIds = new Set(net.transitions.map((t) => t.id));
+  const arcKeys = new Set(net.arcs.map((a) => arcKey(a.source, a.target)));
+  const places = Object.fromEntries(Object.entries(view.places).filter(([id]) => placeIds.has(id)));
+  const transitions = Object.fromEntries(
+    Object.entries(view.transitions).filter(([id]) => transitionIds.has(id)),
+  );
+  const provenance = Object.fromEntries(
+    Object.entries(view.provenance).filter(([key]) => provenanceKnown(net, key)),
+  );
+  const next: DomainView = { ...view, places, transitions, provenance };
+  if (view.arcs !== undefined) {
+    next.arcs = Object.fromEntries(Object.entries(view.arcs).filter(([key]) => arcKeys.has(key)));
+  }
+  return next;
+}
+
+/** The entries of the view that the net does not have, as the keys used in diagnostics. */
+export function staleEntries(net: PetriNet, view: DomainView): string[] {
+  const out: string[] = [];
+  for (const id of Object.keys(view.places)) {
+    if (!net.places.some((p) => p.id === id)) out.push(`places.${id}`);
+  }
+  for (const id of Object.keys(view.transitions)) {
+    if (!net.transitions.some((t) => t.id === id)) out.push(`transitions.${id}`);
+  }
+  const arcKeys = new Set(net.arcs.map((a) => arcKey(a.source, a.target)));
+  for (const key of Object.keys(view.arcs ?? {})) {
+    if (!arcKeys.has(key)) out.push(`arcs.${key}`);
+  }
+  return out;
+}
+
+/** Places and transitions of the net that the view has no entry for. */
+export function missingEntries(net: PetriNet, view: DomainView): string[] {
+  const out: string[] = [];
+  for (const p of net.places) if (!(p.id in view.places)) out.push(`places.${p.id}`);
+  for (const t of net.transitions) if (!(t.id in view.transitions)) out.push(`transitions.${t.id}`);
+  return out;
+}
+
+/**
+ * Gives one place or transition (or arc) the generic entry again, with the provenance
+ * `generic`. A hidden element is shown this way. Arcs next to it that have no path get a generic
+ * one; all other entries stay as they are. Unchanged if the net has no such element.
+ */
+export function resetEntry(
+  net: PetriNet,
+  view: DomainView,
+  target: { section: 'places' | 'transitions' | 'arcs'; key: string },
+  options: { at?: string } = {},
+): DomainView {
+  const at = options.at ?? new Date().toISOString();
+  const { width, height } = view.meta.canvas;
+  const places = { ...view.places };
+  const transitions = { ...view.transitions };
+  const arcs = { ...(view.arcs ?? {}) };
+  const provenance = { ...view.provenance };
+  let touched: Id | null = null;
+  if (target.section === 'arcs') {
+    const arc = net.arcs.find((a) => arcKey(a.source, a.target) === target.key);
+    if (!arc) return view;
+    delete arcs[target.key];
+    const fresh = arcPaths(net, places, transitions, (id) => id === arc.id, width, height);
+    const entry = fresh[target.key];
+    if (entry) arcs[target.key] = entry;
+    else delete provenance[provenanceKey.arc(target.key)];
+    if (entry) provenance[provenanceKey.arc(target.key)] = stamp(at);
+    return { ...view, arcs, provenance };
+  }
+  const generic = genericParts(net, width, height);
+  if (target.section === 'places') {
+    const entry = generic.places[target.key];
+    if (!entry) return view;
+    places[target.key] = entry;
+    provenance[provenanceKey.place(target.key)] = stamp(at);
+    touched = target.key;
+  } else {
+    const entry = generic.transitions[target.key];
+    if (!entry) return view;
+    transitions[target.key] = entry;
+    provenance[provenanceKey.transition(target.key)] = stamp(at);
+    touched = target.key;
+  }
+  const fresh = arcPaths(
+    net,
+    places,
+    transitions,
+    (_id, source, other) =>
+      (source === touched || other === touched) && !(arcKey(source, other) in arcs),
+    width,
+    height,
+  );
+  for (const [key, entry] of Object.entries(fresh)) {
+    arcs[key] = entry;
+    provenance[provenanceKey.arc(key)] = stamp(at);
+  }
+  return { ...view, places, transitions, arcs, provenance };
 }

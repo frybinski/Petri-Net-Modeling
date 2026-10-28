@@ -144,7 +144,8 @@ function checkPath(add: Add, path: string, points: Point[], view: DomainView, id
   });
 }
 
-function roleAllows(role: PlaceRole, kind: PlaceView['kind']): boolean {
+/** True if a place with this role may be drawn as `kind` (rule V4). */
+export function roleAllows(role: PlaceRole, kind: PlaceView['kind']): boolean {
   switch (role) {
     case 'resource':
       return kind === 'slots' || kind === 'pool' || kind === 'hidden';
@@ -174,6 +175,57 @@ function allowedKinds(role: PlaceRole): string {
     case 'case':
       return 'any kind except slots';
   }
+}
+
+/** The transitions that a place forms a loop with (it is taken and given back by them). */
+export function loopTransitions(net: PetriNet, placeId: Id): Id[] {
+  const arcKeys = new Set(net.arcs.map((a) => arcKey(a.source, a.target)));
+  return net.transitions
+    .filter((t) => arcKeys.has(arcKey(placeId, t.id)) && arcKeys.has(arcKey(t.id, placeId)))
+    .map((t) => t.id);
+}
+
+const PLACE_KINDS: ReadonlyArray<Exclude<PlaceView['kind'], 'hidden'>> = [
+  'queue',
+  'conveyor',
+  'buffer',
+  'source',
+  'sink',
+  'pool',
+  'slots',
+];
+
+const TRANSITION_KINDS: ReadonlyArray<Exclude<TransitionView['kind'], 'hidden'>> = [
+  'station',
+  'machine',
+  'gate',
+  'area',
+  'rooms',
+  'door',
+  'dock',
+  'waypoint',
+];
+
+/**
+ * The kinds that rule V4 allows for a place, without `hidden` (that is a separate action). The
+ * kind `slots` only counts when the place forms a loop with some transition.
+ */
+export function allowedPlaceKinds(
+  net: PetriNet,
+  placeId: Id,
+): Array<Exclude<PlaceView['kind'], 'hidden'>> {
+  const role = placeRoles(net).get(placeId) ?? 'case';
+  const loops = loopTransitions(net, placeId).length > 0;
+  return PLACE_KINDS.filter((kind) => roleAllows(role, kind) && (kind !== 'slots' || loops));
+}
+
+/** The kinds that rule V4 allows for a transition, without `hidden`. */
+export function allowedTransitionKinds(
+  net: PetriNet,
+  transitionId: Id,
+): Array<Exclude<TransitionView['kind'], 'hidden'>> {
+  if (isSourceTransition(net, transitionId)) return ['door', 'dock'];
+  return [...TRANSITION_KINDS];
 }
 
 function slotsOfTransition(view: TransitionView | undefined): Point[] | undefined {
