@@ -6,6 +6,7 @@ import { nameOf } from '../lib/flow-model';
 import { useDiagnostics } from '../lib/use-diagnostics';
 import { useEditorStore, type SimStep } from '../store/editor-store';
 import { Button } from './ui/button';
+import { Tooltip } from './ui/tooltip';
 
 const MAX_MARKING_CHIPS = 6;
 
@@ -209,21 +210,22 @@ function HistoryEntry({ step }: { step: SimStep }) {
   return (
     <li className="rounded px-1.5 py-0.5 odd:bg-surface-2" data-testid="sim-step">
       {hasBinding ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => {
-            setOpen(!open);
-          }}
-          title={open ? en.simulation.hideBinding : en.simulation.showBinding}
-          className="flex w-full flex-col text-left"
-          data-testid="sim-step-toggle"
-        >
-          <span>{en.simulation.stepLabel(step.index, step.transitionName)}</span>
-          <span className="truncate font-mono text-[11px] text-muted">
-            {bindingSummary(step.binding)}
-          </span>
-        </button>
+        <Tooltip content={open ? en.simulation.hideBinding : en.simulation.showBinding} side="left">
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(!open);
+            }}
+            className="flex w-full flex-col text-left"
+            data-testid="sim-step-toggle"
+          >
+            <span>{en.simulation.stepLabel(step.index, step.transitionName)}</span>
+            <span className="truncate font-mono text-[11px] text-muted">
+              {bindingSummary(step.binding)}
+            </span>
+          </button>
+        </Tooltip>
       ) : (
         <span>{en.simulation.stepLabel(step.index, step.transitionName)}</span>
       )}

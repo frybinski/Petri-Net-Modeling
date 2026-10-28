@@ -4,6 +4,7 @@ import { en } from '../../i18n/en';
 import { useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { Button, IconButton } from '../ui/button';
+import { Tooltip } from '../ui/tooltip';
 
 /** Table of the initial tokens of a place (JSON nets). */
 export function TokensSection({ placeId }: { placeId: string }) {
@@ -54,15 +55,16 @@ export function TokensSection({ placeId }: { placeId: string }) {
                   {label}
                 </button>
                 {verdict.ok ? null : (
-                  <span
-                    className="text-danger"
-                    role="img"
-                    aria-label={verdict.errors.join('; ')}
-                    title={verdict.errors.join('\n')}
-                    data-testid="token-mismatch"
-                  >
-                    <AlertTriangle size={14} aria-hidden="true" />
-                  </span>
+                  <Tooltip content={verdict.errors.join('\n')}>
+                    <span
+                      className="text-danger"
+                      role="img"
+                      aria-label={verdict.errors.join('; ')}
+                      data-testid="token-mismatch"
+                    >
+                      <AlertTriangle size={14} aria-hidden="true" />
+                    </span>
+                  </Tooltip>
                 )}
                 <IconButton
                   size="sm"

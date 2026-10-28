@@ -39,7 +39,21 @@ export function Tooltip({ content, shortcut, side = 'bottom', children, disabled
   if (disabled || content === '' || content === undefined) return children;
   const tip = (
     <TooltipPrimitive.Root>
-      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Trigger
+        asChild
+        onFocus={(event) => {
+          // Only keyboard focus opens a tooltip, and not inside a dialog: a dialog focuses its first
+          // button when it opens, and an open tooltip would swallow the first Escape.
+          if (
+            !event.currentTarget.matches(':focus-visible') ||
+            event.currentTarget.closest('dialog')
+          ) {
+            event.preventDefault();
+          }
+        }}
+      >
+        {children}
+      </TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           side={side}

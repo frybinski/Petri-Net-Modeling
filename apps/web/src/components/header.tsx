@@ -25,6 +25,7 @@ import { selectCanRedo, selectCanUndo, selectIsDirty, useEditorStore } from '../
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
 import { Menu, type MenuSection } from './ui/menu';
+import { Tooltip } from './ui/tooltip';
 import { TextField } from './ui/fields';
 
 function Logo() {
@@ -106,6 +107,8 @@ export function Header() {
 
   const showInscriptions = useUiStore((s) => s.showInscriptions);
   const toggleInscriptions = useUiStore((s) => s.toggleInscriptions);
+  const scrollToZoom = useUiStore((s) => s.scrollToZoom);
+  const toggleScrollToZoom = useUiStore((s) => s.toggleScrollToZoom);
   const viewSections: MenuSection[] = [
     {
       items: [
@@ -114,6 +117,12 @@ export function Header() {
           label: en.menu.showInscriptions,
           checked: showInscriptions,
           onSelect: toggleInscriptions,
+        },
+        {
+          id: 'scroll-to-zoom',
+          label: en.menu.scrollToZoom,
+          checked: scrollToZoom,
+          onSelect: toggleScrollToZoom,
         },
       ],
     },
@@ -179,28 +188,32 @@ export function Header() {
         label={en.menu.autoLayout}
         icon={<LayoutGrid size={15} aria-hidden="true" />}
         sections={layoutSections}
+        tooltip={en.menu.autoLayoutTip}
+        shortcut={shortcutOf('layout')}
         disabled={simulating}
         data-testid="menu-layout"
       />
 
       <Menu label={en.menu.view} sections={viewSections} data-testid="menu-view" />
 
-      <button
-        type="button"
-        aria-pressed={diagnosticsOpen}
-        onClick={() => {
-          setDiagnosticsOpen(!diagnosticsOpen);
-        }}
-        data-testid="validate"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-hover aria-pressed:bg-surface-hover"
-      >
-        <ShieldCheck
-          size={15}
-          aria-hidden="true"
-          className={errorCount > 0 ? 'text-danger' : 'text-ok'}
-        />
-        {en.menu.validate}
-      </button>
+      <Tooltip content={en.menu.validateTip}>
+        <button
+          type="button"
+          aria-pressed={diagnosticsOpen}
+          onClick={() => {
+            setDiagnosticsOpen(!diagnosticsOpen);
+          }}
+          data-testid="validate"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-hover aria-pressed:bg-surface-hover"
+        >
+          <ShieldCheck
+            size={15}
+            aria-hidden="true"
+            className={errorCount > 0 ? 'text-danger' : 'text-ok'}
+          />
+          {en.menu.validate}
+        </button>
+      </Tooltip>
 
       <div className="mx-auto flex min-w-40 max-w-md flex-1 items-center justify-center gap-2 px-2">
         <div className="w-full max-w-72">
@@ -215,13 +228,14 @@ export function Header() {
           />
         </div>
         {dirty ? (
-          <span
-            className="size-2 shrink-0 rounded-full bg-accent"
-            role="img"
-            aria-label={en.app.unsaved}
-            title={en.app.unsaved}
-            data-testid="dirty-indicator"
-          />
+          <Tooltip content={en.app.unsaved}>
+            <span
+              className="size-2.5 shrink-0 rounded-full bg-accent"
+              role="img"
+              aria-label={en.app.unsaved}
+              data-testid="dirty-indicator"
+            />
+          </Tooltip>
         ) : null}
       </div>
 
@@ -230,26 +244,30 @@ export function Header() {
         aria-label={en.menu.mode}
         className="flex rounded-md border border-border-strong p-0.5"
       >
-        <button
-          type="button"
-          aria-pressed={!simulating}
-          onClick={stopSimulation}
-          data-testid="mode-edit"
-          className="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast"
-        >
-          <Pencil size={13} aria-hidden="true" />
-          {en.menu.edit}
-        </button>
-        <button
-          type="button"
-          aria-pressed={simulating}
-          onClick={startSimulation}
-          data-testid="mode-simulate"
-          className="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast"
-        >
-          <Play size={13} aria-hidden="true" />
-          {en.menu.simulate}
-        </button>
+        <Tooltip content={en.menu.editTip} shortcut={shortcutOf('simulate')}>
+          <button
+            type="button"
+            aria-pressed={!simulating}
+            onClick={stopSimulation}
+            data-testid="mode-edit"
+            className="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast"
+          >
+            <Pencil size={13} aria-hidden="true" />
+            {en.menu.edit}
+          </button>
+        </Tooltip>
+        <Tooltip content={en.menu.simulateTip} shortcut={shortcutOf('simulate')}>
+          <button
+            type="button"
+            aria-pressed={simulating}
+            onClick={startSimulation}
+            data-testid="mode-simulate"
+            className="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast"
+          >
+            <Play size={13} aria-hidden="true" />
+            {en.menu.simulate}
+          </button>
+        </Tooltip>
       </div>
 
       <div className="flex items-center gap-0.5">
