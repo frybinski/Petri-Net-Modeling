@@ -63,3 +63,53 @@ export function zoomAround(viewport: Viewport, factor: number, cx: number, cy: n
 export function toSheet(viewport: Viewport, px: number, py: number): [number, number] {
   return [(px - viewport.x) / viewport.zoom, (py - viewport.y) / viewport.zoom];
 }
+
+/** A rectangle in the coordinates of the view (CSS pixels from its top left corner). */
+export interface ViewRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
+ * Fits the sheet into the view and keeps it clear of floating controls. It looks for the largest
+ * zoom at which the sheet has a place, as close to the center as possible, that no control covers:
+ * a bar at the top that lies beside the sheet (because the sheet is narrow in a wide view) costs
+ * nothing, one that lies over it pushes the sheet down, and a corner control can be dodged by
+ * moving the sheet a little to the side.
+ */
+export function fitAround(
+  sheet: { width: number; height: number },
+  view: { width: number; height: number },
+  overlays: readonly ViewRect[],
+  gap = 10,
+): Viewport {
+  const plain = fitViewport(sheet, view);
+  if (view.width <= 0 || view.height <= 0 || sheet.width <= 0 || sheet.height <= 0) return plain;
+  const free = (x: number, y: number, zoom: number): boolean => {
+    const right = x + sheet.width * zoom + gap;
+    const lower = y + sheet.height * zoom + gap;
+    return overlays.every(
+      (o) => o.left >= right || o.right <= x - gap || o.top >= lower || o.bottom <= y - gap,
+    );
+  };
+  const steps = [0.5, 0, 1, 0.25, 0.75, 0.1, 0.9];
+  for (let zoom = plain.zoom; zoom >= MIN_ZOOM; zoom *= 0.97) {
+    const width = sheet.width * zoom;
+    const height = sheet.height * zoom;
+    const xMin = FIT_PADDING;
+    const xMax = view.width - FIT_PADDING - width;
+    const yMin = FIT_PADDING;
+    const yMax = view.height - FIT_PADDING - height;
+    if (xMax < xMin - 1e-6 || yMax < yMin - 1e-6) continue;
+    for (const ty of steps) {
+      for (const tx of steps) {
+        const x = xMin + (xMax - xMin) * tx;
+        const y = yMin + (yMax - yMin) * ty;
+        if (free(x, y, zoom)) return { x, y, zoom };
+      }
+    }
+  }
+  return plain;
+}

@@ -31,10 +31,10 @@ import { StaticLayer } from '../../lib/static-layer';
 import { useCaseTrail } from '../../lib/use-case-trail';
 import {
   clampZoom,
-  fitViewport,
+  fitAround,
   toSheet,
   zoomAround,
-  type Insets,
+  type ViewRect,
   type Viewport,
 } from '../../lib/viewport';
 import { useEditorStore } from '../../store/editor-store';
@@ -59,9 +59,6 @@ const ZOOM_STEP = 1.25;
 
 /** The static layer is rendered anew this long after the last change of the zoom. */
 export const STATIC_RERENDER_DELAY = 80;
-
-/** Space between the sheet and the floating controls when it is fitted. */
-const OVERLAY_GAP = 10;
 
 interface Drag {
   startX: number;
@@ -104,7 +101,7 @@ export function DomainCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewport = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });
   const size = useRef({ width: 0, height: 0 });
-  const insets = useRef<Insets>({});
+  const overlays = useRef<ViewRect[]>([]);
   const userZoomed = useRef(false);
   const frame = useRef(0);
   const frames = useRef(0);
@@ -207,6 +204,13 @@ export function DomainCanvas() {
         paintLayers(ctx, dynamic.layers, current, { scale: wanted, sprites: spriteCache });
         canvas.dataset['sprites'] = String(dynamic.sprites.length);
         canvas.dataset['moving'] = String(dynamic.sprites.filter((s) => s.moving).length);
+        // Where some resting cases are (sheet pixels), so that tests can click on one.
+        const cases = dynamic.sprites
+          .filter((s) => s.caseId !== undefined && !s.moving)
+          .slice(0, 12)
+          .map((s) => `${s.caseId}@${Math.round(s.point[0])},${Math.round(s.point[1])}`)
+          .join(';');
+        if (canvas.dataset['cases'] !== cases) canvas.dataset['cases'] = cases;
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       canvas.dataset['zoom'] = String(Math.round(zoom * 1000) / 1000);
@@ -243,7 +247,7 @@ export function DomainCanvas() {
     const scene = animator.staticScene;
     if (!scene) return;
     userZoomed.current = false;
-    setViewport(fitViewport(scene, size.current, insets.current));
+    setViewport(fitAround(scene, size.current, overlays.current));
   }, [animator, setViewport]);
 
   // The model: the net, its view and the state to start from. A change of the net or the mode
@@ -356,16 +360,17 @@ export function DomainCanvas() {
     const measure = (): void => {
       const rect = host.getBoundingClientRect();
       size.current = { width: Math.floor(rect.width), height: Math.floor(rect.height) };
-      const next: Insets = {};
+      const found: ViewRect[] = [];
       for (const overlay of host.querySelectorAll<HTMLElement>('[data-domain-overlay]')) {
         const box = overlay.getBoundingClientRect();
-        if (overlay.dataset['domainOverlay'] === 'top') {
-          next.top = Math.max(next.top ?? 0, box.bottom - rect.top + OVERLAY_GAP);
-        } else {
-          next.bottom = Math.max(next.bottom ?? 0, rect.bottom - box.top + OVERLAY_GAP);
-        }
+        found.push({
+          left: box.left - rect.left,
+          top: box.top - rect.top,
+          right: box.right - rect.left,
+          bottom: box.bottom - rect.top,
+        });
       }
-      insets.current = next;
+      overlays.current = found;
       if (!userZoomed.current) fit();
       else schedulePaint();
     };
