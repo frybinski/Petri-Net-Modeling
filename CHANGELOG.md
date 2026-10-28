@@ -36,13 +36,17 @@ Interaction and appearance only: no change to the net semantics or the file form
   shadow, a pulsing outline for enabled transitions and a warning sign for errors. New nodes pop in.
 - Tokens are up to six dots in a fixed arrangement, JSON nets show a count in the circle and the type as a badge;
   token chips appear next to a selected place and in the hover card instead of permanently under the node.
-- Arcs are gently curved (more for long arcs), opposite arcs separate on their own, arrow heads end exactly on the node
-  outline, weights and inscriptions sit in pills on the arc, guards in a pill above the transition. The hit area of an
-  arc is 20 px wide and arcs highlight on hover. The SVG export follows the new geometry.
+- Arcs are gently curved (more for long arcs), go around nodes that are in their way, opposite arcs separate on
+  their own, arrow heads end exactly on the node outline, weights and inscriptions sit in pills on the arc, guards in
+  a pill above the transition. The hit area of an arc is 20 px wide and arcs highlight on hover. The SVG export follows
+  the new geometry.
+- The minimap (smaller and translucent) only appears while part of the net is out of view, so it no longer covers
+  nodes after "fit view". Fit view keeps pixel margins for guards and names.
 - The tool hint moved from a banner over the canvas into the status bar. Toasts appear in the lower right, last
   2.5 s (errors 6 s), replace each other and are only shown for results that would otherwise stay invisible.
 - Node dragging snaps the node center to the grid (the top-left corner before), the right mouse button no longer pans.
-- Examples: positions of two nets were adjusted so that arcs do not run through names.
+- Examples: positions of the order processing and the JSON dining philosophers nets were adjusted so that arcs do not
+  run through names or inscriptions.
 
 ### Fixed
 

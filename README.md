@@ -108,6 +108,8 @@ operations such as `addPlace`, `addArc` or `setInscription`, which return new ne
 - [Expressions](docs/expressions.md): a short guide to guards and inscriptions for modelers.
 - [Architecture decision records](docs/adr): monorepo and TypeScript, React Flow canvas, JSON net profile, document
   history, JSONata expressions, Radix primitives and self-hosted fonts.
+- [Review screenshots](docs/images/review): all seven examples in the detail, mid and far zoom levels, light and dark,
+  at 1280 px and 1920 px width (`<example>_<theme>_<width>_<level>.png`).
 - [Changelog](CHANGELOG.md)
 
 ## Deployment
