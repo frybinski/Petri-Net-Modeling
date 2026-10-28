@@ -2,7 +2,9 @@ import {
   addAnnotation as coreAddAnnotation,
   addArc as coreAddArc,
   addPlace as coreAddPlace,
+  addToken as coreAddToken,
   addTransition as coreAddTransition,
+  addType as coreAddType,
   alignNodes,
   canConnect,
   countsToMarking,
@@ -10,6 +12,7 @@ import {
   createId,
   distributeNodes,
   enabledTransitions,
+  exampleToken,
   extractFragment,
   findArc,
   fire,
@@ -19,13 +22,22 @@ import {
   moveNodes as coreMoveNodes,
   NetOpError,
   removeElements,
+  removeToken as coreRemoveToken,
+  removeType as coreRemoveType,
   renameNet as coreRenameNet,
+  renameType as coreRenameType,
   reverseArc as coreReverseArc,
   setInitialTokens,
+  setPlaceType as corePlaceType,
+  setProfile as coreSetProfile,
+  setTokens as coreSetTokens,
   setWeight,
+  uniqueName,
   updateAnnotation as coreUpdateAnnotation,
   updateArc as coreUpdateArc,
   updateNode,
+  updateToken as coreUpdateToken,
+  updateType as coreUpdateType,
   validate,
   type AlignMode,
   type Annotation,
@@ -38,6 +50,8 @@ import {
   type PetriNet,
   type Place,
   type Position,
+  type Profile,
+  type Token,
   type Transition,
 } from '@pnm/core';
 import { create } from 'zustand';
@@ -102,6 +116,21 @@ export interface EditorState {
   nudgeSelected(dx: number, dy: number): void;
   setTokens(placeId: Id, count: number): void;
   adjustTokens(delta: number): void;
+  /** Replaces the initial tokens of a place (JSON nets). */
+  setPlaceTokens(placeId: Id, tokens: Token[]): void;
+  addToken(placeId: Id, token?: Token): void;
+  updateToken(placeId: Id, index: number, token: Token): void;
+  removeToken(placeId: Id, index: number): void;
+  duplicateToken(placeId: Id, index: number): void;
+  setProfile(profile: Profile): void;
+  /**
+   * Creates a type (`original` is `null`) or changes an existing one, including a rename.
+   * One undo step. Returns false if the change was rejected.
+   */
+  saveType(original: string | null, name: string, schema: unknown): boolean;
+  duplicateType(name: string): string | null;
+  removeType(name: string): void;
+  setPlaceType(placeId: Id, type: string | undefined): void;
   renameNet(name: string): void;
   align(mode: AlignMode): void;
   distribute(axis: DistributeAxis): void;
@@ -343,13 +372,75 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       edit((current) => {
         let next = current;
         for (const place of places) {
-          const now = current.marking[place.id]?.length ?? 0;
-          let target = Math.max(0, now + delta);
+          const tokens = current.marking[place.id] ?? [];
+          let target = Math.max(0, tokens.length + delta);
           if (place.capacity !== undefined) target = Math.min(target, place.capacity);
-          next = setInitialTokens(next, place.id, target);
+          if (current.profile === 'json-net') {
+            // Typed tokens keep their values: drop the last ones or add a starting value.
+            const sample = exampleToken(
+              place.type === undefined ? undefined : current.types[place.type],
+            );
+            const adjusted = [...tokens.slice(0, target)];
+            while (adjusted.length < target) adjusted.push(structuredClone(sample));
+            next = coreSetTokens(next, place.id, adjusted);
+          } else {
+            next = setInitialTokens(next, place.id, target);
+          }
         }
         return next;
       });
+    },
+    setPlaceTokens(placeId, tokens) {
+      edit((net) => coreSetTokens(net, placeId, tokens));
+    },
+    addToken(placeId, token) {
+      const { net } = get();
+      const place = net.places.find((p) => p.id === placeId);
+      if (!place) return;
+      if (place.capacity !== undefined && (net.marking[placeId]?.length ?? 0) >= place.capacity) {
+        notify('info', en.messages.capacityReached(place.capacity));
+        return;
+      }
+      const value =
+        token ?? exampleToken(place.type === undefined ? undefined : net.types[place.type]);
+      edit((current) => coreAddToken(current, placeId, value));
+    },
+    updateToken(placeId, index, token) {
+      edit((net) => coreUpdateToken(net, placeId, index, token));
+    },
+    removeToken(placeId, index) {
+      edit((net) => coreRemoveToken(net, placeId, index));
+    },
+    duplicateToken(placeId, index) {
+      const token = get().net.marking[placeId]?.[index];
+      if (token !== undefined) get().addToken(placeId, structuredClone(token));
+    },
+    setProfile(profile) {
+      if (profile === get().net.profile) return;
+      edit((net) => coreSetProfile(net, profile));
+    },
+    saveType(original, name, schema) {
+      const trimmed = name.trim();
+      return edit((net) => {
+        let next = net;
+        if (original === null) return coreAddType(next, trimmed, schema);
+        if (original !== trimmed) next = coreRenameType(next, original, trimmed);
+        return coreUpdateType(next, trimmed, schema);
+      });
+    },
+    duplicateType(name) {
+      const schema = get().net.types[name];
+      if (schema === undefined) return null;
+      const copy = uniqueName(Object.keys(get().net.types), `${name}Copy`);
+      return edit((net) => coreAddType(net, copy, structuredClone(schema))) ? copy : null;
+    },
+    removeType(name) {
+      edit((net) => coreRemoveType(net, name));
+    },
+    setPlaceType(placeId, type) {
+      const place = get().net.places.find((p) => p.id === placeId);
+      if (!place || place.type === type) return;
+      edit((net) => corePlaceType(net, placeId, type));
     },
     renameNet(name) {
       if (name === get().net.name) return;

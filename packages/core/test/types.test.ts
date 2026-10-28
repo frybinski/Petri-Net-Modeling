@@ -4,6 +4,8 @@ import {
   canonicalJson,
   checkToken,
   clearTypeCache,
+  exampleToken,
+  simpleKind,
   compileType,
   isToken,
   tokenEquals,
@@ -182,5 +184,42 @@ describe('token helpers', () => {
     expect(text.length).toBe(10);
     expect(text.endsWith('…')).toBe(true);
     expect(tokenLabel([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 8).length).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('exampleToken and simpleKind', () => {
+  it('derives starting values from schemas', () => {
+    expect(exampleToken(undefined)).toBe(1);
+    expect(exampleToken({ type: 'integer' })).toBe(0);
+    expect(exampleToken({ type: 'integer', minimum: 3 })).toBe(3);
+    expect(exampleToken({ type: 'number', exclusiveMinimum: 0 })).toBe(1);
+    expect(exampleToken({ type: 'string' })).toBe('');
+    expect(exampleToken({ type: 'boolean' })).toBe(false);
+    expect(exampleToken({ const: 1 })).toBe(1);
+    expect(exampleToken({ enum: ['red', 'green'] })).toBe('red');
+    expect(exampleToken({ type: ['null', 'string'] })).toBe('');
+    expect(exampleToken({ anyOf: [{ type: 'boolean' }, { type: 'string' }] })).toBe(false);
+    expect(
+      exampleToken({
+        type: 'object',
+        required: ['id', 'tags'],
+        properties: { id: { type: 'string' }, tags: { type: 'array' }, extra: { type: 'number' } },
+      }),
+    ).toEqual({ id: '', tags: [] });
+  });
+
+  it('produces tokens that satisfy the schema where it matters', () => {
+    for (const [name, schema] of Object.entries(TYPE_TEMPLATES)) {
+      const compiled = compileType(schema);
+      if (!compiled.ok) throw new Error(name);
+      expect(compiled.check(exampleToken(schema)).ok, name).toBe(true);
+    }
+  });
+
+  it('simpleKind recognises primitive schemas', () => {
+    expect(simpleKind({ type: 'integer', minimum: 1 })).toBe('integer');
+    expect(simpleKind({ type: 'object' })).toBeUndefined();
+    expect(simpleKind(true)).toBeUndefined();
+    expect(simpleKind({ enum: [1] })).toBeUndefined();
   });
 });

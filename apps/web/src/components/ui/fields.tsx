@@ -39,7 +39,7 @@ function FieldShell({ label, htmlFor, hint, hintId, children }: FieldShellProps)
   );
 }
 
-const inputClass =
+export const inputClass =
   'h-8 w-full rounded-md border border-border-strong bg-surface px-2 text-sm text-fg placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-50';
 
 interface TextFieldProps {
@@ -134,6 +134,71 @@ export function TextField({
   return (
     <FieldShell label={label} htmlFor={id}>
       {field}
+    </FieldShell>
+  );
+}
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface SelectFieldProps {
+  label: string;
+  value: string;
+  options: readonly SelectOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  hint?: string;
+  hideLabel?: boolean;
+  'data-testid'?: string;
+}
+
+/** Native select in the style of the other fields. */
+export function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  hint,
+  hideLabel,
+  'data-testid': testId,
+}: SelectFieldProps) {
+  const id = useId();
+  const hintId = useId();
+  const select = (
+    <select
+      id={id}
+      value={value}
+      disabled={disabled}
+      aria-describedby={hint ? hintId : undefined}
+      data-testid={testId}
+      className={`${inputClass} pr-6`}
+      onChange={(event) => {
+        onChange(event.target.value);
+      }}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+  if (hideLabel) {
+    return (
+      <>
+        <label htmlFor={id} className="sr-only">
+          {label}
+        </label>
+        {select}
+      </>
+    );
+  }
+  return (
+    <FieldShell label={label} htmlFor={id} hint={hint} hintId={hintId}>
+      {select}
     </FieldShell>
   );
 }

@@ -15,8 +15,10 @@ import { en } from '../i18n/en';
 import { nameOf } from '../lib/flow-model';
 import { useEditorStore } from '../store/editor-store';
 import { Button, IconButton } from './ui/button';
-import { NumberField, TextField } from './ui/fields';
-import type { AlignMode, DistributeAxis } from '@pnm/core';
+import { NumberField, SelectField, TextField } from './ui/fields';
+import { TypesSection } from './types/types-section';
+import { useUiStore } from '../store/ui-store';
+import type { AlignMode, DistributeAxis, Profile } from '@pnm/core';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -60,10 +62,7 @@ function NetProperties() {
     <>
       <Section title={en.properties.net}>
         <TextField label={en.properties.name} value={net.name} onCommit={renameNet} />
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted">{en.properties.profile}</span>
-          <span className="text-sm">{en.properties.profilePt}</span>
-        </div>
+        <ProfileSwitch />
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted">{en.properties.counts}</span>
           <span className="text-sm" data-testid="net-counts">
@@ -71,10 +70,70 @@ function NetProperties() {
           </span>
         </div>
       </Section>
+      {net.profile === 'json-net' ? (
+        <Section title={en.types.title}>
+          <TypesSection />
+        </Section>
+      ) : null}
       <Section title={en.properties.nothingSelected}>
         <p className="m-0 text-sm text-muted">{en.properties.nothingSelectedHint}</p>
       </Section>
     </>
+  );
+}
+
+const PROFILES: Array<{ profile: Profile; label: string; testId: string }> = [
+  { profile: 'pt-net', label: en.properties.profilePt, testId: 'profile-pt' },
+  { profile: 'json-net', label: en.properties.profileJson, testId: 'profile-json' },
+];
+
+/** Switch between the two net classes. Switching is an undoable edit and loses no data. */
+function ProfileSwitch() {
+  const profile = useEditorStore((s) => s.net.profile);
+  const hasHigherFields = useEditorStore(
+    (s) =>
+      Object.keys(s.net.types).length > 0 ||
+      s.net.places.some((p) => p.type !== undefined) ||
+      s.net.transitions.some((t) => t.guard !== undefined) ||
+      s.net.arcs.some((a) => a.inscription !== undefined),
+  );
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const setProfile = useEditorStore((s) => s.setProfile);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted" id="profile-label">
+        {en.properties.profile}
+      </span>
+      <div
+        role="group"
+        aria-labelledby="profile-label"
+        className="flex rounded-md border border-border-strong p-0.5"
+      >
+        {PROFILES.map((item) => (
+          <button
+            key={item.profile}
+            type="button"
+            aria-pressed={profile === item.profile}
+            disabled={locked}
+            onClick={() => {
+              setProfile(item.profile);
+            }}
+            data-testid={item.testId}
+            className="inline-flex h-7 flex-1 items-center justify-center rounded px-2 text-xs font-medium text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:bg-accent aria-pressed:text-accent-contrast"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <p className="m-0 text-[11px] text-muted">
+        {profile === 'pt-net' ? en.properties.profilePtHint : en.properties.profileJsonHint}
+      </p>
+      {profile === 'pt-net' && hasHigherFields ? (
+        <p className="m-0 text-[11px] text-warn" data-testid="profile-ignored-note">
+          {en.properties.profileIgnoredNote}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -98,6 +157,7 @@ function PlaceProperties({ id }: { id: string }) {
   const place = useEditorStore((s) => s.net.places.find((p) => p.id === id));
   const tokens = useEditorStore((s) => s.net.marking[id]?.length ?? 0);
   const locked = useEditorStore((s) => s.mode === 'simulate');
+  const higher = useEditorStore((s) => s.net.profile === 'json-net');
   const updatePlace = useEditorStore((s) => s.updatePlace);
   const setTokens = useEditorStore((s) => s.setTokens);
   if (!place) return null;
@@ -112,6 +172,7 @@ function PlaceProperties({ id }: { id: string }) {
         disabled={locked}
         data-testid="prop-name"
       />
+      {higher ? <PlaceTypeField placeId={id} /> : null}
       <NumberField
         label={en.properties.initialTokens}
         value={tokens}
@@ -139,6 +200,46 @@ function PlaceProperties({ id }: { id: string }) {
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
       <DeleteButton />
     </Section>
+  );
+}
+
+function PlaceTypeField({ placeId }: { placeId: string }) {
+  const type = useEditorStore((s) => s.net.places.find((p) => p.id === placeId)?.type);
+  const types = useEditorStore((s) => s.net.types);
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const setPlaceType = useEditorStore((s) => s.setPlaceType);
+  const openTypeDialog = useUiStore((s) => s.openTypeDialog);
+  const known = type !== undefined && Object.hasOwn(types, type);
+  const options = [
+    { value: '', label: en.types.untyped },
+    ...Object.keys(types).map((name) => ({ value: name, label: name })),
+    ...(type !== undefined && !known ? [{ value: type, label: en.types.unknownType(type) }] : []),
+  ];
+  return (
+    <div className="flex flex-col gap-1" id="place-type-section">
+      <SelectField
+        label={en.types.placeType}
+        value={type ?? ''}
+        options={options}
+        disabled={locked}
+        onChange={(value) => {
+          setPlaceType(placeId, value === '' ? undefined : value);
+        }}
+        data-testid="prop-type"
+      />
+      {known ? (
+        <button
+          type="button"
+          onClick={() => {
+            openTypeDialog(type);
+          }}
+          className="self-start text-xs font-medium text-accent hover:underline"
+          data-testid="edit-type-link"
+        >
+          {en.types.edit}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

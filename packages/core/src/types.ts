@@ -1,7 +1,8 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import type { ErrorObject, ValidateFunction } from 'ajv';
-import type { Id, PetriNet, Token } from './model';
+import type { Id, JsonValue, PetriNet, Token } from './model';
+import { isToken } from './token';
 
 export type TokenCheck = { ok: true } | { ok: false; errors: string[] };
 
@@ -128,4 +129,75 @@ export function checkToken(net: PetriNet, placeId: Id, token: Token): TokenCheck
   const place = net.places.find((p) => p.id === placeId);
   const check = typeChecker(net, place?.type);
   return check ? check(token) : { ok: true };
+}
+
+export type SimpleKind = 'integer' | 'number' | 'string' | 'boolean';
+
+/** The primitive kind of a schema such as `{ "type": "integer" }`, for simple input fields. */
+export function simpleKind(schema: unknown): SimpleKind | undefined {
+  if (typeof schema !== 'object' || schema === null) return undefined;
+  const type = (schema as { type?: unknown }).type;
+  return type === 'integer' || type === 'number' || type === 'string' || type === 'boolean'
+    ? type
+    : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A plausible token for a schema, used as the starting value when a token is added.
+ * Follows `const`, `default`, `enum`, the primitive kinds and required object properties;
+ * everything else yields `1`, the token of a place/transition net.
+ */
+export function exampleToken(schema: unknown, depth = 0): Token {
+  if (!isRecord(schema) || depth > 4) return 1;
+  if ('const' in schema && isToken(schema.const)) return structuredClone(schema.const);
+  if ('default' in schema && isToken(schema.default)) return structuredClone(schema.default);
+  if (Array.isArray(schema.enum)) {
+    const first = schema.enum.find(isToken);
+    if (first !== undefined) return structuredClone(first);
+  }
+  for (const key of ['anyOf', 'oneOf', 'allOf'] as const) {
+    const alternatives = schema[key];
+    if (Array.isArray(alternatives) && alternatives.length > 0) {
+      return exampleToken(alternatives[0], depth + 1);
+    }
+  }
+  const declared = schema.type;
+  const type = Array.isArray(declared) ? declared.find((t) => t !== 'null') : declared;
+  switch (type) {
+    case 'integer':
+    case 'number': {
+      const minimum = typeof schema.minimum === 'number' ? Math.ceil(schema.minimum) : undefined;
+      const above =
+        typeof schema.exclusiveMinimum === 'number'
+          ? Math.floor(schema.exclusiveMinimum) + 1
+          : undefined;
+      // 0 is the natural start, unless a lower bound excludes it.
+      return Math.max(
+        0,
+        ...(minimum !== undefined && minimum > 0 ? [minimum] : []),
+        ...(above !== undefined && above > 0 ? [above] : []),
+      );
+    }
+    case 'string':
+      return '';
+    case 'boolean':
+      return false;
+    case 'array':
+      return [];
+    case 'object': {
+      const result: Record<string, JsonValue> = {};
+      const properties = isRecord(schema.properties) ? schema.properties : {};
+      const required = Array.isArray(schema.required) ? schema.required : [];
+      for (const name of required) {
+        if (typeof name === 'string') result[name] = exampleToken(properties[name], depth + 1);
+      }
+      return result;
+    }
+    default:
+      return 1;
+  }
 }

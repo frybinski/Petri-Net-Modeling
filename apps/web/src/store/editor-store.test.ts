@@ -340,3 +340,113 @@ describe('simulation', () => {
     expect(store().simHistory).toHaveLength(0);
   });
 });
+
+describe('higher nets: profile and types', () => {
+  it('switches the profile as an undoable edit', () => {
+    expect(store().net.profile).toBe('pt-net');
+    store().setProfile('json-net');
+    expect(store().net.profile).toBe('json-net');
+    expect(selectCanUndo(store())).toBe(true);
+    store().undo();
+    expect(store().net.profile).toBe('pt-net');
+    store().redo();
+    expect(store().net.profile).toBe('json-net');
+  });
+
+  it('keeps types, guards and inscriptions when going back to a P/T net', () => {
+    store().setProfile('json-net');
+    const { p1, t1 } = buildSmallNet();
+    expect(store().saveType(null, 'Count', { type: 'integer' })).toBe(true);
+    store().setPlaceType(p1, 'Count');
+    store().updateTransition(t1, { guard: '$n > 0' });
+    store().setProfile('pt-net');
+    expect(store().net.types).toHaveProperty('Count');
+    expect(store().net.places[0]?.type).toBe('Count');
+    expect(store().net.transitions[0]?.guard).toBe('$n > 0');
+    expect(store().diagnostics.map((d) => d.code)).toContain('INSCRIPTION_ON_PT_NET');
+  });
+
+  it('creates, renames, updates, duplicates and deletes types, each as one undo step', () => {
+    store().setProfile('json-net');
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    expect(store().saveType(null, 'Order', { type: 'object' })).toBe(true);
+    store().setPlaceType(p, 'Order');
+    const steps = store().past.length;
+
+    expect(store().saveType('Order', 'Purchase', { type: 'object', required: ['id'] })).toBe(true);
+    expect(store().past.length).toBe(steps + 1);
+    expect(Object.keys(store().net.types)).toEqual(['Purchase']);
+    expect(store().net.places[0]?.type).toBe('Purchase');
+    expect(store().net.types['Purchase']).toEqual({ type: 'object', required: ['id'] });
+
+    expect(store().duplicateType('Purchase')).toBe('PurchaseCopy');
+    expect(Object.keys(store().net.types)).toEqual(['Purchase', 'PurchaseCopy']);
+
+    store().removeType('Purchase');
+    expect(store().net.places[0]?.type).toBeUndefined();
+    store().undo();
+    expect(store().net.places[0]?.type).toBe('Purchase');
+  });
+
+  it('refuses invalid or duplicate type names with a message', () => {
+    expect(store().saveType(null, 'A', { type: 'string' })).toBe(true);
+    expect(store().saveType(null, 'A', { type: 'string' })).toBe(false);
+    expect(store().saveType(null, '1x', { type: 'string' })).toBe(false);
+    expect(useUiStore.getState().toasts.some((t) => t.kind === 'error')).toBe(true);
+  });
+
+  it('reports type diagnostics in the status list', () => {
+    store().setProfile('json-net');
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    store().saveType(null, 'Count', { type: 'integer' });
+    store().setPlaceType(p, 'Count');
+    store().addToken(p, 'not a number');
+    expect(store().diagnostics.map((d) => d.code)).toContain('TOKEN_TYPE_MISMATCH');
+    store().updateToken(p, 0, 7);
+    expect(store().diagnostics.map((d) => d.code)).not.toContain('TOKEN_TYPE_MISMATCH');
+  });
+});
+
+describe('higher nets: tokens', () => {
+  it('adds typed starting values, edits, duplicates and removes tokens', () => {
+    store().setProfile('json-net');
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    store().saveType(null, 'Order', {
+      type: 'object',
+      required: ['id'],
+      properties: { id: { type: 'string' } },
+    });
+    store().setPlaceType(p, 'Order');
+    store().addToken(p);
+    expect(store().net.marking[p]).toEqual([{ id: '' }]);
+    store().updateToken(p, 0, { id: 'A-1' });
+    store().duplicateToken(p, 0);
+    expect(store().net.marking[p]).toEqual([{ id: 'A-1' }, { id: 'A-1' }]);
+    store().removeToken(p, 0);
+    expect(store().net.marking[p]).toEqual([{ id: 'A-1' }]);
+    store().setPlaceTokens(p, []);
+    expect(store().net.marking[p]).toBeUndefined();
+  });
+
+  it('respects the capacity when adding tokens', () => {
+    store().setProfile('json-net');
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    store().updatePlace(p, { capacity: 1 });
+    store().addToken(p, 'a');
+    store().addToken(p, 'b');
+    expect(store().net.marking[p]).toEqual(['a']);
+    expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/capacity 1/);
+  });
+
+  it('adjusts token counts without losing the values of a JSON net', () => {
+    store().setProfile('json-net');
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    store().setPlaceTokens(p, ['x', 'y']);
+    store().select([p]);
+    store().adjustTokens(1);
+    expect(store().net.marking[p]).toHaveLength(3);
+    expect(store().net.marking[p]?.slice(0, 2)).toEqual(['x', 'y']);
+    store().adjustTokens(-2);
+    expect(store().net.marking[p]).toEqual(['x']);
+  });
+});
