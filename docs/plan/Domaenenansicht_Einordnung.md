@@ -2,8 +2,8 @@
 
 Stand: 2026-10-28 · Grundlage: Feature-Auftrag „Domänenansicht für die
 Petri-Netz-Simulation" (Fabian, 28.10.2026) und der Stand des Werkzeugs nach
-M2 (Version 0.2.0). Das im Auftrag erwähnte Mockup (HTML mit Paketzentrum,
-Smart Office, PNML-Import) lag bei der Prüfung nicht vor.
+M2 (Version 0.2.0). Das Mockup liegt unter `docs/mockups/domaenenansicht.html` und ist Referenz für
+das Verhalten und Inspiration für das Aussehen.
 
 ## 1. Kurzurteil
 
@@ -63,10 +63,6 @@ sich ohne Bruch einbauen, verlangt aber drei Anpassungen an unserem Plan:
   Für Ollama muss der Nutzer `OLLAMA_ORIGINS` setzen, für Cloud-Anbieter liegt
   der Schlüssel im Browser (localStorage, mit Hinweis). Für die
   Dissertation ist das ausreichend, für Dritte ein späterer Server (M6).
-- **Mockup fehlt.** Die drei Testnetze und zwei Beispielabbildungen aus dem
-  Mockup sind für D1 nötig (Prompt-Beispiele, Vergleich, Tests). Bitte das
-  HTML nachreichen. Bis dahin modelliert D1 die drei Netze nach der Tabelle im
-  Auftrag (12/9, 12/8, 8/7 Elemente) nach.
 - **Leistung.** 200 bewegte Marken bei 60× Geschwindigkeit sind in Canvas 2D
   unkritisch, die Ereignisschleife muss aber von der Zeichenschleife entkoppelt
   sein (Auftrag: „der Simulator wartet nie"). Web Worker für die Engine ist
@@ -75,6 +71,45 @@ sich ohne Bruch einbauen, verlangt aber drei Anpassungen an unserem Plan:
 - **Umfang.** D1 bis D4 sind zusammen etwa so groß wie M1 plus M2. Das ist
   der größte Block im Plan und sollte in vier Umsetzungsschritten mit je
   eigener Abnahme laufen.
+
+## 3a. Befund aus dem Mockup
+
+Das Mockup (eine HTML-Datei, Canvas 2D, ohne Abhängigkeiten) läuft fehlerfrei
+und zeigt alle drei Beispiele. Für die Umsetzung sind diese Punkte wichtig:
+
+- **Testnetze und Abbildungen** liegen als Konstanten vor (`PAKET_NET`,
+  `PAKET_MAP`, `OFFICE_NET`, `OFFICE_MAP`, `SAMPLE_PNML`) und werden in D1 in
+  unser Format (`.pn.json` mit `timing`, `priority`, `rate`, `domainView`)
+  übertragen. Das Vorläuferformat (`as`, `lane`, `turnstile`, `diverter`,
+  `exit`, `trucks`) wird dabei auf das Schema des Auftrags abgebildet.
+- **Dauern** stehen im Mockup als Intervall `dur: [min, max]` an der
+  Transition, **Gewichte** als `w` und die Zugangsrate als `defaultRate` am
+  Netz. Das bestätigt den Vorschlag, diese Felder optional an Transitionen zu
+  führen. Zusätzlich hat das Mockup eine `warmup`-Zeit je Netz, die als
+  Simulationseinstellung (nicht als Modellfeld) übernommen wird.
+- **Kapazitäten zur Laufzeit.** Das Mockup erlaubt, Ressourcenmarken während
+  der Simulation zu ändern („Änderungen wirken sofort"). Für das Netz ohne
+  Ressourcenstellen (Reklamation) bietet es stattdessen eine Kapazität
+  „gleichzeitige Bearbeitungen je Transition". Letzteres widerspricht der Regel
+  des Auftrags, dass Ressourcen nur über Marken wirken. Vorschlag: Die Engine
+  erlaubt Markierungsänderungen zur Laufzeit (Ressourcen nachlegen oder
+  entziehen, als eigenes `SimEvent`), aber keine Transitionskapazität. Wer
+  Nebenläufigkeit begrenzen will, modelliert eine Ressourcenstelle. Das ist
+  eine offene Entscheidung für M3 (siehe Abschnitt 5).
+- **Laufzeit aus Geometrie** (Weg zwischen Station und Puffer dauert so lange,
+  wie die Marke braucht) übernimmt der Prototyp nicht, wie im Auftrag
+  festgelegt. Wege mit Zeit sind Transitionen.
+- **Oberfläche.** Das Erscheinungsbild des Mockups ist Inspiration, nicht
+  Vorgabe. Die Darstellungsideen (Förderbänder, Plätze, Tore, Grundriss,
+  Engpassfarben, Kennzahlenkarten, Ereignisstrom, Netz darunter) werden
+  übernommen und im Designsystem des Werkzeugs weiterentwickelt. Spielraum
+  nach oben besteht bei Illustrationen (Sprites je Domäne, Schatten, Tiefe),
+  Zoom und Verschieben in der Ansicht, Themen je Domäne (Halle, Büro, Klinik,
+  Lager) und einer ruhigeren Typografie. Das Mockup ist bewusst einfach
+  gehalten und markiert die Untergrenze.
+- **Seitenleiste** mit Lage (Uhr, Fälle im System, Durchsatz, Durchlaufzeit),
+  Warteschlangen mit Engpass-Kennzeichnung, Kapazitäten und Ereignisstrom ist
+  eine gute Vorlage für den Inspektor in D2.
 
 ## 4. Angepasster Gesamtplan (Reihenfolge)
 
@@ -102,13 +137,12 @@ sich ohne Bruch einbauen, verlangt aber drei Anpassungen an unserem Plan:
 | Rolle überschreibbar | ja, `role` an der Stelle, berechnete Rolle als Vorgabe im Panel sichtbar |
 | Vorgabemodell | lokal über Ollama, Cloud als Option. Modellname und Basis-URL frei. |
 | Marken mit Daten anzeigen | nach D4 als Beschriftung oder Farbe über ein Feld `labelField` |
+| Ressourcen zur Laufzeit ändern, Transitionskapazität | Markierung zur Laufzeit änderbar (eigenes Ereignis), keine Transitionskapazität (Ressourcenstelle modellieren) |
 
 ## 6. Nächste Schritte
 
-1. Mockup-HTML nachreichen, damit D1 die Testnetze und Beispielabbildungen
-   übernehmen kann.
-2. Nach Abschluss des UI-Polish den Umsetzungsplan für M3 (erweitert) schreiben.
+1. Nach Abschluss des UI-Polish den Umsetzungsplan für M3 (erweitert) schreiben.
    Darin die Modellfelder, `@pnm/sim` und der Ereignisstrom so festlegen, dass
    D1 bis D4 direkt anschließen.
-3. `PLAN.md` entsprechend Abschnitt 4 fortschreiben (erledigt mit diesem
+2. `PLAN.md` entsprechend Abschnitt 4 fortschreiben (erledigt mit diesem
    Dokument).
