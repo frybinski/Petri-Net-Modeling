@@ -106,6 +106,8 @@ export const en = {
   simulation: {
     title: 'Simulation',
     reset: 'Reset',
+    enabled: 'Enabled transitions',
+    fire: 'Fire',
     stepRandom: 'Step (random)',
     exit: 'Back to editing',
     enabledCount: (n: number) => (n === 1 ? '1 enabled transition' : `${n} enabled transitions`),

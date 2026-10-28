@@ -26,8 +26,14 @@ function hasFiles(event: DragEvent): boolean {
 
 export function App() {
   const mode = useEditorStore((s) => s.mode);
+  const netName = useEditorStore((s) => s.net.name);
+  const dirty = useEditorStore(selectIsDirty);
   const [dropActive, setDropActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    document.title = `${dirty ? '• ' : ''}${netName.trim() || en.app.untitled} · ${en.app.name}`;
+  }, [netName, dirty]);
 
   useEffect(() => {
     registerFileInput(fileInputRef.current);

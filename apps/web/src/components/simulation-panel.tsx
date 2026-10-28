@@ -2,6 +2,7 @@ import { enabledTransitions } from '@pnm/core';
 import { Dices, Pencil, RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
 import { en } from '../i18n/en';
+import { nameOf } from '../lib/flow-model';
 import { useEditorStore } from '../store/editor-store';
 import { Button } from './ui/button';
 
@@ -13,10 +14,12 @@ export function SimulationPanel() {
   const reset = useEditorStore((s) => s.resetSimulation);
   const stop = useEditorStore((s) => s.stopSimulation);
 
-  const enabledCount = useMemo(
-    () => (marking ? enabledTransitions(net, marking).length : 0),
+  const enabledIds = useMemo(
+    () => (marking ? enabledTransitions(net, marking) : []),
     [net, marking],
   );
+  const enabledCount = enabledIds.length;
+  const fire = useEditorStore((s) => s.fireTransition);
   const markedPlaces = net.places.filter((p) => (marking?.[p.id]?.length ?? 0) > 0);
 
   return (
@@ -64,6 +67,30 @@ export function SimulationPanel() {
           {en.simulation.exit}
         </Button>
       </section>
+
+      {enabledCount > 0 ? (
+        <section className="flex flex-col gap-2 border-b border-border px-4 py-3">
+          <h3 className="m-0 text-[11px] font-semibold tracking-wide text-muted uppercase">
+            {en.simulation.enabled}
+          </h3>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="sim-enabled">
+            {enabledIds.map((id) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fire(id);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5 text-left text-sm hover:border-ok hover:bg-ok-soft"
+                >
+                  <span className="truncate">{nameOf(net, id)}</span>
+                  <span className="text-xs text-ok">{en.simulation.fire}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-2 border-b border-border px-4 py-3">
         <h3 className="m-0 text-[11px] font-semibold tracking-wide text-muted uppercase">
