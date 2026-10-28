@@ -53,7 +53,6 @@ export function BindingPicker({ transitionId }: { transitionId: string }) {
         </div>
         <ul
           ref={list}
-          role="listbox"
           aria-label={en.simulation.chooseBinding}
           onKeyDown={onKeyDown}
           className="m-0 max-h-60 list-none overflow-y-auto p-0"
@@ -61,7 +60,7 @@ export function BindingPicker({ transitionId }: { transitionId: string }) {
           {result.bindings.map((entry, index) => {
             const names = Object.keys(entry.binding);
             return (
-              <li key={index} role="option" aria-selected="false">
+              <li key={index}>
                 <button
                   type="button"
                   onClick={() => {
