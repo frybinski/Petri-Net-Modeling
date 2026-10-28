@@ -195,6 +195,15 @@ describe('applyEvents: a case leaves a station', () => {
     expect(sampleTokens(after, anim, 900)['k9']).toBeUndefined();
   });
 
+  it('shows a counter at once and without a pulse when nothing animates', () => {
+    const instant = applyEvents(EMPTY_ANIMATION, [completeEvent(8)], before, after, 500, {
+      ...options,
+      ...INSTANT,
+    });
+    expect(shownCount(instant, 'done', 1, 500)).toBe(1);
+    expect(isAnimating(instant, 500)).toBe(false);
+  });
+
   it('does not show a stale counter once the real number differs', () => {
     expect(shownCount(anim, 'done', 3, 600)).toBe(3);
   });

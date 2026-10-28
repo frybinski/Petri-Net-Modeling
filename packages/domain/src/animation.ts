@@ -578,7 +578,8 @@ export function applyEvents(
     counters[place.id] = {
       value: is,
       previous: shown,
-      changedAt: now + (arrivals.get(place.id) ?? 0),
+      // Without flashes (reduced motion, top speed) a number is simply right at once.
+      changedAt: flashMs === 0 ? Number.NEGATIVE_INFINITY : now + (arrivals.get(place.id) ?? 0),
     };
   }
 

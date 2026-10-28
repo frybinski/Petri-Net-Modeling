@@ -77,3 +77,25 @@ describe('split ratio and zoom', () => {
     expect(ui().domainZoom).toBe(0.54);
   });
 });
+
+describe('the controls and the followed case of the domain view', () => {
+  it('shows the controls by default and remembers hiding them', () => {
+    expect(ui().domainControls).toBe(true);
+    ui().toggleDomainControls();
+    expect(ui().domainControls).toBe(false);
+    expect(localStorage.getItem('pnm:domain-controls')).toBe('off');
+    ui().toggleDomainControls();
+    expect(ui().domainControls).toBe(true);
+    expect(localStorage.getItem('pnm:domain-controls')).toBe('on');
+  });
+
+  it('follows one case at a time and lets go', () => {
+    expect(ui().followedCase).toBeNull();
+    ui().followCase('P-0007');
+    expect(ui().followedCase).toBe('P-0007');
+    ui().followCase('P-0008');
+    expect(ui().followedCase).toBe('P-0008');
+    ui().followCase(null);
+    expect(ui().followedCase).toBeNull();
+  });
+});

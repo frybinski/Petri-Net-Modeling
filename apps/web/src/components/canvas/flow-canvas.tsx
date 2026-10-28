@@ -119,6 +119,8 @@ export function FlowCanvas() {
   const bottleneckCritical = useUiStore((s) => s.bottleneckCritical);
   const docVersion = useEditorStore((s) => s.docVersion);
   const theme = useUiStore((s) => s.theme);
+  // Behind the domain view the editor is hidden: its token flights would run for nobody.
+  const viewMode = useUiStore((s) => s.viewMode);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
   const showMinimap = useUiStore((s) => s.showMinimap);
   const scrollToZoom = useUiStore((s) => s.scrollToZoom);
@@ -727,7 +729,7 @@ export function FlowCanvas() {
           <ZoomControls />
           {showMinimap ? <AutoMiniMap /> : null}
           <ArcPreview cursor={cursor} hoverId={hoverId} />
-          {simulating ? <TokenFlights edges={edges} /> : null}
+          {simulating && viewMode !== 'domain' ? <TokenFlights edges={edges} /> : null}
         </ReactFlow>
         {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}
       </div>
