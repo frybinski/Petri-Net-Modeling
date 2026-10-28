@@ -1,5 +1,5 @@
 import { placeRoles, type Id, type Marking, type PetriNet, type PlaceRole } from '@pnm/core';
-import type { TokenMeta } from '@pnm/sim';
+import type { SimState, TokenMeta } from '@pnm/sim';
 import { dedupePoints, pathLength, pointAlong, rectCenter } from './geometry';
 import { tokenSpots } from './scene';
 import { arcKey, type DomainView, type Point, type PlaceView, type TransitionView } from './schema';
@@ -24,6 +24,25 @@ export interface LayoutState {
   /** Parallel to `marking`. Missing entries get an id made from the place and the position. */
   meta?: Readonly<Record<Id, readonly TokenMeta[]>>;
   running: readonly LayoutFiring[];
+}
+
+/** The layout input of a state of the simulation engine. */
+export function layoutStateOf(
+  state: Pick<SimState, 'time' | 'marking' | 'meta' | 'running'>,
+): LayoutState {
+  return {
+    time: state.time,
+    marking: state.marking,
+    meta: state.meta,
+    running: state.running.map((f) => ({
+      firingId: f.id,
+      transitionId: f.transitionId,
+      start: f.start,
+      end: f.end,
+      slot: f.slot,
+      caseIds: f.caseIds,
+    })),
+  };
 }
 
 /** The state of a net that is not simulated: the initial marking and nothing under way. */
@@ -67,6 +86,8 @@ export interface TokenLayout {
   /** The number of tokens on every place. */
   counts: Map<Id, number>;
   running: readonly LayoutFiring[];
+  /** The state the layout was made from. */
+  state: LayoutState;
 }
 
 /** Everything about a net and its view that layout and animation look up again and again. */
@@ -310,5 +331,5 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
     });
   }
 
-  return { time: state.time, tokens, overflow, counts, running: state.running };
+  return { time: state.time, tokens, overflow, counts, running: state.running, state };
 }
