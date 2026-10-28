@@ -50,6 +50,52 @@ const nodeTypes: NodeTypes = {
 };
 const edgeTypes: EdgeTypes = { arc: ArcEdge };
 
+/** True while every node lies inside the visible part of the canvas. */
+function useNetFitsView(): boolean {
+  return useStore((s) => {
+    if (s.nodeLookup.size === 0) return true;
+    const zoom = s.transform[2];
+    const left = -s.transform[0] / zoom;
+    const top = -s.transform[1] / zoom;
+    const right = left + s.width / zoom;
+    const bottom = top + s.height / zoom;
+    for (const node of s.nodeLookup.values()) {
+      const { x, y } = node.internals.positionAbsolute;
+      const width = node.measured.width ?? 0;
+      const height = node.measured.height ?? 0;
+      if (x < left || y < top || x + width > right || y + height > bottom) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Minimap in the lower right corner. It only appears while part of the net is out of view: when the
+ * whole net is visible it would only cover the canvas.
+ */
+function AutoMiniMap() {
+  const fits = useNetFitsView();
+  return (
+    <MiniMap
+      pannable
+      zoomable
+      position="bottom-right"
+      ariaLabel={en.canvas.minimap}
+      nodeColor="var(--border-strong)"
+      nodeStrokeColor="var(--node-stroke)"
+      style={{
+        width: 160,
+        height: 100,
+        marginBottom: 26,
+        opacity: fits ? 0 : 1,
+        // Hidden for the pointer and for assistive technology once the fade-out is over.
+        visibility: fits ? 'hidden' : 'visible',
+        transition: fits ? 'opacity 150ms, visibility 0s 150ms' : 'opacity 150ms',
+      }}
+    />
+  );
+}
+
 /** The pointer rests this long on a node before its hover card appears. */
 export const HOVER_CARD_DELAY = 300;
 
@@ -173,7 +219,12 @@ export function FlowCanvas() {
   const fit = useCallback(
     (duration = 250) => {
       userZoomed.current = false;
-      void fitView({ padding: 0.25, maxZoom: 1.25, duration });
+      // Room for labels above (guards) and below (names) the nodes.
+      void fitView({
+        padding: { top: '84px', right: '96px', bottom: '80px', left: '96px' },
+        maxZoom: 1.25,
+        duration,
+      });
     },
     [fitView],
   );
@@ -621,17 +672,7 @@ export function FlowCanvas() {
             color="var(--grid)"
           />
           <ZoomControls />
-          {showMinimap ? (
-            <MiniMap
-              pannable
-              zoomable
-              position="bottom-right"
-              ariaLabel={en.canvas.minimap}
-              nodeColor="var(--border-strong)"
-              nodeStrokeColor="var(--node-stroke)"
-              style={{ width: 160, height: 100, marginBottom: 26 }}
-            />
-          ) : null}
+          {showMinimap ? <AutoMiniMap /> : null}
           <ArcPreview cursor={cursor} hoverId={hoverId} />
         </ReactFlow>
         {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}

@@ -77,6 +77,92 @@ export interface ArcGeometryInput {
   points?: readonly Position[];
   /** There is also an arc in the opposite direction: both are pushed apart. */
   parallel?: boolean;
+  /** Other nodes that the arc should not run through (not the source and the target). */
+  obstacles?: readonly Endpoint[];
+}
+
+/** Space the curve keeps from other nodes, and the largest bulge it takes to get around them. */
+export const ARC_CLEARANCE = 10;
+export const MAX_AVOID_SAG = 64;
+
+/** Distance of a point from the outline of a node, negative inside the node. */
+export function distanceToNode(point: Position, node: Endpoint): number {
+  const dx = Math.abs(point.x - node.center.x);
+  const dy = Math.abs(point.y - node.center.y);
+  if (node.shape.kind === 'circle') return Math.hypot(dx, dy) - node.shape.radius;
+  const outsideX = dx - node.shape.width / 2;
+  const outsideY = dy - node.shape.height / 2;
+  if (outsideX <= 0 && outsideY <= 0) return Math.max(outsideX, outsideY);
+  return Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0));
+}
+
+/** The control point of a curve from `a` to `b` that bulges by `sag` to the right of the direction of travel. */
+function controlPoint(a: Position, b: Position, sag: number): Position {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  // A quadratic curve reaches half the control offset at its middle, hence the factor 2.
+  return {
+    x: (a.x + b.x) / 2 + (-dy / length) * sag * 2,
+    y: (a.y + b.y) / 2 + (dx / length) * sag * 2,
+  };
+}
+
+/** Smallest distance between the middle part of a curve and the given nodes. */
+function clearance(
+  a: Position,
+  control: Position,
+  b: Position,
+  obstacles: readonly Endpoint[],
+): number {
+  let smallest = Infinity;
+  for (let t = 0.15; t <= 0.851; t += 0.1) {
+    const u = 1 - t;
+    const point = {
+      x: u * u * a.x + 2 * u * t * control.x + t * t * b.x,
+      y: u * u * a.y + 2 * u * t * control.y + t * t * b.y,
+    };
+    for (const node of obstacles) smallest = Math.min(smallest, distanceToNode(point, node));
+  }
+  return smallest;
+}
+
+/**
+ * Chooses the signed bulge of an arc: the usual one (to the right of the direction of travel)
+ * when it keeps clear of other nodes, otherwise the other side, otherwise a larger bulge on
+ * either side, otherwise the candidate with the most room.
+ */
+export function avoidingSag(
+  a: Position,
+  b: Position,
+  base: number,
+  obstacles: readonly Endpoint[],
+): number {
+  const near = obstacles.filter(
+    (node) => distanceToNode(midpointOf(a, b), node) < Math.hypot(b.x - a.x, b.y - a.y) / 2 + 80,
+  );
+  if (near.length === 0) return base;
+  const start = Math.max(base, 8);
+  let best = base;
+  let bestRoom = clearance(a, controlPoint(a, b, base), b, near);
+  if (bestRoom >= ARC_CLEARANCE) return base;
+  for (const factor of [1, 1.7, 2.6, 3.8]) {
+    const magnitude = Math.min(start * factor, MAX_AVOID_SAG);
+    for (const sign of [1, -1]) {
+      const candidate = sign * magnitude;
+      const room = clearance(a, controlPoint(a, b, candidate), b, near);
+      if (room >= ARC_CLEARANCE) return candidate;
+      if (room > bestRoom) {
+        best = candidate;
+        bestRoom = room;
+      }
+    }
+  }
+  return best;
+}
+
+function midpointOf(a: Position, b: Position): Position {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
 /**
@@ -95,6 +181,7 @@ export function arcGeometry({
   target,
   points = [],
   parallel = false,
+  obstacles = [],
 }: ArcGeometryInput): ArcGeometry {
   if (points.length > 0) {
     const first = points[0] as Position;
@@ -113,9 +200,13 @@ export function arcGeometry({
   const dx = target.center.x - source.center.x;
   const dy = target.center.y - source.center.y;
   const length = Math.hypot(dx, dy) || 1;
-  const sag = arcSag(length, parallel);
+  let sag = arcSag(length, parallel);
+  // Arcs between neighbours are short and straight; longer ones go around nodes in their way.
+  if (!parallel && length > 90 && obstacles.length > 0) {
+    sag = avoidingSag(source.center, target.center, sag, obstacles);
+  }
 
-  if (sag < 0.5) {
+  if (Math.abs(sag) < 0.5) {
     const start = boundaryPoint(source.center, source.shape, target.center);
     const tip = boundaryPoint(target.center, target.shape, source.center);
     const angle = Math.atan2(tip.y - start.y, tip.x - start.x);
@@ -129,12 +220,8 @@ export function arcGeometry({
     };
   }
 
-  // Quadratic curve: the control point sits on the right hand side of the direction of travel.
-  // A quadratic curve reaches half the control offset at its middle, hence the factor 2.
-  const control: Position = {
-    x: (source.center.x + target.center.x) / 2 + (-dy / length) * sag * 2,
-    y: (source.center.y + target.center.y) / 2 + (dx / length) * sag * 2,
-  };
+  // Quadratic curve: by default the control point sits on the right hand side of the direction of travel.
+  const control = controlPoint(source.center, target.center, sag);
   const start = boundaryPoint(source.center, source.shape, control);
   const tip = boundaryPoint(target.center, target.shape, control);
   const angle = Math.atan2(tip.y - control.y, tip.x - control.x);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ARC_CLEARANCE,
   MAX_ARC_SAG,
+  MAX_AVOID_SAG,
   MIN_PARALLEL_SAG,
   PLACE_SHAPE,
   TRANSITION_SHAPE,
@@ -8,6 +10,7 @@ import {
   arcSag,
   arrowHeadPoints,
   boundaryPoint,
+  distanceToNode,
   shapeSize,
   snap,
   snapDragged,
@@ -144,5 +147,55 @@ describe('snapDragged', () => {
       y: 3,
     });
     expect(snapDragged([], 20)).toEqual([]);
+  });
+});
+
+describe('arcs around other nodes', () => {
+  const place = (x: number, y: number) => ({ center: { x, y }, shape: PLACE_SHAPE });
+  const transition = (x: number, y: number) => ({ center: { x, y }, shape: TRANSITION_SHAPE });
+
+  it('measures the distance from the outline of circles and rectangles', () => {
+    expect(distanceToNode({ x: 30, y: 0 }, place(0, 0))).toBeCloseTo(8);
+    expect(distanceToNode({ x: 0, y: 0 }, place(0, 0))).toBeCloseTo(-22);
+    expect(distanceToNode({ x: 30, y: 0 }, transition(0, 0))).toBeCloseTo(8);
+    expect(distanceToNode({ x: 30, y: 40 }, transition(0, 0))).toBeCloseTo(Math.hypot(8, 8));
+    expect(distanceToNode({ x: 0, y: 0 }, transition(0, 0))).toBeCloseTo(-22);
+  });
+
+  it('keeps the usual bulge when nothing is in the way', () => {
+    const a = place(0, 0);
+    const b = transition(300, 0);
+    const free = arcGeometry({ source: a, target: b });
+    const withFarNode = arcGeometry({ source: a, target: b, obstacles: [place(150, 400)] });
+    expect(withFarNode.path).toBe(free.path);
+  });
+
+  it('bends around a node that sits on the straight line', () => {
+    const a = place(0, 0);
+    const b = transition(320, 0);
+    const blocker = place(160, 0);
+    const g = arcGeometry({ source: a, target: b, obstacles: [blocker] });
+    expect(Math.abs(g.label.y)).toBeGreaterThan(22 + ARC_CLEARANCE - 4);
+    expect(Math.abs(g.label.y)).toBeLessThanOrEqual(MAX_AVOID_SAG + 6);
+  });
+
+  it('takes the other side when the usual one is blocked', () => {
+    const a = place(0, 0);
+    const b = transition(300, 0);
+    const usual = arcGeometry({ source: a, target: b });
+    expect(usual.label.y).toBeGreaterThan(0); // down when travelling right
+    // A node below the middle blocks that side, so the arc goes over the top.
+    const blocker = place(150, usual.label.y + 4);
+    const g = arcGeometry({ source: a, target: b, obstacles: [blocker] });
+    expect(g.label.y).toBeLessThan(0);
+  });
+
+  it('does not move the two arcs of an opposite pair onto the same side', () => {
+    const a = place(0, 0);
+    const b = transition(300, 0);
+    const blocker = place(150, 20);
+    const forward = arcGeometry({ source: a, target: b, parallel: true, obstacles: [blocker] });
+    const back = arcGeometry({ source: b, target: a, parallel: true, obstacles: [blocker] });
+    expect(Math.sign(forward.label.y)).toBe(-Math.sign(back.label.y));
   });
 });

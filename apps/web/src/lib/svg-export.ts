@@ -197,6 +197,9 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
       target,
       points: arc.points,
       parallel: direction.has(`${arc.target}>${arc.source}`),
+      obstacles: [...endpoints.entries()]
+        .filter(([id]) => id !== arc.source && id !== arc.target)
+        .map(([, endpoint]) => endpoint),
     });
     body.push(
       `<g><path d="${geometry.path}" fill="none" stroke="${palette.stroke}" stroke-width="1.6" stroke-linecap="round"/>` +

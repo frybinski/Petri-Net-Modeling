@@ -456,6 +456,13 @@ body {
   stroke-width: 3.4px;
 }
 
+/* The wide transparent stroke that makes arcs easy to hit needs a stroke colour: without one the
+   browser leaves it out when it works out how far the arc reaches, and clicks beside a curve that
+   bulges away from the pointer fall through. */
+.react-flow__edge-interaction {
+  stroke: var(--edge);
+}
+
 /* Semantic zoom: details fade out when the net is zoomed out. */
 .pn-detail,
 .pn-name,

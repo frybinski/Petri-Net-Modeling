@@ -52,8 +52,8 @@
       "name": "Forks",
       "type": "Fork",
       "position": {
-        "x": 320,
-        "y": 220
+        "x": 200,
+        "y": 200
       }
     }
   ],

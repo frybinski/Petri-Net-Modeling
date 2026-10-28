@@ -74,14 +74,32 @@ async function zoomTo(page: Page, target: number): Promise<void> {
   }
 }
 
+/** An empty net with a place and a transition connected by one arc. */
+async function drawOneArc(page: Page): Promise<void> {
+  await openApp(page);
+  const box = await canvasBox(page);
+  await page.keyboard.press('p');
+  await page.mouse.click(box.x + 300, box.y + 300);
+  await page.keyboard.press('t');
+  await page.mouse.click(box.x + 560, box.y + 300);
+  await page.getByTestId('tool-arc').click();
+  await page.getByTestId('place-shape').click();
+  await page.getByTestId('transition-shape').click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('v');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('arc')).toHaveCount(1);
+}
+
 test('an arc is hit 6 px beside its line', async ({ page }) => {
-  await openExample(page, 'producer-consumer');
-  const { x, y, nx, ny } = await pointOnArc(page, 2);
+  await drawOneArc(page);
+  const { x, y, nx, ny } = await pointOnArc(page, 0);
   await page.mouse.click(x + nx * 6, y + ny * 6);
   await expect(page.getByTestId('properties-panel')).toContainText('Arc');
   await expect(page.locator('.react-flow__edge.selected')).toHaveCount(1);
   // The same distance on the other side works too, and a click far away selects nothing.
   await page.keyboard.press('Escape');
+  await expect(page.locator('.react-flow__edge.selected')).toHaveCount(0);
   await page.mouse.click(x - nx * 6, y - ny * 6);
   await expect(page.locator('.react-flow__edge.selected')).toHaveCount(1);
   await page.keyboard.press('Escape');
@@ -90,7 +108,7 @@ test('an arc is hit 6 px beside its line', async ({ page }) => {
 });
 
 test('hovering an arc highlights it', async ({ page }) => {
-  await openExample(page, 'producer-consumer');
+  await drawOneArc(page);
   const { x, y } = await pointOnArc(page, 0);
   await page.mouse.move(x, y);
   await expect(page.locator('.pn-arc[data-hover="true"]')).toHaveCount(1);
