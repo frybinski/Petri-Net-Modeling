@@ -1,4 +1,6 @@
+import { deleteSelection } from './delete';
 import { chooseFile, exportSvg, saveNet } from './files';
+import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
 import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
@@ -26,6 +28,8 @@ export interface Command {
   inSimulation?: boolean;
   /** Left out of the shortcut help (variants of a command that is already listed). */
   hidden?: boolean;
+  /** The key only counts as this command when this returns true; otherwise it keeps its default. */
+  when?: (event: KeyboardEvent) => boolean;
 }
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -54,6 +58,36 @@ export function matchesKey(event: KeyboardEvent, spec: KeySpec): boolean {
 }
 
 const editor = () => useEditorStore.getState();
+
+/**
+ * True if the keyboard focus is on the page itself or on the canvas, as opposed to a button, menu
+ * or panel. Keys such as Tab and Enter keep their normal meaning for those.
+ */
+function focusOnCanvas(event: KeyboardEvent): boolean {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return true;
+  if (target === document.body) return true;
+  return (
+    target.closest('.react-flow') !== null &&
+    target.closest('.react-flow__panel, .react-flow__minimap') === null
+  );
+}
+
+/** The one place or transition that is selected, if exactly one element is selected. */
+function selectedNodeId(): string | null {
+  const { selection, net } = editor();
+  const id = selection.length === 1 ? selection[0] : undefined;
+  if (id === undefined) return null;
+  return net.places.some((p) => p.id === id) || net.transitions.some((t) => t.id === id)
+    ? id
+    : null;
+}
+
+function placeAtViewCenter(): void {
+  const state = editor();
+  const center = getViewApi()?.center() ?? { x: 0, y: 0 };
+  state.placeWithTool(freePosition(state.net, center, 80), { keepTool: false, rename: true });
+}
 
 function toolCommand(tool: Tool, label: string, key: string): Command {
   return {
@@ -155,9 +189,52 @@ export const commands: Command[] = [
     label: 'Delete selection',
     group: 'editing',
     keys: [{ key: 'Delete' }, { key: 'Backspace' }],
+    run: deleteSelection,
+  },
+  {
+    id: 'rename',
+    label: 'Rename the selected element',
+    group: 'editing',
+    keys: [{ key: 'F2' }],
     run: () => {
-      editor().removeSelected();
+      const { selection, startRename } = editor();
+      if (selection.length === 1 && selection[0] !== undefined) startRename(selection[0]);
     },
+  },
+  {
+    id: 'chain-next',
+    label: 'Add the next node and connect it',
+    group: 'editing',
+    keys: [{ key: 'Tab', shift: false }],
+    when: (event) => selectedNodeId() !== null && focusOnCanvas(event),
+    run: () => {
+      const id = selectedNodeId();
+      if (id !== null) editor().extendFrom(id, 1);
+    },
+  },
+  {
+    id: 'chain-previous',
+    label: 'Add the previous node and connect it',
+    group: 'editing',
+    keys: [{ key: 'Tab', shift: true }],
+    when: (event) => selectedNodeId() !== null && focusOnCanvas(event),
+    run: () => {
+      const id = selectedNodeId();
+      if (id !== null) editor().extendFrom(id, -1);
+    },
+  },
+  {
+    id: 'place-at-center',
+    label: 'Add the node of the active tool in the middle of the view',
+    group: 'editing',
+    keys: [{ key: 'Enter', shift: false }],
+    when: (event) => {
+      const { tool } = editor();
+      return (
+        (tool === 'place' || tool === 'transition' || tool === 'annotation') && focusOnCanvas(event)
+      );
+    },
+    run: placeAtViewCenter,
   },
   {
     id: 'select-all',
@@ -252,6 +329,16 @@ export const commands: Command[] = [
     inSimulation: true,
   },
   {
+    id: 'zoom-reset',
+    label: 'Reset zoom to 100 %',
+    group: 'view',
+    keys: [{ key: '0', mod: true }],
+    run: () => {
+      getViewApi()?.resetZoom();
+    },
+    inSimulation: true,
+  },
+  {
     id: 'grid',
     label: 'Toggle grid snapping',
     group: 'view',
@@ -310,7 +397,7 @@ export function handleShortcut(event: KeyboardEvent): boolean {
   const simulating = editor().mode === 'simulate';
   for (const command of commands) {
     if (simulating && !command.inSimulation) continue;
-    if (command.keys.some((spec) => matchesKey(event, spec))) {
+    if (command.keys.some((spec) => matchesKey(event, spec)) && (command.when?.(event) ?? true)) {
       event.preventDefault();
       command.run();
       return true;

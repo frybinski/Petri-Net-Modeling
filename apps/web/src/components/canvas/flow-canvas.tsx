@@ -23,6 +23,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { en } from '../../i18n/en';
+import { targetElement } from '../../lib/context-target';
 import { buildHoverCard } from '../../lib/hover-card';
 import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
 import { GRID_SIZE, snap, snapDragged } from '../../lib/geometry';
@@ -31,6 +32,7 @@ import { zoomLevel } from '../../lib/zoom';
 import { currentMarking, useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { AnnotationNode } from './annotation-node';
+import { CanvasContextMenu } from './canvas-menu';
 import { ArcEdge } from './arc-edge';
 import { ArcPreview } from './arc-preview';
 import { ConnectionLine } from './connection-line';
@@ -448,6 +450,24 @@ export function FlowCanvas() {
     store.startRename(node.id);
   }, []);
 
+  // Context menu: the handlers of React Flow say what was clicked, the menu itself is in
+  // `CanvasContextMenu`.
+  const onPaneContextMenu = useCallback(
+    (event: MouseEvent | ReactMouseEvent) => {
+      useUiStore.getState().setMenuTarget({ kind: 'pane', position: flowPosition(event) });
+    },
+    [flowPosition],
+  );
+  const onNodeContextMenu = useCallback((_event: ReactMouseEvent, node: FlowNode) => {
+    targetElement(node.id, 'node');
+  }, []);
+  const onEdgeContextMenu = useCallback((_event: ReactMouseEvent, edge: ArcFlowEdge) => {
+    targetElement(edge.id, 'edge');
+  }, []);
+  const onSelectionContextMenu = useCallback(() => {
+    useUiStore.getState().setMenuTarget({ kind: 'selection' });
+  }, []);
+
   const onConnect = useCallback((connection: Connection) => {
     useEditorStore.getState().addArc(connection.source, connection.target);
   }, []);
@@ -481,110 +501,122 @@ export function FlowCanvas() {
     : null;
 
   return (
-    <div
-      ref={wrapper}
-      className="relative h-full w-full"
-      data-testid="canvas"
-      data-tool={tool}
-      data-mode={mode}
-      data-zoom-level={level}
-      onPointerMove={onPointerMove}
-      onDoubleClick={onPaneDoubleClick}
-    >
-      <ReactFlow<FlowNode, ArcFlowEdge>
-        className={`tool-${tool} mode-${mode} zoom-${level}`}
-        aria-label={en.canvas.label}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        nodeOrigin={[0.5, 0.5]}
-        colorMode={theme}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeDragStop={onNodeDragStop}
-        onPaneClick={onPaneClick}
-        onNodeClick={onNodeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
-        onEdgeDoubleClick={onEdgeDoubleClick}
-        onMoveEnd={(event, viewport) => {
-          // A move that comes from the user (not from fit or zoom buttons) and changes the zoom.
-          if (event && Math.abs(viewport.zoom - lastZoom.current) > 0.0005) {
-            userZoomed.current = true;
-          }
-          lastZoom.current = viewport.zoom;
-        }}
-        onNodeMouseEnter={(event, node) => {
-          setHoverId(node.id);
-          if (node.type !== 'annotation' && event.buttons === 0) {
-            scheduleCard(event.currentTarget as HTMLElement, node.id);
-          }
-        }}
-        onNodeMouseMove={(event, node) => {
-          // Pills and markers on a node have tooltips of their own.
-          const over = (event.target as Element).closest('[data-no-hovercard]') !== null;
-          if (over) hideCard();
-          else if (
-            node.type !== 'annotation' &&
-            event.buttons === 0 &&
-            cardTimer.current === undefined &&
-            card?.id !== node.id
-          ) {
-            scheduleCard(event.currentTarget as HTMLElement, node.id);
-          }
-        }}
-        onNodeMouseLeave={() => {
-          setHoverId(null);
+    <CanvasContextMenu>
+      <div
+        ref={wrapper}
+        className="relative h-full w-full"
+        onContextMenuCapture={(event) => {
           hideCard();
+          // Anything that React Flow does not report (overlays, margins) counts as the empty canvas.
+          useUiStore.getState().setMenuTarget({ kind: 'pane', position: flowPosition(event) });
         }}
-        onNodeDragStart={hideCard}
-        onConnectStart={hideCard}
-        onMoveStart={hideCard}
-        onConnect={onConnect}
-        isValidConnection={isValidConnection}
-        connectionMode={ConnectionMode.Loose}
-        connectionRadius={36}
-        connectionLineComponent={ConnectionLine}
-        nodesDraggable={!simulating}
-        nodesConnectable={!simulating && tool === 'select'}
-        elementsSelectable={tool === 'select'}
-        selectionOnDrag={tool === 'select' && !simulating}
-        panOnDrag={tool === 'select' ? [1, 2] : [0, 1, 2]}
-        panActivationKeyCode="Space"
-        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
-        deleteKeyCode={null}
-        selectionKeyCode={null}
-        zoomOnDoubleClick={false}
-        panOnScroll={!scrollToZoom}
-        zoomOnScroll={scrollToZoom}
-        zoomActivationKeyCode={['Control', 'Meta']}
-        minZoom={0.15}
-        maxZoom={3}
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-        proOptions={{ hideAttribution: false }}
-        disableKeyboardA11y={false}
+        data-testid="canvas"
+        data-tool={tool}
+        data-mode={mode}
+        data-zoom-level={level}
+        onPointerMove={onPointerMove}
+        onDoubleClick={onPaneDoubleClick}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={GRID_SIZE}
-          size={snapToGrid ? 1.6 : 0}
-          color="var(--grid)"
-        />
-        <ZoomControls />
-        {showMinimap ? (
-          <MiniMap
-            pannable
-            zoomable
-            position="bottom-right"
-            ariaLabel={en.canvas.minimap}
-            nodeColor="var(--border-strong)"
-            nodeStrokeColor="var(--node-stroke)"
-            style={{ marginBottom: 26 }}
+        <ReactFlow<FlowNode, ArcFlowEdge>
+          className={`tool-${tool} mode-${mode} zoom-${level}`}
+          aria-label={en.canvas.label}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodeOrigin={[0.5, 0.5]}
+          colorMode={theme}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDragStop={onNodeDragStop}
+          onPaneClick={onPaneClick}
+          onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+          onEdgeDoubleClick={onEdgeDoubleClick}
+          onPaneContextMenu={onPaneContextMenu}
+          onNodeContextMenu={onNodeContextMenu}
+          onEdgeContextMenu={onEdgeContextMenu}
+          onSelectionContextMenu={onSelectionContextMenu}
+          onMoveEnd={(event, viewport) => {
+            // A move that comes from the user (not from fit or zoom buttons) and changes the zoom.
+            if (event && Math.abs(viewport.zoom - lastZoom.current) > 0.0005) {
+              userZoomed.current = true;
+            }
+            lastZoom.current = viewport.zoom;
+          }}
+          onNodeMouseEnter={(event, node) => {
+            setHoverId(node.id);
+            if (node.type !== 'annotation' && event.buttons === 0) {
+              scheduleCard(event.currentTarget as HTMLElement, node.id);
+            }
+          }}
+          onNodeMouseMove={(event, node) => {
+            // Pills and markers on a node have tooltips of their own.
+            const over = (event.target as Element).closest('[data-no-hovercard]') !== null;
+            if (over) hideCard();
+            else if (
+              node.type !== 'annotation' &&
+              event.buttons === 0 &&
+              cardTimer.current === undefined &&
+              card?.id !== node.id
+            ) {
+              scheduleCard(event.currentTarget as HTMLElement, node.id);
+            }
+          }}
+          onNodeMouseLeave={() => {
+            setHoverId(null);
+            hideCard();
+          }}
+          onNodeDragStart={hideCard}
+          onConnectStart={hideCard}
+          onMoveStart={hideCard}
+          onConnect={onConnect}
+          isValidConnection={isValidConnection}
+          connectionMode={ConnectionMode.Loose}
+          connectionRadius={36}
+          connectionLineComponent={ConnectionLine}
+          nodesDraggable={!simulating}
+          nodesConnectable={!simulating && tool === 'select'}
+          elementsSelectable={tool === 'select'}
+          selectionOnDrag={tool === 'select' && !simulating}
+          // The right button is for the context menu.
+          panOnDrag={tool === 'select' ? [1] : [0, 1]}
+          panActivationKeyCode="Space"
+          multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
+          deleteKeyCode={null}
+          selectionKeyCode={null}
+          zoomOnDoubleClick={false}
+          panOnScroll={!scrollToZoom}
+          zoomOnScroll={scrollToZoom}
+          zoomActivationKeyCode={['Control', 'Meta']}
+          minZoom={0.15}
+          maxZoom={3}
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+          proOptions={{ hideAttribution: false }}
+          disableKeyboardA11y={false}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={GRID_SIZE}
+            size={snapToGrid ? 1.6 : 0}
+            color="var(--grid)"
           />
-        ) : null}
-        <ArcPreview cursor={cursor} hoverId={hoverId} />
-      </ReactFlow>
-      {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}
-    </div>
+          <ZoomControls />
+          {showMinimap ? (
+            <MiniMap
+              pannable
+              zoomable
+              position="bottom-right"
+              ariaLabel={en.canvas.minimap}
+              nodeColor="var(--border-strong)"
+              nodeStrokeColor="var(--node-stroke)"
+              style={{ marginBottom: 26 }}
+            />
+          ) : null}
+          <ArcPreview cursor={cursor} hoverId={hoverId} />
+        </ReactFlow>
+        {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}
+      </div>
+    </CanvasContextMenu>
   );
 }

@@ -142,8 +142,8 @@ test('drag snaps to the grid and is one undo step; rename and copy/paste work', 
   expect((moved.x + 20 - (start.x + 20)) % 20).toBeCloseTo(0, 0);
   expect(moved.x).toBeGreaterThanOrEqual(start.x + 80);
   await page.keyboard.press('Control+z');
-  const back = await shape.boundingBox();
-  expect(back?.x).toBeCloseTo(start.x, 0);
+  // The undo shows up with the next render, which can take a moment on a busy machine.
+  await expect.poll(async () => (await shape.boundingBox())?.x).toBeCloseTo(start.x, 0);
   await page.keyboard.press('Control+Shift+z');
 
   // Rename in place; Escape cancels, Enter commits.

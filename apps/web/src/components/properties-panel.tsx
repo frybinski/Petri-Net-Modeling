@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { en } from '../i18n/en';
+import { deleteSelection } from '../lib/delete';
 import { nameOf } from '../lib/flow-model';
 import { useEditorStore } from '../store/editor-store';
-import { Button, IconButton } from './ui/button';
+import { IconButton } from './ui/button';
 import { NumberField, SelectField, TextField } from './ui/fields';
 import { TokensSection } from './tokens/tokens-section';
 import { TypesSection } from './types/types-section';
@@ -23,10 +24,24 @@ import { InscriptionField } from './inscription-field';
 import { arcDirection, boundVariables } from '../lib/inscriptions';
 import type { AlignMode, DistributeAxis, Profile } from '@pnm/core';
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  actions,
+  children,
+}: {
+  title: string;
+  /** Icon buttons right of the heading. */
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3 border-b border-border px-4 py-3 last:border-b-0">
-      <h3 className="m-0 text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</h3>
+      <div className="-my-1 flex min-h-7 items-center justify-between gap-2">
+        <h3 className="m-0 text-[11px] font-semibold tracking-wide text-muted uppercase">
+          {title}
+        </h3>
+        {actions}
+      </div>
       {children}
     </section>
   );
@@ -140,19 +155,21 @@ function ProfileSwitch() {
   );
 }
 
-function DeleteButton({ label = en.properties.delete }: { label?: string }) {
-  const removeSelected = useEditorStore((s) => s.removeSelected);
+/** Trash icon in the heading of a section. Deleting is also on the Del key and in the context menu. */
+function DeleteAction({ label = en.properties.deleteTip }: { label?: string }) {
   const locked = useEditorStore((s) => s.mode === 'simulate');
   return (
-    <Button
-      variant="danger"
-      icon={<Trash2 size={14} aria-hidden="true" />}
-      onClick={removeSelected}
+    <IconButton
+      label={label}
+      shortcut="Del"
+      size="sm"
       disabled={locked}
+      onClick={deleteSelection}
+      className="text-muted hover:bg-danger-soft hover:text-danger"
       data-testid="delete-selection"
     >
-      {label}
-    </Button>
+      <Trash2 size={15} aria-hidden="true" />
+    </IconButton>
   );
 }
 
@@ -165,7 +182,7 @@ function PlaceProperties({ id }: { id: string }) {
   const setTokens = useEditorStore((s) => s.setTokens);
   if (!place) return null;
   return (
-    <Section title={en.elements.place}>
+    <Section title={en.elements.place} actions={<DeleteAction />}>
       <TextField
         label={en.properties.name}
         value={place.name}
@@ -205,7 +222,6 @@ function PlaceProperties({ id }: { id: string }) {
         data-testid="prop-capacity"
       />
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
-      <DeleteButton />
     </Section>
   );
 }
@@ -259,7 +275,7 @@ function TransitionProperties({ id }: { id: string }) {
   const higher = net.profile === 'json-net';
   const bound = higher ? boundVariables(net, id) : [];
   return (
-    <Section title={en.elements.transition}>
+    <Section title={en.elements.transition} actions={<DeleteAction />}>
       <TextField
         label={en.properties.name}
         value={transition.name}
@@ -288,7 +304,6 @@ function TransitionProperties({ id }: { id: string }) {
         </>
       ) : null}
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
-      <DeleteButton />
     </Section>
   );
 }
@@ -329,7 +344,7 @@ function ArcProperties({ id }: { id: string }) {
   const transitionId = direction === 'input' ? arc.target : arc.source;
   const bound = direction === 'output' ? boundVariables(net, transitionId).map((v) => v.name) : [];
   return (
-    <Section title={en.elements.arc}>
+    <Section title={en.elements.arc} actions={<DeleteAction />}>
       <div className="flex items-center gap-2 text-sm">
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-muted">{en.properties.from}</div>
@@ -381,7 +396,6 @@ function ArcProperties({ id }: { id: string }) {
         data-testid="prop-weight"
       />
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
-      <DeleteButton />
     </Section>
   );
 }
@@ -392,7 +406,7 @@ function AnnotationProperties({ id }: { id: string }) {
   const updateAnnotation = useEditorStore((s) => s.updateAnnotation);
   if (!note) return null;
   return (
-    <Section title={en.elements.annotation}>
+    <Section title={en.elements.annotation} actions={<DeleteAction />}>
       <TextField
         label={en.properties.text}
         value={note.text}
@@ -403,7 +417,6 @@ function AnnotationProperties({ id }: { id: string }) {
         }}
         data-testid="prop-text"
       />
-      <DeleteButton />
     </Section>
   );
 }
@@ -437,7 +450,10 @@ function MultiProperties() {
   const distribute = useEditorStore((s) => s.distribute);
   return (
     <>
-      <Section title={en.properties.multi(count)}>
+      <Section
+        title={en.properties.multi(count)}
+        actions={<DeleteAction label={en.properties.deleteSelection} />}
+      >
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted">{en.properties.align}</span>
           <div className="flex flex-wrap gap-1" role="group" aria-label={en.properties.align}>
@@ -474,7 +490,6 @@ function MultiProperties() {
             ))}
           </div>
         </div>
-        <DeleteButton label={en.properties.deleteSelection} />
       </Section>
     </>
   );

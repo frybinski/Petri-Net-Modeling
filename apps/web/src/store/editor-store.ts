@@ -480,6 +480,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
               : null;
       if (id === null) return null;
       if (tool === 'annotation' || options.rename) get().startRename(id);
+      // The first name of a node that was just added belongs to the step that added it.
+      if (options.rename && tool !== 'annotation') set({ amendId: id });
       if (!toolSticky && !options.keepTool) set({ tool: 'select', toolSticky: false });
       return id;
     },

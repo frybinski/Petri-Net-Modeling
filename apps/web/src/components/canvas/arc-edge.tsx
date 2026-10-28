@@ -1,9 +1,9 @@
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import { memo, useState, type MouseEvent } from 'react';
+import { targetElement } from '../../lib/context-target';
 import { INSCRIPTION_LABEL_LENGTH } from '../../lib/flow-model';
 import { truncate } from '../../lib/inscriptions';
 import { useEditorStore } from '../../store/editor-store';
-import { useUiStore } from '../../store/ui-store';
 import { Tooltip } from '../ui/tooltip';
 import { ArcEditor } from './arc-editor';
 import type { ArcFlowEdge } from './types';
@@ -74,7 +74,7 @@ function ArcEdgeView({ data, selected, interactionWidth }: EdgeProps<ArcFlowEdge
               useEditorStore.getState().startRename(data.arcId);
             }}
             onContextMenu={() => {
-              useUiStore.getState().setMenuTarget({ kind: 'edge', id: data.arcId });
+              targetElement(data.arcId, 'edge');
             }}
           >
             {editing ? (
