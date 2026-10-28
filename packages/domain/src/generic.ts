@@ -94,15 +94,8 @@ export function edgePoint(rect: Rect, toward: Pt): Pt {
   return [c[0] + d[0] * s, c[1] + d[1] * s];
 }
 
-/**
- * Positions of all nodes scaled into the canvas. The aspect ratio is kept and the net is
- * centered; nodes without a usable position are placed on a grid in the order of the net.
- */
-function scaledPositions(
-  net: PetriNet,
-  width: number,
-  height: number,
-): { places: Map<Id, Pt>; transitions: Map<Id, Pt> } {
+/** The editor positions of all nodes; nodes without a usable position go on a grid. */
+function rawPositions(net: PetriNet): Map<Id, Pt> {
   const raw = new Map<Id, Pt>();
   let missing = 0;
   const nodes = [...net.places, ...net.transitions];
@@ -121,21 +114,62 @@ function scaledPositions(
       raw.set(node.id, [(index % columns) * 160, Math.floor(index / columns) * 160]);
     });
   }
+  return raw;
+}
+
+interface Extent {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function extentOf(raw: ReadonlyMap<Id, Pt>): Extent {
   const values = [...raw.values()];
-  const minX = Math.min(...values.map((p) => p[0]));
-  const maxX = Math.max(...values.map((p) => p[0]));
-  const minY = Math.min(...values.map((p) => p[1]));
-  const maxY = Math.max(...values.map((p) => p[1]));
-  const boxW = maxX - minX;
-  const boxH = maxY - minY;
-  const availW = Math.max(1, width - 2 * MARGIN);
-  const availH = Math.max(1, height - 2 * MARGIN);
+  if (values.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  return {
+    minX: Math.min(...values.map((p) => p[0])),
+    maxX: Math.max(...values.map((p) => p[0])),
+    minY: Math.min(...values.map((p) => p[1])),
+    maxY: Math.max(...values.map((p) => p[1])),
+  };
+}
+
+function scaleFor(extent: Extent, width: number, height: number): number {
+  const boxW = extent.maxX - extent.minX;
+  const boxH = extent.maxY - extent.minY;
   let scale = MAX_SCALE;
-  if (boxW > 0) scale = Math.min(scale, availW / boxW);
-  if (boxH > 0) scale = Math.min(scale, availH / boxH);
-  if (values.length === 0) scale = 1;
-  const offsetX = width / 2 - ((minX + maxX) / 2) * scale;
-  const offsetY = height / 2 - ((minY + maxY) / 2) * scale;
+  if (boxW > 0) scale = Math.min(scale, Math.max(1, width - 2 * MARGIN) / boxW);
+  if (boxH > 0) scale = Math.min(scale, Math.max(1, height - 2 * MARGIN) / boxH);
+  return scale;
+}
+
+/**
+ * The canvas for a net: 1200 px wide, as high as the net needs (between 420 and 900 px), so that
+ * wide nets do not float in a mostly empty sheet.
+ */
+function chooseCanvas(raw: ReadonlyMap<Id, Pt>): { width: number; height: number } {
+  const extent = extentOf(raw);
+  const width = DEFAULT_CANVAS.width;
+  const scale = scaleFor(extent, width, 100000);
+  const needed = (extent.maxY - extent.minY) * scale + 2 * MARGIN + 80;
+  return { width, height: Math.round(Math.min(900, Math.max(420, needed))) };
+}
+
+/**
+ * Positions of all nodes scaled into the canvas. The aspect ratio is kept and the net is
+ * centered.
+ */
+function scaledPositions(
+  net: PetriNet,
+  raw: ReadonlyMap<Id, Pt>,
+  width: number,
+  height: number,
+): { places: Map<Id, Pt>; transitions: Map<Id, Pt> } {
+  const extent = extentOf(raw);
+  const scale = raw.size === 0 ? 1 : scaleFor(extent, width, height);
+  const offsetX = width / 2 - ((extent.minX + extent.maxX) / 2) * scale;
+  const offsetY = height / 2 - ((extent.minY + extent.maxY) / 2) * scale;
   const place = (id: Id): Pt => {
     const p = raw.get(id) ?? [0, 0];
     return clampPoint([p[0] * scale + offsetX, p[1] * scale + offsetY], width, height);
@@ -334,7 +368,7 @@ interface GenericParts {
 }
 
 function genericParts(net: PetriNet, width: number, height: number): GenericParts {
-  const positions = scaledPositions(net, width, height);
+  const positions = scaledPositions(net, rawPositions(net), width, height);
   const roles = placeRoles(net);
   const placeIds = new Set(net.places.map((p) => p.id));
   const posOfTransition = (id: Id): Pt => positions.transitions.get(id) ?? [width / 2, height / 2];
@@ -467,7 +501,7 @@ function stamp(at: string): Provenance {
  * Deterministic. Passes the rules V1 to V5; V6 may warn about crowded nets.
  */
 export function genericDomainView(net: PetriNet, options: GenericOptions = {}): DomainView {
-  const { width, height } = options.canvas ?? DEFAULT_CANVAS;
+  const { width, height } = options.canvas ?? chooseCanvas(rawPositions(net));
   const at = options.at ?? new Date().toISOString();
   const { places, transitions } = genericParts(net, width, height);
   const arcs = arcPaths(net, places, transitions, () => true, width, height);
