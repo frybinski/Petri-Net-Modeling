@@ -16,6 +16,7 @@ import { nameOf } from '../lib/flow-model';
 import { useEditorStore } from '../store/editor-store';
 import { Button, IconButton } from './ui/button';
 import { NumberField, SelectField, TextField } from './ui/fields';
+import { TokensSection } from './tokens/tokens-section';
 import { TypesSection } from './types/types-section';
 import { useUiStore } from '../store/ui-store';
 import { InscriptionField } from './inscription-field';
@@ -175,17 +176,21 @@ function PlaceProperties({ id }: { id: string }) {
         data-testid="prop-name"
       />
       {higher ? <PlaceTypeField placeId={id} /> : null}
-      <NumberField
-        label={en.properties.initialTokens}
-        value={tokens}
-        min={0}
-        max={place.capacity}
-        disabled={locked}
-        onCommit={(n) => {
-          setTokens(id, n ?? 0);
-        }}
-        data-testid="prop-tokens"
-      />
+      {higher ? (
+        <TokensSection placeId={id} />
+      ) : (
+        <NumberField
+          label={en.properties.initialTokens}
+          value={tokens}
+          min={0}
+          max={place.capacity}
+          disabled={locked}
+          onCommit={(n) => {
+            setTokens(id, n ?? 0);
+          }}
+          data-testid="prop-tokens"
+        />
+      )}
       <NumberField
         label={en.properties.capacity}
         value={place.capacity}
