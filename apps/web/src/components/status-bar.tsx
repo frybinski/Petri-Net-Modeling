@@ -1,15 +1,33 @@
 import { useStore } from '@xyflow/react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon } from 'lucide-react';
 import { en } from '../i18n/en';
+import { commandById, shortcutText } from '../lib/commands';
 import { useDiagnostics } from '../lib/use-diagnostics';
-import { useEditorStore } from '../store/editor-store';
+import { getViewApi } from '../lib/view-api';
+import { useEditorStore, type Tool } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
+import { Tooltip } from './ui/tooltip';
+
+/** Hint for the active tool; nothing for the select tool unless an arc is being drawn. */
+function toolHint(tool: Tool, drawingArc: boolean, sticky: boolean): string | null {
+  if (tool === 'arc') return drawingArc ? en.tools.hintArcTarget : en.tools.hintArc;
+  if (tool === 'select') return null;
+  const hint = {
+    place: en.tools.hintPlace,
+    transition: en.tools.hintTransition,
+    annotation: en.tools.hintAnnotation,
+  }[tool];
+  return sticky ? `${hint} ${en.tools.hintSticky}` : hint;
+}
 
 export function StatusBar() {
   const diagnostics = useDiagnostics();
   const selectionCount = useEditorStore((s) => s.selection.length);
   const mode = useEditorStore((s) => s.mode);
+  const tool = useEditorStore((s) => s.tool);
+  const sticky = useEditorStore((s) => s.toolSticky);
+  const arcSource = useEditorStore((s) => s.arcSource);
   const zoom = useStore((s) => s.transform[2]);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
   const toggleSnap = useUiStore((s) => s.toggleSnap);
@@ -20,6 +38,7 @@ export function StatusBar() {
 
   const errors = diagnostics.filter((d) => d.severity === 'error').length;
   const warnings = diagnostics.length - errors;
+  const hint = toolHint(tool, arcSource !== null, sticky);
 
   return (
     <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-border bg-surface px-3 text-xs text-muted">
@@ -51,12 +70,31 @@ export function StatusBar() {
           {en.status.simulating}
         </span>
       ) : null}
+      {hint && mode === 'edit' ? (
+        <span className="truncate text-fg" data-testid="tool-hint" role="status">
+          {hint}
+        </span>
+      ) : null}
       {selectionCount > 0 ? <span>{en.status.selected(selectionCount)}</span> : null}
 
       <div className="ml-auto flex items-center gap-1">
-        <span className="tabular-nums" aria-label={en.status.zoom} data-testid="zoom-level">
-          {Math.round(zoom * 100)}%
-        </span>
+        <Tooltip
+          content={en.canvas.resetZoom}
+          shortcut={shortcutText(commandById('zoom-reset'))}
+          side="top"
+        >
+          <button
+            type="button"
+            aria-label={`${en.status.zoom} ${Math.round(zoom * 100)}%. ${en.canvas.resetZoom}`}
+            onClick={() => {
+              getViewApi()?.resetZoom();
+            }}
+            className="inline-flex h-6 min-w-12 items-center justify-center rounded px-1.5 tabular-nums transition-colors hover:bg-surface-hover"
+            data-testid="zoom-level"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        </Tooltip>
         <IconButton
           size="sm"
           label={en.status.grid}

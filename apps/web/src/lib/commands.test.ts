@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from '../store/editor-store';
+import { useUiStore } from '../store/ui-store';
+import { registerViewApi } from './view-api';
 import { commandById, commands, handleShortcut, matchesKey, shortcutText } from './commands';
 
 function key(init: KeyboardEventInit & { key: string }, target?: EventTarget): KeyboardEvent {
@@ -10,6 +12,7 @@ function key(init: KeyboardEventInit & { key: string }, target?: EventTarget): K
 
 beforeEach(() => {
   useEditorStore.getState().newNet();
+  useUiStore.setState({ confirm: null, toasts: [] });
 });
 
 describe('matchesKey', () => {
@@ -119,5 +122,86 @@ describe('handleShortcut', () => {
       x: 10,
       y: 10,
     });
+  });
+});
+
+describe('keyboard building', () => {
+  it('Tab adds and connects the next node when exactly one node is selected', () => {
+    const p = useEditorStore.getState().addPlace({ x: 0, y: 0 }) as string;
+    expect(handleShortcut(key({ key: 'Tab' }))).toBe(true);
+    const state = useEditorStore.getState();
+    expect(state.net.transitions).toHaveLength(1);
+    expect(state.net.arcs[0]).toMatchObject({ source: p });
+    expect(state.renamingId).toBe(state.net.transitions[0]?.id);
+  });
+
+  it('Shift+Tab adds the previous node', () => {
+    const t = useEditorStore.getState().addTransition({ x: 300, y: 0 }) as string;
+    expect(handleShortcut(key({ key: 'Tab', shiftKey: true }))).toBe(true);
+    expect(useEditorStore.getState().net.arcs[0]).toMatchObject({ target: t });
+  });
+
+  it('leaves Tab alone without a single selected node and on buttons', () => {
+    expect(handleShortcut(key({ key: 'Tab' }))).toBe(false);
+    useEditorStore.getState().addPlace({ x: 0, y: 0 });
+    const button = document.createElement('button');
+    document.body.append(button);
+    expect(handleShortcut(key({ key: 'Tab' }, button))).toBe(false);
+    button.remove();
+    useEditorStore.getState().selectAll();
+    useEditorStore.getState().addPlace({ x: 0, y: 100 });
+    useEditorStore.getState().select(useEditorStore.getState().net.places.map((p) => p.id));
+    expect(handleShortcut(key({ key: 'Tab' }))).toBe(false);
+  });
+
+  it('Enter adds a node of the active tool and starts renaming it', () => {
+    handleShortcut(key({ key: 'p' }));
+    expect(handleShortcut(key({ key: 'Enter' }))).toBe(true);
+    const state = useEditorStore.getState();
+    expect(state.net.places).toHaveLength(1);
+    expect(state.renamingId).toBe(state.net.places[0]?.id);
+    expect(state.tool).toBe('select');
+    // Without a tool, Enter keeps its normal meaning.
+    expect(handleShortcut(key({ key: 'Enter' }))).toBe(false);
+  });
+
+  it('F2 renames the selected element', () => {
+    const p = useEditorStore.getState().addPlace({ x: 0, y: 0 }) as string;
+    expect(handleShortcut(key({ key: 'F2' }))).toBe(true);
+    expect(useEditorStore.getState().renamingId).toBe(p);
+  });
+
+  it('Ctrl+0 resets the zoom, also while simulating', () => {
+    const resetZoom = vi.fn();
+    registerViewApi({
+      fitView: () => undefined,
+      focus: () => undefined,
+      reveal: () => undefined,
+      resetZoom,
+      center: () => null,
+    });
+    useEditorStore.getState().startSimulation();
+    expect(handleShortcut(key({ key: '0', ctrlKey: true }))).toBe(true);
+    expect(resetZoom).toHaveBeenCalledOnce();
+    registerViewApi(null);
+  });
+
+  it('asks before deleting five or more elements', () => {
+    for (let i = 0; i < 5; i++) useEditorStore.getState().addPlace({ x: i * 100, y: 0 });
+    useEditorStore.getState().selectAll();
+    handleShortcut(key({ key: 'Delete' }));
+    expect(useEditorStore.getState().net.places).toHaveLength(5);
+    const request = useUiStore.getState().confirm;
+    expect(request?.title).toMatch(/5 elements/);
+    request?.onConfirm();
+    expect(useEditorStore.getState().net.places).toHaveLength(0);
+  });
+
+  it('deletes up to four elements without asking', () => {
+    for (let i = 0; i < 4; i++) useEditorStore.getState().addPlace({ x: i * 100, y: 0 });
+    useEditorStore.getState().selectAll();
+    handleShortcut(key({ key: 'Delete' }));
+    expect(useEditorStore.getState().net.places).toHaveLength(0);
+    expect(useUiStore.getState().confirm).toBeNull();
   });
 });

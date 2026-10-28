@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -19,6 +21,7 @@
   --accent-hover: #4338ca;
   --accent-contrast: #ffffff;
   --accent-soft: #eef2ff;
+  --accent-ring: color-mix(in srgb, var(--accent) 24%, transparent);
   --ok: #16a34a;
   --ok-soft: #dcfce7;
   --danger: #dc2626;
@@ -32,6 +35,10 @@
   --note-bg: #fef9c3;
   --note-border: #eab308;
   --note-text: #422006;
+  --tip: #27272a;
+  --tip-fg: #fafafa;
+  --pill-bg: var(--canvas);
+  --node-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.08);
 }
 
@@ -64,13 +71,31 @@
   --note-bg: #3b3512;
   --note-border: #a16207;
   --note-text: #fef9c3;
+  --tip: #e4e4e7;
+  --tip-fg: #18181b;
+  --node-shadow: 0 2px 10px rgb(0 0 0 / 0.5);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.5);
 }
 
-@theme inline {
+/* Self-hosted variable fonts (bundled by Vite, nothing is loaded from external hosts). */
+@theme static {
   --font-sans:
-    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+    'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+}
+
+/* Type scale: panels use 13 px, labels 12 px, section headings 11 px small caps. */
+@theme {
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+}
+
+@theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -90,6 +115,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-tip: var(--tip);
+  --color-tip-fg: var(--tip-fg);
   --shadow-panel: var(--shadow);
 }
 
@@ -104,7 +131,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -132,7 +159,7 @@ body {
   --xy-edge-stroke-default: var(--edge);
   --xy-selection-background-color-default: color-mix(in srgb, var(--accent) 10%, transparent);
   --xy-selection-border-default: 1px dashed var(--accent);
-  --xy-minimap-background-color-default: var(--surface);
+  --xy-minimap-background-color-default: color-mix(in srgb, var(--surface) 82%, transparent);
   --xy-minimap-mask-background-color-default: color-mix(in srgb, var(--bg) 70%, transparent);
   --xy-controls-button-background-color-default: var(--surface);
   --xy-controls-button-background-color-hover-default: var(--surface-hover);
@@ -140,8 +167,6 @@ body {
   --xy-controls-button-color-hover-default: var(--text);
   --xy-controls-button-border-color-default: var(--border);
   --xy-controls-box-shadow-default: var(--shadow);
-  --xy-handle-background-color-default: var(--accent);
-  --xy-handle-border-color-default: var(--surface);
   --xy-attribution-background-color-default: transparent;
 }
 
@@ -176,30 +201,338 @@ body {
   outline-offset: 3px;
 }
 
-.react-flow__edge:focus-visible {
-  outline: none;
+/* Nodes. Their outline is drawn in SVG (exact stroke widths); state comes from data attributes. */
+.pn-node {
+  --pn-stroke: var(--node-stroke);
+  --pn-fill: var(--node-fill);
+  --pn-halo: transparent;
+  animation: pn-pop 120ms ease-out;
 }
 
-.react-flow__edge:focus-visible .arc-line {
-  stroke: var(--accent);
+.pn-node[data-selected='true'] {
+  --pn-stroke: var(--accent);
+  --pn-halo: var(--accent-ring);
+}
+
+.pn-node[data-enabled='true'] {
+  --pn-stroke: var(--ok);
+  --pn-fill: var(--ok-soft);
+}
+
+.pn-node[data-error='true'] {
+  --pn-stroke: var(--danger);
+}
+
+.pn-node[data-drop='valid'] {
+  --pn-stroke: var(--accent);
+  --pn-halo: var(--accent-ring);
+}
+
+.pn-node[data-drop='invalid'] {
+  --pn-stroke: var(--danger);
+  --pn-halo: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+
+.pn-body {
+  fill: var(--pn-fill);
+  stroke: var(--pn-stroke);
+  transition:
+    stroke 120ms,
+    fill 120ms;
+}
+
+.pn-halo {
+  fill: none;
+  stroke: var(--pn-halo);
   stroke-width: 3;
+  transition: stroke 120ms;
 }
 
-.react-flow__handle {
-  width: 10px;
-  height: 10px;
+.pn-hover-ring {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 40%, transparent);
   opacity: 0;
   transition: opacity 120ms;
 }
 
-.react-flow__node:hover .react-flow__handle,
-.react-flow.connecting .react-flow__handle {
+.pn-token {
+  fill: var(--token);
+}
+
+.pn-token-count {
+  fill: var(--token);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pn-svg {
+  transition: filter 120ms;
+}
+
+.react-flow__node:hover .pn-svg {
+  filter: drop-shadow(var(--node-shadow));
+}
+
+.pn-shape {
+  cursor: grab;
+}
+
+.react-flow.tool-arc .pn-shape,
+.react-flow.mode-simulate .pn-shape {
+  cursor: pointer;
+}
+
+.react-flow.mode-simulate .pn-shape[data-enabled='false'] {
+  cursor: default;
+}
+
+@keyframes pn-pop {
+  from {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pn-pulse {
+  0%,
+  100% {
+    stroke-width: 1.75px;
+  }
+
+  50% {
+    stroke-width: 2.9px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pn-node[data-enabled='true']:not([data-error='true']) .pn-body {
+    animation: pn-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+.pn-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pn-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 280px;
+  height: 18px;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9999px;
+  background: var(--pill-bg);
+  color: var(--text);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    border-color 120ms,
+    color 120ms,
+    background-color 120ms;
+}
+
+.pn-arc-label {
+  cursor: pointer;
+}
+
+.pn-arc-label[data-hover='true'] .pn-pill,
+.pn-arc-label[data-selected='true'] .pn-pill {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pn-arc-label[data-error='true'] .pn-pill {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.pn-chips {
+  z-index: 5;
+  animation: pn-fade 120ms ease-out;
+}
+
+.pn-node:not([data-selected='true']) .pn-chips {
+  display: none;
+}
+
+.pn-error-marker {
+  box-shadow: 0 0 0 2px var(--canvas);
+}
+
+/* Arcs. */
+.pn-arc {
+  --arc-color: var(--edge);
+  --arc-width: 1.6px;
+}
+
+/* Thin lines would vanish when zoomed far out: draw them a little heavier there. */
+.zoom-mid .pn-arc {
+  --arc-width: 2px;
+}
+
+.zoom-far .pn-arc {
+  --arc-width: 3px;
+}
+
+.pn-arc[data-hover='true'] {
+  --arc-color: var(--accent);
+  --arc-width: 2.5px;
+}
+
+.pn-arc[data-selected='true'] {
+  --arc-color: var(--accent);
+  --arc-width: 2.5px;
+}
+
+.pn-arc[data-error='true'] {
+  --arc-color: var(--danger);
+}
+
+.react-flow__edge .pn-arc path.arc-line {
+  stroke: var(--arc-color);
+  stroke-width: var(--arc-width);
+  stroke-linecap: round;
+  transition:
+    stroke 120ms,
+    stroke-width 120ms;
+}
+
+.pn-arc .arc-arrow {
+  fill: var(--arc-color);
+  stroke: var(--arc-color);
+  stroke-width: 0.6px;
+  stroke-linejoin: round;
+  transition:
+    fill 120ms,
+    stroke 120ms;
+}
+
+.react-flow__edge:focus-visible {
+  outline: none;
+}
+
+.react-flow__edge:focus-visible .pn-arc {
+  --arc-color: var(--accent);
+  --arc-width: 2.5px;
+}
+
+/* Names keep a readable size on screen while zoomed out (--zoom is set by the canvas), and a halo
+   in the canvas colour keeps them legible where an arc runs underneath. */
+.pn-name {
+  font-size: clamp(13px, calc(8.6px / var(--zoom, 1)), 17px);
+  text-shadow:
+    0 0 2px var(--canvas),
+    0 0 2px var(--canvas),
+    0 0 3px var(--canvas);
+}
+
+/* Arrow heads stay visible when zoomed out. */
+.zoom-mid .pn-arc .arc-arrow {
+  stroke-width: 1.6px;
+}
+
+.zoom-far .pn-arc .arc-arrow {
+  stroke-width: 3.6px;
+}
+
+/* The same for node outlines. */
+.zoom-mid .pn-body {
+  stroke-width: 2.2px;
+}
+
+.zoom-far .pn-body {
+  stroke-width: 3.4px;
+}
+
+/* The wide transparent stroke that makes arcs easy to hit needs a stroke colour: without one the
+   browser leaves it out when it works out how far the arc reaches, and clicks beside a curve that
+   bulges away from the pointer fall through. */
+.react-flow__edge-interaction {
+  stroke: var(--edge);
+}
+
+/* Semantic zoom: details fade out when the net is zoomed out. */
+.pn-detail,
+.pn-name,
+.pn-weight {
+  transition: opacity 120ms;
+}
+
+.zoom-mid .pn-detail,
+.zoom-far .pn-detail,
+.zoom-far .pn-name,
+.zoom-far .pn-weight {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Connection handles are invisible: a ring around the node starts an arc, the body ends it. */
+.react-flow__handle.pn-body-handle,
+.react-flow__handle.pn-ring-handle {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  transform: none;
+}
+
+.react-flow__handle.pn-body-handle {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pn-body-handle-place,
+.pn-ring-handle-place {
+  border-radius: 50%;
+}
+
+.pn-body-handle-transition {
+  border-radius: 3px;
+}
+
+.react-flow__handle.pn-ring-handle {
+  cursor: crosshair;
+}
+
+/* Alt turns the whole node into the ring, so that an arc can be dragged from anywhere. */
+.alt-held .react-flow__handle.pn-ring-handle {
+  clip-path: none !important;
+}
+
+.react-flow:not(.tool-select) .pn-hover-ring,
+.react-flow.mode-simulate .pn-hover-ring {
+  display: none;
+}
+
+.react-flow.tool-select:not(.mode-simulate) .react-flow__node:hover .pn-hover-ring {
   opacity: 1;
 }
 
-.react-flow.tool-arc .react-flow__handle {
-  opacity: 0 !important;
-  pointer-events: none;
+.alt-held .react-flow.tool-select:not(.mode-simulate) .react-flow__node:hover .pn-hover-ring {
+  opacity: 0.55;
 }
 
 .react-flow.tool-place .react-flow__pane,
@@ -214,6 +547,38 @@ body {
 
 .react-flow.mode-simulate .react-flow__handle {
   display: none;
+}
+
+/* Tooltips, hover card and toasts share a short fade-in. */
+@keyframes pn-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.pn-tip,
+.pn-hovercard {
+  animation: pn-fade 120ms ease-out;
+}
+
+.pn-toast {
+  animation: pn-toast-in 150ms ease-out;
+}
+
+@keyframes pn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Syntax colours of the code editors (JSONata and JSON). */

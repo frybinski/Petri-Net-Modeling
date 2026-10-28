@@ -9,32 +9,64 @@ import {
 } from '@pnm/core';
 import type { ArcFlowEdge, FlowNode } from '../components/canvas/types';
 import {
-  PARALLEL_ARC_BEND,
+  PLACE_SIZE,
   PLACE_SHAPE,
+  TRANSITION_HEIGHT,
+  TRANSITION_WIDTH,
   TRANSITION_SHAPE,
   arcGeometry,
   arrowHeadPoints,
+  obstaclesFor,
   type Endpoint,
 } from './geometry';
 
 export const ANNOTATION_WIDTH = 180;
 
-/** Up to this many tokens are written out below a place of a JSON net. */
-export const MAX_LABELLED_TOKENS = 3;
-/** Up to this many tokens are listed in the hover text. */
-export const MAX_TOOLTIP_TOKENS = 10;
-
-/** One token per line, for the hover text of a place. */
-export function tokenTooltip(tokens: readonly Token[]): string {
-  const lines = tokens.slice(0, MAX_TOOLTIP_TOKENS).map((t) => tokenLabel(t, 60));
-  if (tokens.length > MAX_TOOLTIP_TOKENS) {
-    lines.push(`… and ${tokens.length - MAX_TOOLTIP_TOKENS} more`);
-  }
-  return lines.join('\n');
-}
+/** Up to this many token chips are shown next to a selected place of a JSON net. */
+export const MAX_TOKEN_CHIPS = 5;
+/** Up to this many tokens are listed in the hover card. */
+export const MAX_CARD_TOKENS = 10;
 
 export const INSCRIPTION_LABEL_LENGTH = 24;
-export const GUARD_LABEL_LENGTH = 34;
+export const GUARD_LABEL_LENGTH = 28;
+
+export type ChipSide = 'right' | 'left' | 'below';
+
+/** Reach of the chip card from the node: to the sides, and downwards. */
+const CHIP_REACH_X = 220;
+const CHIP_REACH_Y = 160;
+/** Vertical band around the node that the chip card (and the guards next to it) occupies. */
+const CHIP_BAND = 90;
+
+/**
+ * Side of a place on which its token chips appear: to the right, unless another node is within
+ * about 220 px there (and roughly 90 px above or below); then to the left (not for the leftmost nodes of the net), then below. Without any free side it stays on the right.
+ */
+export function chipSide(net: PetriNet, id: Id, position: Position): ChipSide {
+  const others = [...net.places, ...net.transitions].filter((n) => n.id !== id);
+  const blocked = (inside: (dx: number, dy: number) => boolean): boolean =>
+    others.some((n) => inside(n.position.x - position.x, n.position.y - position.y));
+  if (!blocked((dx, dy) => dx > 0 && dx <= CHIP_REACH_X && Math.abs(dy) <= CHIP_BAND))
+    return 'right';
+  // The leftmost nodes of a net sit at the edge of the view, where a card to the left is cut off.
+  const atLeftEdge = others.every((n) => n.position.x >= position.x - 100);
+  if (
+    !atLeftEdge &&
+    !blocked((dx, dy) => dx < 0 && dx >= -CHIP_REACH_X && Math.abs(dy) <= CHIP_BAND)
+  ) {
+    return 'left';
+  }
+  if (!blocked((dx, dy) => dy > 0 && dy <= CHIP_REACH_Y && Math.abs(dx) <= 100)) return 'below';
+  return 'right';
+}
+
+/** The token chips of a place: the first few labels and how many more there are. */
+export function tokenChips(tokens: readonly Token[]): { chips: string[]; more: number } {
+  return {
+    chips: tokens.slice(0, MAX_TOKEN_CHIPS).map((t) => tokenLabel(t, 22)),
+    more: Math.max(0, tokens.length - MAX_TOKEN_CHIPS),
+  };
+}
 
 export interface FlowContext {
   net: PetriNet;
@@ -66,10 +98,22 @@ export function errorIds(diagnostics: readonly Diagnostic[]): Set<Id> {
   return ids;
 }
 
+/** First error message per element, for the warning marker on the canvas. */
+export function errorTexts(diagnostics: readonly Diagnostic[]): Map<Id, string> {
+  const texts = new Map<Id, string>();
+  for (const d of diagnostics) {
+    if (d.severity === 'error' && d.elementId !== undefined && !texts.has(d.elementId)) {
+      texts.set(d.elementId, d.message);
+    }
+  }
+  return texts;
+}
+
 /** Converts the model into React Flow nodes. Model positions are centers (annotations: top-left). */
 export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
   const selected = new Set(ctx.selection);
   const errors = errorIds(ctx.diagnostics);
+  const errorText = errorTexts(ctx.diagnostics);
   const positionOf = (id: Id, fallback: Position): Position => ctx.dragPositions?.[id] ?? fallback;
   const nodes: FlowNode[] = [];
 
@@ -94,10 +138,14 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
   for (const place of ctx.net.places) {
     const tokenList = ctx.marking[place.id] ?? [];
     const tokens = tokenList.length;
+    const { chips, more } = json ? tokenChips(tokenList) : { chips: [], more: 0 };
     nodes.push({
       id: place.id,
       type: 'place',
       position: positionOf(place.id, place.position),
+      // The size is known up front, so that a new node is visible (and can take the focus) at once.
+      initialWidth: PLACE_SIZE,
+      initialHeight: PLACE_SIZE,
       ...(ctx.measured.get(place.id) && { measured: ctx.measured.get(place.id) }),
       selected: selected.has(place.id),
       draggable: ctx.editable,
@@ -107,12 +155,13 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         name: place.name,
         tokens,
         json,
-        tokenLabels:
-          json && tokens <= MAX_LABELLED_TOKENS ? tokenList.map((t) => tokenLabel(t, 18)) : [],
-        ...(json && tokens > 0 && { tooltip: tokenTooltip(tokenList) }),
+        chips,
+        chipsMore: more,
+        chipSide: chipSide(ctx.net, place.id, positionOf(place.id, place.position)),
         ...(json && ctx.showInscriptions && place.type !== undefined && { typeName: place.type }),
         ...(place.capacity !== undefined && { capacity: place.capacity }),
         hasError: errors.has(place.id),
+        ...(errors.has(place.id) && { errorText: errorText.get(place.id) }),
         isArcSource: ctx.arcSource === place.id,
         renaming: ctx.renamingId === place.id,
       },
@@ -126,6 +175,8 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
       id: transition.id,
       type: 'transition',
       position: positionOf(transition.id, transition.position),
+      initialWidth: TRANSITION_WIDTH,
+      initialHeight: TRANSITION_HEIGHT,
       ...(ctx.measured.get(transition.id) && { measured: ctx.measured.get(transition.id) }),
       selected: selected.has(transition.id),
       draggable: ctx.editable,
@@ -139,6 +190,7 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         enabled,
         simulating: ctx.simulating,
         hasError: errors.has(transition.id),
+        ...(errors.has(transition.id) && { errorText: errorText.get(transition.id) }),
         isArcSource: ctx.arcSource === transition.id,
         renaming: ctx.renamingId === transition.id,
       },
@@ -162,6 +214,7 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       shape: TRANSITION_SHAPE,
     });
   }
+  const everyone = [...endpoints.entries()];
   const directions = new Set(ctx.net.arcs.map((a) => `${a.source}>${a.target}`));
   const json = ctx.net.profile === 'json-net';
 
@@ -175,7 +228,8 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       source,
       target,
       points: arc.points,
-      bend: hasReverse ? PARALLEL_ARC_BEND : 0,
+      parallel: hasReverse,
+      obstacles: obstaclesFor(everyone, [arc.source, arc.target], source.center, target.center),
     });
     edges.push({
       id: arc.id,
@@ -185,6 +239,7 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       selected: selected.has(arc.id),
       selectable: true,
       focusable: true,
+      interactionWidth: 20,
       ariaLabel: `Arc from ${nameOf(ctx.net, arc.source)} to ${nameOf(ctx.net, arc.target)}, ${
         json && (arc.inscription ?? '').trim() !== ''
           ? `inscription ${arc.inscription!.trim()}`

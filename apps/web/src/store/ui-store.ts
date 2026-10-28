@@ -1,3 +1,4 @@
+import type { Position } from '@pnm/core';
 import { create } from 'zustand';
 
 export type Theme = 'light' | 'dark';
@@ -21,6 +22,23 @@ export interface ConfirmRequest {
   onConfirm: () => void;
 }
 
+/** What was right-clicked on the canvas; the context menu shows the entries for it. */
+export interface MenuTarget {
+  kind: 'node' | 'edge' | 'pane' | 'selection';
+  id?: string;
+  /** Model coordinates of the click, for "Add place here". */
+  position?: Position;
+}
+
+/** How long a toast stays: results for 2.5 s, errors and toasts with an action for 6 s. */
+export const TOAST_MS = 2500;
+export const TOAST_LONG_MS = 6000;
+
+/** How long a toast stays before it disappears on its own. */
+export function toastDuration(toast: Pick<Toast, 'kind' | 'action' | 'details'>): number {
+  return toast.kind === 'error' || toast.action || toast.details?.length ? TOAST_LONG_MS : TOAST_MS;
+}
+
 /** The type editor dialog: `name` is the type being edited, `null` for a new type. */
 export interface TypeDialogRequest {
   name: string | null;
@@ -41,6 +59,10 @@ interface UiState {
   /** Grid is shown and nodes snap to it. */
   snapToGrid: boolean;
   showMinimap: boolean;
+  /** The mouse wheel zooms instead of panning (Ctrl or Cmd with the wheel always zooms). */
+  scrollToZoom: boolean;
+  menuTarget: MenuTarget | null;
+  /** At most one toast is visible; a new one replaces the old one. */
   toasts: Toast[];
   confirm: ConfirmRequest | null;
   shortcutsOpen: boolean;
@@ -49,6 +71,8 @@ interface UiState {
   toggleTheme(): void;
   toggleSnap(): void;
   toggleMinimap(): void;
+  toggleScrollToZoom(): void;
+  setMenuTarget(target: MenuTarget | null): void;
   toggleInscriptions(): void;
   openTypeDialog(name: string | null): void;
   closeTypeDialog(): void;
@@ -64,6 +88,7 @@ interface UiState {
 
 const GRID_KEY = 'pnm:snap';
 const MINIMAP_KEY = 'pnm:minimap';
+const SCROLL_ZOOM_KEY = 'pnm:scroll-zoom';
 const THEME_KEY = 'pnm:theme';
 const INSCRIPTIONS_KEY = 'pnm:inscriptions';
 
@@ -102,6 +127,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   snapToGrid: readStored(GRID_KEY) !== 'off',
   showMinimap: readStored(MINIMAP_KEY) !== 'off',
   showInscriptions: readStored(INSCRIPTIONS_KEY) !== 'off',
+  scrollToZoom: readStored(SCROLL_ZOOM_KEY) === 'on',
+  menuTarget: null,
   typeDialog: null,
   tokenDialog: null,
   toasts: [],
@@ -127,6 +154,14 @@ export const useUiStore = create<UiState>()((set, get) => ({
     writeStored(MINIMAP_KEY, next ? 'on' : 'off');
     set({ showMinimap: next });
   },
+  toggleScrollToZoom() {
+    const next = !get().scrollToZoom;
+    writeStored(SCROLL_ZOOM_KEY, next ? 'on' : 'off');
+    set({ scrollToZoom: next });
+  },
+  setMenuTarget(target) {
+    set({ menuTarget: target });
+  },
 
   toggleInscriptions() {
     const next = !get().showInscriptions;
@@ -149,7 +184,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   notify(kind, message, extra) {
     toastCounter += 1;
     const toast: Toast = { id: toastCounter, kind, message, ...extra };
-    set((s) => ({ toasts: [...s.toasts.slice(-3), toast] }));
+    set({ toasts: [toast] });
     return toast.id;
   },
   dismissToast(id) {

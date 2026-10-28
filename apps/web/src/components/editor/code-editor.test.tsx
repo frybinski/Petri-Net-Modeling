@@ -51,6 +51,31 @@ describe('CodeEditor', () => {
     expect(view.state.doc.toString()).toBe('a b');
   });
 
+  it('commits when the focus leaves, but not when a focused editor is only removed', () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <CodeEditor
+        value="x"
+        language="jsonata"
+        ariaLabel="Guard"
+        data-testid="ed"
+        autoFocus
+        onCommit={onCommit}
+      />,
+    );
+    const view = viewOf('ed');
+    act(() => {
+      view.contentDOM.blur();
+    });
+    expect(onCommit).toHaveBeenCalledWith('x');
+    onCommit.mockClear();
+    act(() => {
+      viewOf('ed').focus();
+    });
+    unmount();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it('can be made read-only', () => {
     render(<CodeEditor value="a" language="json" readOnly ariaLabel="Schema" data-testid="ed" />);
     expect(viewOf('ed').state.readOnly).toBe(true);

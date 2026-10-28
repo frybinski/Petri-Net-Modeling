@@ -41,7 +41,8 @@ describe('opening files', () => {
     await openFile(new File([serializeNet(net)], 'x.pn.json', { type: 'application/json' }));
     expect(useEditorStore.getState().net.name).toBe('From file');
     expect(useEditorStore.getState().fileName).toBe('x.pn.json');
-    expect(toasts().at(-1)?.kind).toBe('success');
+    // The result is visible on the canvas, so there is no toast.
+    expect(toasts()).toHaveLength(0);
   });
 
   it('shows a readable message for text that is not JSON', async () => {

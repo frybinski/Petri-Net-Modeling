@@ -13,7 +13,7 @@ import {
   selectIsDirty,
   useEditorStore,
 } from './editor-store';
-import { useUiStore } from './ui-store';
+import { toastDuration, useUiStore } from './ui-store';
 
 const store = () => useEditorStore.getState();
 
@@ -551,5 +551,146 @@ describe('simulation of JSON nets', () => {
     store().startSimulation();
     expect(store().computing).toBe(false);
     expect([...store().enabled.keys()]).toEqual([t1]);
+  });
+});
+
+describe('sticky tools', () => {
+  it('keeps a sticky tool active after placing until Escape or another tool', () => {
+    store().setTool('place', true);
+    expect(store().toolSticky).toBe(true);
+    store().placeWithTool({ x: 0, y: 0 }, { keepTool: false, rename: false });
+    store().placeWithTool({ x: 100, y: 0 }, { keepTool: false, rename: false });
+    expect(store().net.places).toHaveLength(2);
+    expect(store().tool).toBe('place');
+    store().setTool('select');
+    expect(store().tool).toBe('select');
+    expect(store().toolSticky).toBe(false);
+  });
+
+  it('falls back to Select after one element without stickiness, unless the tool is kept', () => {
+    store().setTool('transition');
+    store().placeWithTool({ x: 0, y: 0 }, { keepTool: true, rename: false });
+    expect(store().tool).toBe('transition');
+    store().placeWithTool({ x: 100, y: 0 }, { keepTool: false, rename: false });
+    expect(store().tool).toBe('select');
+    expect(store().net.transitions).toHaveLength(2);
+  });
+
+  it('toggles stickiness on double click and never for the select tool', () => {
+    store().toggleStickyTool('arc');
+    expect(store()).toMatchObject({ tool: 'arc', toolSticky: true });
+    store().toggleStickyTool('arc');
+    expect(store()).toMatchObject({ tool: 'arc', toolSticky: false });
+    store().toggleStickyTool('select');
+    expect(store().toolSticky).toBe(false);
+    store().setTool('place', true);
+    store().setTool('annotation');
+    expect(store().toolSticky).toBe(false);
+  });
+
+  it('is turned off by loading a document and while simulating', () => {
+    store().setTool('place', true);
+    store().newNet();
+    expect(store().toolSticky).toBe(false);
+    store().setTool('place', true);
+    store().startSimulation();
+    expect(store()).toMatchObject({ tool: 'select', toolSticky: false });
+  });
+});
+
+describe('extendFrom (Tab chain)', () => {
+  it('adds a transition to the right of a place, connects and selects it, and starts renaming', () => {
+    const p = store().addPlace({ x: 100, y: 100 }) as string;
+    const t = store().extendFrom(p, 1);
+    expect(t).not.toBeNull();
+    const created = store().net.transitions.find((x) => x.id === t);
+    expect(created?.position).toEqual({ x: 260, y: 100 });
+    expect(store().net.arcs).toHaveLength(1);
+    expect(store().net.arcs[0]).toMatchObject({ source: p, target: t });
+    expect(store().selection).toEqual([t]);
+    expect(store().renamingId).toBe(t);
+  });
+
+  it('adds the predecessor on the left with the arc pointing at the node', () => {
+    const t = store().addTransition({ x: 300, y: 100 }) as string;
+    const p = store().extendFrom(t, -1) as string;
+    expect(store().net.places.find((x) => x.id === p)?.position).toEqual({ x: 140, y: 100 });
+    expect(store().net.arcs[0]).toMatchObject({ source: p, target: t });
+  });
+
+  it('moves a second successor below the first', () => {
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    store().extendFrom(p, 1);
+    const second = store().extendFrom(p, 1) as string;
+    expect(store().net.transitions.find((x) => x.id === second)?.position).toEqual({
+      x: 160,
+      y: 80,
+    });
+  });
+
+  it('is one undo step per node, including its first name', () => {
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    const before = store().past.length;
+    const t = store().extendFrom(p, 1) as string;
+    store().renameElement(t, 'start');
+    expect(store().net.transitions.find((x) => x.id === t)?.name).toBe('start');
+    expect(store().past.length).toBe(before + 1);
+    store().startRename(null);
+    store().undo();
+    expect(store().net.transitions).toHaveLength(0);
+    expect(store().net.arcs).toHaveLength(0);
+    store().redo();
+    expect(store().net.transitions[0]?.name).toBe('start');
+  });
+
+  it('records a later rename as its own step', () => {
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    const t = store().extendFrom(p, 1) as string;
+    store().startRename(null);
+    const steps = store().past.length;
+    store().renameElement(t, 'later');
+    expect(store().past.length).toBe(steps + 1);
+  });
+
+  it('refuses notes, unknown ids and the simulation', () => {
+    const note = store().addAnnotation({ x: 0, y: 0 }) as string;
+    expect(store().extendFrom(note, 1)).toBeNull();
+    expect(store().extendFrom('nope', 1)).toBeNull();
+    const p = store().addPlace({ x: 0, y: 100 }) as string;
+    store().startSimulation();
+    expect(store().extendFrom(p, 1)).toBeNull();
+    expect(useUiStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('renames places, transitions and notes through renameElement', () => {
+    const p = store().addPlace({ x: 0, y: 0 }) as string;
+    const t = store().addTransition({ x: 100, y: 0 }) as string;
+    const n = store().addAnnotation({ x: 0, y: 100 }) as string;
+    store().renameElement(p, 'Buffer');
+    store().renameElement(t, 'go');
+    store().renameElement(n, 'a note');
+    expect(store().net.places[0]?.name).toBe('Buffer');
+    expect(store().net.transitions[0]?.name).toBe('go');
+    expect(store().net.annotations?.[0]?.text).toBe('a note');
+  });
+});
+
+describe('toasts', () => {
+  it('shows only the latest toast', () => {
+    const ui = useUiStore.getState();
+    ui.notify('success', 'Saved a.pn.json');
+    ui.notify('error', 'Something failed');
+    const toasts = useUiStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.message).toBe('Something failed');
+  });
+
+  it('lasts 2.5 s for results and 6 s for errors and toasts with an action', () => {
+    expect(toastDuration({ kind: 'success' })).toBe(2500);
+    expect(toastDuration({ kind: 'info' })).toBe(2500);
+    expect(toastDuration({ kind: 'error' })).toBe(6000);
+    expect(toastDuration({ kind: 'info', action: { label: 'Undo', run: () => undefined } })).toBe(
+      6000,
+    );
   });
 });

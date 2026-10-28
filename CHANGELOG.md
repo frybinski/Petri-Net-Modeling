@@ -2,6 +2,57 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.0: UI polish
+
+Interaction and appearance only: no change to the net semantics or the file format.
+
+### Added
+
+- Tooltips with keyboard shortcuts on the toolbar, header, zoom buttons and panel icons (400 ms delay).
+- Right-click context menus for places, transitions, notes, arcs, groups of elements and the empty canvas.
+- Inline editing: double click or `F2` renames places, transitions and notes in place; a double click on an arc edits
+  its weight (P/T nets) or its inscription (JSON nets) at the label.
+- Sticky tools: double click a tool to keep it active until `Esc` or `V`; a dot marks it.
+- Drawing arcs by dragging from an invisible ring around a node; `Alt` + drag works from anywhere on the node. Targets
+  that cannot be connected are outlined in red.
+- Keyboard building: `Tab` adds the next node of the other kind, connects it and starts naming it, `Shift+Tab` adds the
+  previous node, `Enter` adds a node of the active tool in the middle of the view. A net can be built with the
+  keyboard alone, one undo step per node.
+- Hover card on nodes (300 ms): name, type, up to ten tokens, guard, bound variables and, while simulating, the
+  number of bindings.
+- Semantic zoom: below 70 % types, token chips, inscriptions, guards and capacities fade out, below 40 % the names
+  too; names keep a readable size on screen.
+- Zoom button in the status bar (click or `Ctrl+0` resets to 100 %), double click on the empty canvas fits the view,
+  the net is refitted when the window changes size until the user zooms, wheel pans and `Ctrl`/`Cmd` + wheel or pinch
+  zooms (View > Scroll to zoom switches the wheel to zoom).
+- Confirmation before deleting five or more elements; the delete button is an icon in the panel heading.
+- Documentation: ADR 0006 (Radix primitives, self-hosted fonts), mouse gestures in the shortcut dialog.
+
+### Changed
+
+- Typography: Inter Variable for the interface and JetBrains Mono Variable for expressions and tokens, both bundled
+  (nothing is loaded from external hosts). The panel base size is 13 px.
+- Nodes are 44 px circles and 44 x 64 px transitions drawn with a 1.75 px outline, a soft selection halo, a hover
+  shadow, a pulsing outline for enabled transitions and a warning sign for errors. New nodes pop in.
+- Tokens are up to six dots in a fixed arrangement, JSON nets show a count in the circle and the type as a badge;
+  token chips appear next to a selected place and in the hover card instead of permanently under the node.
+- Arcs are gently curved (more for long arcs), go around nodes that are in their way, opposite arcs separate on
+  their own, arrow heads end exactly on the node outline, weights and inscriptions sit in pills on the arc, guards in
+  a pill above the transition. The hit area of an arc is 20 px wide and arcs highlight on hover. The SVG export follows
+  the new geometry.
+- The minimap (smaller and translucent) only appears while part of the net is out of view, so it no longer covers
+  nodes after "fit view". Fit view keeps pixel margins for guards and names.
+- The tool hint moved from a banner over the canvas into the status bar. Toasts appear in the lower right, last
+  2.5 s (errors 6 s), replace each other and are only shown for results that would otherwise stay invisible.
+- Node dragging snaps the node center to the grid (the top-left corner before), the right mouse button no longer pans.
+- Examples: positions of the order processing and the JSON dining philosophers nets were adjusted so that arcs do not
+  run through names or inscriptions.
+
+### Fixed
+
+- Escape on a focused node selected it again.
+- Destroying a focused code editor counted as leaving the field.
+
 ## 0.2.0: M2, higher nets
 
 ### Added

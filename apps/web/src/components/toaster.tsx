@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
-import { useEffect } from 'react';
-import { useUiStore, type Toast } from '../store/ui-store';
+import { useEffect, useRef, useState } from 'react';
+import { en } from '../i18n/en';
+import { toastDuration, useUiStore, type Toast } from '../store/ui-store';
 import { Button, IconButton } from './ui/button';
 
 const icons = {
@@ -11,23 +12,39 @@ const icons = {
 
 function ToastItem({ toast }: { toast: Toast }) {
   const dismiss = useUiStore((s) => s.dismissToast);
+  const [paused, setPaused] = useState(false);
+  const remaining = useRef(toastDuration(toast));
+
+  // The timer stops while the pointer or the keyboard focus is on the toast.
   useEffect(() => {
-    const timer = setTimeout(
-      () => {
-        dismiss(toast.id);
-      },
-      toast.kind === 'error' ? 9000 : 5000,
-    );
+    if (paused) return;
+    const started = Date.now();
+    const timer = setTimeout(() => {
+      dismiss(toast.id);
+    }, remaining.current);
     return () => {
       clearTimeout(timer);
+      remaining.current = Math.max(600, remaining.current - (Date.now() - started));
     };
-  }, [toast.id, toast.kind, dismiss]);
+  }, [toast.id, paused, dismiss]);
 
   return (
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
       data-testid={`toast-${toast.kind}`}
-      className="pointer-events-auto flex w-80 max-w-[calc(100vw-2rem)] items-start gap-2.5 rounded-lg border border-border bg-surface p-3 text-sm shadow-panel"
+      onMouseEnter={() => {
+        setPaused(true);
+      }}
+      onMouseLeave={() => {
+        setPaused(false);
+      }}
+      onFocus={() => {
+        setPaused(true);
+      }}
+      onBlur={() => {
+        setPaused(false);
+      }}
+      className="pn-toast pointer-events-auto flex w-80 max-w-[calc(100vw-2rem)] items-start gap-2.5 rounded-lg border border-border bg-surface p-3 text-sm shadow-panel"
     >
       <span className="mt-0.5 shrink-0">{icons[toast.kind]}</span>
       <div className="min-w-0 flex-1">
@@ -56,7 +73,7 @@ function ToastItem({ toast }: { toast: Toast }) {
         ) : null}
       </div>
       <IconButton
-        label="Dismiss"
+        label={en.toast.dismiss}
         size="sm"
         onClick={() => {
           dismiss(toast.id);
@@ -68,10 +85,11 @@ function ToastItem({ toast }: { toast: Toast }) {
   );
 }
 
+/** Shows the latest toast in the lower right corner, above the status bar. */
 export function Toaster() {
   const toasts = useUiStore((s) => s.toasts);
   return (
-    <div className="pointer-events-none fixed bottom-12 left-1/2 z-[60] flex -translate-x-1/2 flex-col items-center gap-2">
+    <div className="pointer-events-none fixed right-4 bottom-12 z-[60] flex flex-col items-end gap-2">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

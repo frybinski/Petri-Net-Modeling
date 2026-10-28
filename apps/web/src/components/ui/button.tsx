@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
+import { Tooltip } from './tooltip';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md';
@@ -46,10 +47,14 @@ export function Button({
 }
 
 interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> {
-  /** Accessible name; also used as tooltip. */
+  /** Accessible name; also the text of the tooltip. */
   label: string;
   /** Keyboard shortcut shown in the tooltip. */
-  shortcut?: string;
+  shortcut?: string | undefined;
+  /** Replaces the label as tooltip text. */
+  tooltip?: string;
+  /** Side of the button on which the tooltip appears (default: below). */
+  side?: 'top' | 'right' | 'bottom' | 'left';
   pressed?: boolean;
   size?: Size;
   ref?: Ref<HTMLButtonElement>;
@@ -58,6 +63,8 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
 export function IconButton({
   label,
   shortcut,
+  tooltip,
+  side,
   pressed,
   size = 'md',
   className = '',
@@ -74,16 +81,17 @@ export function IconButton({
         ? 'bg-accent-soft text-accent'
         : 'text-fg hover:bg-surface-hover';
   return (
-    <button
-      ref={ref}
-      type={type}
-      aria-label={label}
-      aria-pressed={pressed}
-      title={shortcut ? `${label} (${shortcut})` : label}
-      className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${dimension} ${state} ${className}`}
-      {...rest}
-    >
-      {children}
-    </button>
+    <Tooltip content={tooltip ?? label} shortcut={shortcut} {...(side ? { side } : {})}>
+      <button
+        ref={ref}
+        type={type}
+        aria-label={label}
+        aria-pressed={pressed}
+        className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${dimension} ${state} ${className}`}
+        {...rest}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }

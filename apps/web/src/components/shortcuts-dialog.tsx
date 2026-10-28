@@ -7,6 +7,22 @@ import { Kbd } from './ui/kbd';
 
 const GROUPS: CommandGroup[] = ['tools', 'editing', 'view'];
 
+const MOUSE = (
+  <section className="mt-6" data-testid="mouse-help">
+    <h3 className="mt-0 mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">
+      {en.shortcuts.mouseTitle}
+    </h3>
+    <dl className="m-0 flex flex-col gap-2 text-sm ">
+      {en.shortcuts.mouse.map(([action, effect]) => (
+        <div key={action} className="flex flex-col">
+          <dt className="font-medium">{action}</dt>
+          <dd className="m-0 text-xs text-muted">{effect}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+);
+
 export function ShortcutsDialog() {
   const open = useUiStore((s) => s.shortcutsOpen);
   const setOpen = useUiStore((s) => s.setShortcutsOpen);
@@ -43,10 +59,10 @@ export function ShortcutsDialog() {
                   </div>
                 ))}
             </dl>
+            {group === 'tools' ? MOUSE : null}
           </section>
         ))}
       </div>
-      <p className="mt-4 mb-0 text-xs text-muted">{en.shortcuts.footnote}</p>
     </Dialog>
   );
 }

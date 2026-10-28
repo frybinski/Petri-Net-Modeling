@@ -40,17 +40,18 @@ describe('netToSvg', () => {
 
   it('draws every element', () => {
     expect((svg.match(/<circle /g) ?? []).length).toBe(2 + 2); // two places, two token dots
-    expect((svg.match(/<rect /g) ?? []).length).toBe(1 + 1 + 1); // background, transition, note
+    expect((svg.match(/<rect /g) ?? []).length).toBe(1 + 1 + 1 + 1); // background, transition, note, weight pill
     expect((svg.match(/<polygon /g) ?? []).length).toBe(3); // arrow heads
     expect(svg).toContain('k=4');
-    expect(svg).toContain('>3</text>'); // weight label
+    expect(svg).toContain('>3</text>'); // weight label in a pill
   });
 
   it('draws opposite arcs as curves', () => {
-    expect((svg.match(/ Q/g) ?? []).length).toBe(2);
+    // The two opposite arcs and the long arc to the right are curved.
+    expect((svg.match(/ Q/g) ?? []).length).toBe(3);
   });
 
-  it('uses a number for more than five tokens and the given marking', () => {
+  it('uses a number for more than six tokens and the given marking', () => {
     const out = netToSvg(sampleNet(), { marking: { p1: Array.from({ length: 7 }, () => 1) } });
     expect(out).toContain('>7</text>');
   });
@@ -101,14 +102,14 @@ describe('netToSvg for JSON nets', () => {
     expect(svg).toContain('[ $o.amount &gt; 0 ]');
     expect(svg).toContain('{ &quot;id&quot;: $o.id }');
     expect(svg).toContain('>$o<');
-    expect(svg).toContain('>Order<');
+    expect(svg).toContain('>ORDER</text>'); // type badge
     expect(svg).toContain('{id:&quot;A-1&quot;}');
   });
 
   it('can leave the inscriptions out', () => {
     const svg = netToSvg(json(), { inscriptions: false });
     expect(svg).not.toContain('$o.amount');
-    expect(svg).not.toContain('Order<');
+    expect(svg).not.toContain('ORDER');
   });
 
   it('is well-formed XML', () => {

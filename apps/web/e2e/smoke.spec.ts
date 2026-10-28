@@ -38,9 +38,7 @@ test('draw, save, open an example and simulate', async ({ page }) => {
   await page.getByTestId('place-shape').click();
   await page.getByTestId('prop-tokens').fill('2');
   await page.getByTestId('prop-tokens').press('Enter');
-  await expect(page.getByTestId('place-shape').locator('xpath=..').locator('circle')).toHaveCount(
-    2,
-  );
+  await expect(page.getByTestId('token-dot')).toHaveCount(2);
 
   // Rename the net and save: this triggers a download.
   await page.getByTestId('net-name').fill('Smoke test');
@@ -144,8 +142,8 @@ test('drag snaps to the grid and is one undo step; rename and copy/paste work', 
   expect((moved.x + 20 - (start.x + 20)) % 20).toBeCloseTo(0, 0);
   expect(moved.x).toBeGreaterThanOrEqual(start.x + 80);
   await page.keyboard.press('Control+z');
-  const back = await shape.boundingBox();
-  expect(back?.x).toBeCloseTo(start.x, 0);
+  // The undo shows up with the next render, which can take a moment on a busy machine.
+  await expect.poll(async () => (await shape.boundingBox())?.x).toBeCloseTo(start.x, 0);
   await page.keyboard.press('Control+Shift+z');
 
   // Rename in place; Escape cancels, Enter commits.

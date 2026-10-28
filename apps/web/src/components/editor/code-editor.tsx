@@ -102,7 +102,10 @@ export default function CodeEditor(props: CodeEditorProps) {
   useEffect(() => {
     const element = host.current;
     if (!element) return;
+    // Destroying a focused editor blurs it: that must not count as leaving the field.
+    let disposed = false;
     const commit = (): void => {
+      if (disposed) return;
       latest.current.onCommit?.(view.current?.state.doc.toString() ?? '');
     };
     const extensions: Extension[] = [
@@ -207,6 +210,7 @@ export default function CodeEditor(props: CodeEditorProps) {
     view.current = instance;
     if (autoFocus) instance.focus();
     return () => {
+      disposed = true;
       instance.destroy();
       view.current = null;
     };

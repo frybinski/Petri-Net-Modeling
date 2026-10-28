@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
+import { Tooltip } from './tooltip';
 
 const MENU_ITEM = '[role="menuitem"]:not(:disabled), [role="menuitemcheckbox"]:not(:disabled)';
 
@@ -27,6 +28,9 @@ interface MenuProps {
   align?: 'left' | 'right';
   'data-testid'?: string;
   disabled?: boolean;
+  /** Tooltip of the trigger button, with an optional keyboard shortcut. */
+  tooltip?: string;
+  shortcut?: string;
 }
 
 /** Dropdown menu with arrow-key navigation, Escape to close and focus return. */
@@ -37,6 +41,8 @@ export function Menu({
   align = 'left',
   'data-testid': testId,
   disabled,
+  tooltip,
+  shortcut,
 }: MenuProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -90,29 +96,31 @@ export function Menu({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        data-testid={testId}
-        disabled={disabled}
-        onClick={() => {
-          setOpen((o) => !o);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' && !open) {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-hover disabled:opacity-40 aria-expanded:bg-surface-hover"
-      >
-        {icon}
-        {label}
-        <ChevronDown size={14} aria-hidden="true" className="text-muted" />
-      </button>
+      <Tooltip content={open ? '' : tooltip} shortcut={shortcut}>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          data-testid={testId}
+          disabled={disabled}
+          onClick={() => {
+            setOpen((o) => !o);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown' && !open) {
+              event.preventDefault();
+              setOpen(true);
+            }
+          }}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-hover disabled:opacity-40 aria-expanded:bg-surface-hover"
+        >
+          {icon}
+          {label}
+          <ChevronDown size={14} aria-hidden="true" className="text-muted" />
+        </button>
+      </Tooltip>
       {open ? (
         <div
           id={menuId}

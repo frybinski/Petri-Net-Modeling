@@ -1,0 +1,3583 @@
+<title>Petri-Netz-Hallensimulation</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+/>
+<style>
+  /* Layout: Leitstand – Halle und Netz links übereinander, schmale Lage-Spalte rechts */
+  :root {
+    --bg: #ecefed;
+    --panel: #f8faf9;
+    --floor: #dfe4e1;
+    --grid: #d1d8d4;
+    --ink: #1a2022;
+    --ink-2: #56615f;
+    --line: #c3cbc8;
+    --belt: #384144;
+    --roller: #626e72;
+    --safety: #e2a200;
+    --on-safety: #1a2022;
+    --kraft: #b6814a;
+    --tape: #7e5428;
+    --person: #2e8a76;
+    --person-2: #185246;
+    --res: #2b6886;
+    --warn: #d2601c;
+    --crit: #bd2a1d;
+    --ok: #2c7a55;
+    --f-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #111517;
+      --panel: #181e20;
+      --floor: #1c2325;
+      --grid: #263033;
+      --ink: #e2e8e6;
+      --ink-2: #98a4a3;
+      --line: #2f393b;
+      --belt: #0d1112;
+      --roller: #46535a;
+      --safety: #f0b323;
+      --on-safety: #15191a;
+      --kraft: #c99459;
+      --tape: #7a5530;
+      --person: #55c2a8;
+      --person-2: #22695a;
+      --res: #5aa3c8;
+      --warn: #f08a4a;
+      --crit: #f26352;
+      --ok: #4db27d;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme='dark'] {
+    --bg: #111517;
+    --panel: #181e20;
+    --floor: #1c2325;
+    --grid: #263033;
+    --ink: #e2e8e6;
+    --ink-2: #98a4a3;
+    --line: #2f393b;
+    --belt: #0d1112;
+    --roller: #46535a;
+    --safety: #f0b323;
+    --on-safety: #15191a;
+    --kraft: #c99459;
+    --tape: #7a5530;
+    --person: #55c2a8;
+    --person-2: #22695a;
+    --res: #5aa3c8;
+    --warn: #f08a4a;
+    --crit: #f26352;
+    --ok: #4db27d;
+    color-scheme: dark;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 20px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+  }
+  .top > div {
+    min-width: 0;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 31px;
+    line-height: 1.05;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .top p {
+    margin: 6px 0 0;
+    color: var(--ink-2);
+    max-width: 66ch;
+  }
+  .source {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .lbl {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  select,
+  .btn {
+    height: 34px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 5px;
+    font: 500 13px var(--f-body);
+    padding: 0 12px;
+  }
+  select {
+    padding-right: 8px;
+    max-width: 100%;
+  }
+  .btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    border-color: var(--ink-2);
+  }
+  .btn.primary {
+    background: var(--safety);
+    border-color: var(--safety);
+    color: var(--on-safety);
+    font-weight: 600;
+    min-width: 92px;
+    justify-content: center;
+  }
+  .btn.small {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--safety);
+    outline-offset: 2px;
+  }
+  .filebtn {
+    position: relative;
+  }
+  .filebtn input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    cursor: pointer;
+  }
+  .filebtn:focus-within {
+    outline: 2px solid var(--safety);
+    outline-offset: 2px;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctl input[type='range'] {
+    width: 120px;
+    accent-color: var(--safety);
+  }
+  .ctl output {
+    font: 500 12.5px var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    min-width: 11ch;
+    color: var(--ink);
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .seg button {
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    font: 500 13px var(--f-body);
+    padding: 0 13px;
+    height: 32px;
+    cursor: pointer;
+  }
+  .seg button + button {
+    border-left: 1px solid var(--line);
+  }
+  .seg button[aria-pressed='true'] {
+    background: var(--ink);
+    color: var(--panel);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 1040px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .seg {
+      margin-left: 0;
+    }
+  }
+  .views {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    position: relative;
+  }
+  .view {
+    margin: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .view figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tag {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .note {
+    color: var(--ink-2);
+    font-size: 12.5px;
+    min-width: 0;
+    flex: 1 1 280px;
+  }
+  .legend {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .legend i {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: -1px;
+  }
+  .scroll {
+    overflow-x: auto;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    min-width: 620px;
+    aspect-ratio: 1000/560;
+  }
+  .drop {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--safety);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    display: grid;
+    place-items: center;
+    font: 600 20px var(--f-display);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    pointer-events: none;
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .block h2,
+  .block summary {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 14.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .block .sub {
+    font-size: 12px;
+    color: var(--ink-2);
+    margin: 2px 0 10px;
+  }
+  .kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+    margin-top: 10px;
+  }
+  .kpi b {
+    display: block;
+    font: 500 21px var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .kpi span {
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  ul.rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .qrow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 2.6ch 4.8ch;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 2px;
+    font-size: 13px;
+    border-radius: 4px;
+  }
+  .qrow:hover,
+  .crow:hover {
+    background: color-mix(in srgb, var(--safety) 14%, transparent);
+  }
+  .qname {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .num {
+    font: 500 12.5px var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .bar {
+    height: 8px;
+    background: var(--grid);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--kraft);
+    transition: width 0.25s;
+  }
+  .qrow.warn .bar i {
+    background: var(--warn);
+  }
+  .qrow.crit .bar i {
+    background: var(--crit);
+  }
+  .qrow.warn .n {
+    color: var(--warn);
+  }
+  .qrow.crit .n {
+    color: var(--crit);
+  }
+  .pill {
+    font: 600 11px var(--f-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--crit);
+    color: var(--panel);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: 1px;
+  }
+  .crow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 2px;
+    font-size: 13px;
+    border-radius: 4px;
+  }
+  .pips {
+    display: flex;
+    gap: 3px;
+  }
+  .pips i {
+    width: 9px;
+    height: 12px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+  .pips i.on {
+    background: var(--res);
+    border-color: var(--res);
+  }
+  .pips.dense {
+    gap: 2px;
+  }
+  .pips.dense i {
+    width: 6px;
+  }
+  .pips i.off {
+    background: repeating-linear-gradient(45deg, var(--crit) 0 2px, transparent 2px 4px);
+    border-color: var(--crit);
+  }
+  .stepper {
+    display: flex;
+    gap: 4px;
+  }
+  .stepper button {
+    width: 28px;
+    height: 26px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 4px;
+    font: 600 15px var(--f-body);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .stepper button:hover {
+    border-color: var(--ink-2);
+  }
+  .halt {
+    font: 600 11px var(--f-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--crit);
+  }
+  ol.events {
+    list-style: none;
+    margin: 8px 0 10px;
+    padding: 0;
+    font: 400 11.5px var(--f-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  ol.events li {
+    display: grid;
+    grid-template-columns: 8.4ch 6.6ch minmax(0, 1fr) 8.4ch;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  ol.events li:first-child {
+    color: var(--ink);
+  }
+  ol.events li span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  ol.events .life {
+    color: var(--ink-2);
+    text-align: right;
+  }
+  .logbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .logbar span {
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  details.block summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  details.block summary::-webkit-details-marker {
+    display: none;
+  }
+  details.block summary::after {
+    content: '+';
+    font-family: var(--f-mono);
+    font-size: 15px;
+  }
+  details.block[open] summary::after {
+    content: '–';
+  }
+  details.block p {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    margin: 10px 0 8px;
+    max-width: 60ch;
+  }
+  pre.map {
+    margin: 0;
+    max-height: 300px;
+    overflow: auto;
+    font: 400 11px/1.45 var(--f-mono);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: var(--ink);
+  }
+  .tip {
+    position: fixed;
+    z-index: 20;
+    max-width: 270px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    pointer-events: none;
+  }
+  .tip b {
+    display: block;
+    font: 600 15px var(--f-display);
+    letter-spacing: 0.03em;
+  }
+  .tip .m {
+    color: var(--ink-2);
+  }
+  .toast {
+    position: fixed;
+    z-index: 30;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    background: var(--ink);
+    color: var(--panel);
+    padding: 9px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    max-width: min(520px, calc(100vw - 32px));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar i {
+      transition: none;
+    }
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>Petri-Netz-Hallensimulation</h1>
+      <p>
+        Ein Petri-Netz geht rein, eine grafische Simulation kommt raus. Die Schaltregel bestimmt das
+        Verhalten, eine Abbildung bestimmt, wie die Halle aussieht.
+      </p>
+    </div>
+    <div class="source">
+      <label class="lbl" for="netSel">Netz</label>
+      <select id="netSel">
+        <option value="paket">Paketzentrum · mit Abbildung</option>
+        <option value="office">Smart Office · mit Abbildung</option>
+        <option value="rekla">Reklamation · nur PNML</option>
+      </select>
+      <label class="btn filebtn" for="pnmlFile"
+        >PNML laden<input type="file" id="pnmlFile" accept=".pnml,.xml,application/xml,text/xml"
+      /></label>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button class="btn primary" id="playBtn" type="button">Pause</button>
+    <button class="btn" id="resetBtn" type="button">Neu starten</button>
+    <div class="ctl">
+      <label class="lbl" for="speed">Tempo</label
+      ><input type="range" id="speed" min="1" max="120" value="8" /><output
+        id="speedOut"
+        for="speed"
+        >8×</output
+      >
+    </div>
+    <div class="ctl">
+      <label class="lbl" for="rate" id="rateLbl">Anlieferung</label
+      ><input type="range" id="rate" min="60" max="600" step="10" value="300" /><output
+        id="rateOut"
+        for="rate"
+        >300 /h</output
+      >
+    </div>
+    <div class="seg" role="group" aria-label="Ansicht">
+      <button type="button" id="vHall" data-v="hall" aria-pressed="false">Halle</button>
+      <button type="button" id="vNet" data-v="net" aria-pressed="false">Netz</button>
+      <button type="button" id="vBoth" data-v="both" aria-pressed="true">Beide</button>
+    </div>
+  </div>
+
+  <main class="grid">
+    <section class="views" id="views">
+      <figure class="view" id="figHall">
+        <figcaption>
+          <span class="tag" id="hallTag">Halle</span><span class="note" id="hallNote"></span>
+        </figcaption>
+        <div class="scroll">
+          <canvas id="cvHall" aria-label="Hallenansicht der laufenden Simulation"></canvas>
+        </div>
+      </figure>
+      <figure class="view" id="figNet">
+        <figcaption>
+          <span class="tag">Petri-Netz</span
+          ><span class="note"
+            >Zeitbehaftete Simulation nach Schaltregel. Beide Ansichten zeigen denselben
+            Zustand.</span
+          >
+          <span class="legend"
+            ><span
+              ><i id="legDot" style="background: var(--kraft)"></i
+              ><span id="legNoun">Paket</span></span
+            ><span><i style="background: var(--res)"></i>Ressource</span></span
+          >
+        </figcaption>
+        <div class="scroll">
+          <canvas id="cvNet" aria-label="Petri-Netz mit aktueller Markierung"></canvas>
+        </div>
+      </figure>
+      <div class="drop" id="drop" hidden>PNML hier ablegen</div>
+    </section>
+
+    <aside class="side">
+      <section class="block">
+        <h2>Lage</h2>
+        <div class="kpis">
+          <div class="kpi"><b id="kClock">06:00:00</b><span>Schichtuhr</span></div>
+          <div class="kpi"><b id="kWip">0</b><span id="kWipLbl">Pakete im System</span></div>
+          <div class="kpi"><b id="kThr">–</b><span>Durchsatz pro Stunde</span></div>
+          <div class="kpi"><b id="kCyc">–</b><span>Ø Durchlaufzeit (min)</span></div>
+        </div>
+      </section>
+      <section class="block">
+        <h2>Warteschlangen</h2>
+        <p class="sub">Marken je Platz und Ø Wartezeit der letzten 40 Fälle.</p>
+        <ul class="rows" id="queues"></ul>
+      </section>
+      <section class="block">
+        <h2>Kapazitäten</h2>
+        <p class="sub" id="capSub">Ressourcenmarken im Netz. Änderungen wirken sofort.</p>
+        <ul class="rows" id="caps"></ul>
+      </section>
+      <section class="block">
+        <h2>Ereignisstrom</h2>
+        <ol class="events" id="events"></ol>
+        <div class="logbar">
+          <button class="btn small" id="copyLog" type="button">Event Log als CSV kopieren</button
+          ><span id="logCount"></span>
+        </div>
+      </section>
+      <details class="block" id="mapBlock">
+        <summary id="mapSummary">Abbildung Netz → Halle</summary>
+        <p id="mapNote"></p>
+        <pre class="map" id="mapPre"></pre>
+      </details>
+    </aside>
+  </main>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+  (() => {
+    'use strict';
+    const W = 1000,
+      H = 560,
+      SPACING = 18,
+      BELT = 32,
+      WARN = 6,
+      CRIT = 10;
+    const PR = 19,
+      TW = 14,
+      TH = 44;
+    const $ = (s) => document.querySelector(s);
+
+    /* ---------------- Beispiel 1: Paketzentrum (Netz + handgeschriebene Abbildung) ---------------- */
+    const PAKET_NET = {
+      key: 'paket',
+      name: 'Paketzentrum',
+      noun: 'Paket',
+      plural: 'Pakete',
+      prefix: 'P-',
+      arrivalLabel: 'Anlieferung',
+      defaultRate: 300,
+      warmup: 1200,
+      places: [
+        { id: 'p_in', name: 'Eingangspuffer', x: 150, y: 280, lp: 'b' },
+        { id: 'p_scanner', name: 'Scanner', x: 250, y: 165, init: 2, lp: 'a' },
+        { id: 'p_scanned', name: 'Gescannt', x: 350, y: 280, lp: 'b' },
+        { id: 'p_sorter', name: 'Sorter', x: 450, y: 165, init: 1, lp: 'a' },
+        { id: 'p_sorted', name: 'Sortiert', x: 545, y: 280, lp: 'b' },
+        { id: 'p_A', name: 'Zone A', x: 735, y: 130, lp: 'b' },
+        { id: 'p_B', name: 'Zone B', x: 735, y: 280, lp: 'b' },
+        { id: 'p_E', name: 'Zone Express', x: 735, y: 430, lp: 'b' },
+        { id: 'p_dock1', name: 'Team Tor 1', x: 835, y: 50, init: 1, lp: 'r' },
+        { id: 'p_dock2', name: 'Team Tor 2', x: 835, y: 205, init: 1, lp: 'l' },
+        { id: 'p_dock3', name: 'Team Express', x: 835, y: 510, init: 1, lp: 'r' },
+        { id: 'p_done', name: 'Verladen', x: 950, y: 280, lp: 'b' },
+      ],
+      transitions: [
+        { id: 't_arr', name: 'Anlieferung', x: 55, y: 280, lp: 'b' },
+        { id: 't_scan', name: 'Scannen', x: 250, y: 280, dur: [15, 25], lp: 'b' },
+        { id: 't_sort', name: 'Sortieren', x: 450, y: 280, dur: [5, 8], lp: 'b' },
+        { id: 't_rA', name: 'Weiche A', x: 640, y: 130, dur: [1.5, 2.5], w: 0.5, lp: 'b' },
+        { id: 't_rB', name: 'Weiche B', x: 640, y: 280, dur: [1.5, 2.5], w: 0.35, lp: 'b' },
+        { id: 't_rE', name: 'Weiche Express', x: 640, y: 430, dur: [1.5, 2.5], w: 0.15, lp: 'b' },
+        { id: 't_loadA', name: 'Verladen Tor 1', x: 835, y: 130, dur: [19, 27], lp: 'r' },
+        { id: 't_loadB', name: 'Verladen Tor 2', x: 835, y: 280, dur: [15, 22], lp: 'b' },
+        { id: 't_loadE', name: 'Verladen Express', x: 835, y: 430, dur: [10, 16], lp: 'r' },
+      ],
+      arcs: [
+        ['t_arr', 'p_in'],
+        ['p_in', 't_scan'],
+        ['p_scanner', 't_scan'],
+        ['t_scan', 'p_scanner'],
+        ['t_scan', 'p_scanned'],
+        ['p_scanned', 't_sort'],
+        ['p_sorter', 't_sort'],
+        ['t_sort', 'p_sorter'],
+        ['t_sort', 'p_sorted'],
+        ['p_sorted', 't_rA'],
+        ['p_sorted', 't_rB'],
+        ['p_sorted', 't_rE'],
+        ['t_rA', 'p_A'],
+        ['t_rB', 'p_B'],
+        ['t_rE', 'p_E'],
+        ['p_A', 't_loadA'],
+        ['p_dock1', 't_loadA'],
+        ['t_loadA', 'p_dock1'],
+        ['t_loadA', 'p_done'],
+        ['p_B', 't_loadB'],
+        ['p_dock2', 't_loadB'],
+        ['t_loadB', 'p_dock2'],
+        ['t_loadB', 'p_done'],
+        ['p_E', 't_loadE'],
+        ['p_dock3', 't_loadE'],
+        ['t_loadE', 'p_dock3'],
+        ['t_loadE', 'p_done'],
+      ],
+    };
+
+    const PAKET_MAP = {
+      theme: 'Paketzentrum',
+      object: 'Paket',
+      viewName: 'Halle',
+      token: 'parcel',
+      laneStyle: 'belt',
+      places: {
+        p_in: {
+          as: 'conveyor',
+          lane: [
+            [96, 280],
+            [214, 280],
+          ],
+        },
+        p_scanned: {
+          as: 'conveyor',
+          lane: [
+            [302, 280],
+            [410, 280],
+          ],
+        },
+        p_sorted: {
+          as: 'conveyor',
+          lane: [
+            [490, 280],
+            [530, 280],
+          ],
+        },
+        p_A: {
+          as: 'buffer',
+          lane: [
+            [592, 150],
+            [778, 150],
+          ],
+        },
+        p_B: {
+          as: 'buffer',
+          lane: [
+            [592, 280],
+            [778, 280],
+          ],
+        },
+        p_E: {
+          as: 'buffer',
+          lane: [
+            [592, 410],
+            [778, 410],
+          ],
+        },
+        p_scanner: { as: 'slots', of: 't_scan' },
+        p_sorter: { as: 'slots', of: 't_sort' },
+        p_dock1: { as: 'slots', of: 't_loadA' },
+        p_dock2: { as: 'slots', of: 't_loadB' },
+        p_dock3: { as: 'slots', of: 't_loadE' },
+        p_done: { as: 'trucks' },
+      },
+      transitions: {
+        t_arr: { as: 'dock', pos: [78, 280], label: 'Wareneingang' },
+        t_scan: { as: 'station', box: [228, 222, 62, 116], label: 'Scanner' },
+        t_sort: { as: 'sorter', pos: [450, 280], r: 30, label: 'Sorter' },
+        t_rA: { as: 'diverter', pos: [560, 150], motion: 'pass' },
+        t_rB: { as: 'diverter', pos: [560, 280], motion: 'pass' },
+        t_rE: { as: 'diverter', pos: [560, 410], motion: 'pass' },
+        t_loadA: {
+          as: 'gate',
+          box: [792, 126, 44, 48],
+          label: 'Tor 1',
+          truck: [860, 118, 128, 64],
+        },
+        t_loadB: {
+          as: 'gate',
+          box: [792, 256, 44, 48],
+          label: 'Tor 2',
+          truck: [860, 248, 128, 64],
+        },
+        t_loadE: {
+          as: 'gate',
+          box: [792, 386, 44, 48],
+          label: 'Express',
+          truck: [860, 378, 128, 64],
+        },
+      },
+      arcs: {
+        't_loadA>p_done': { path: [[904, 150]] },
+        't_loadB>p_done': { path: [[904, 280]] },
+        't_loadE>p_done': { path: [[904, 410]] },
+      },
+      decor: [
+        { kind: 'text', pos: [96, 46], text: 'Halle 2 · Sortierung' },
+        { kind: 'zone', rect: [584, 108, 200, 84], label: 'A' },
+        { kind: 'zone', rect: [584, 238, 200, 84], label: 'B' },
+        { kind: 'zone', rect: [584, 368, 200, 84], label: 'Express' },
+        { kind: 'hazard', rect: [62, 242, 6, 76] },
+        { kind: 'hazard', rect: [846, 98, 8, 364] },
+        { kind: 'truck', rect: [4, 250, 54, 60], cab: 'left' },
+        { kind: 'walkway', from: [96, 506], to: [786, 506], label: 'Gehweg' },
+        { kind: 'scale', pos: [880, 532], px: 80, label: '5 m' },
+      ],
+    };
+
+    /* ---------------- Beispiel 3: Smart Office (Netz + handgeschriebene Abbildung) ---------------- */
+    const OFFICE_NET = {
+      key: 'office',
+      name: 'Smart Office',
+      noun: 'Person',
+      plural: 'Personen',
+      prefix: 'M-',
+      arrivalLabel: 'Ankünfte',
+      defaultRate: 40,
+      rateRange: [10, 120, 2],
+      defaultSpeed: 30,
+      warmup: 2700,
+      clockStart: 8 * 3600,
+      places: [
+        { id: 'o_foyer', name: 'Foyer', x: 130, y: 280, lp: 'b' },
+        { id: 'o_gateIn', name: 'Drehkreuz ein', x: 210, y: 170, init: 1, lp: 'a' },
+        { id: 'o_flur', name: 'Flur', x: 290, y: 280, lp: 'b' },
+        { id: 'o_qDesk', name: 'Wartet auf Platz', x: 450, y: 180, lp: 'b' },
+        { id: 'o_qRoom', name: 'Wartet auf Raum', x: 450, y: 390, lp: 'a' },
+        { id: 'o_desks', name: 'Arbeitsplätze', x: 540, y: 70, init: 8, lp: 'r' },
+        { id: 'o_rooms', name: 'Besprechungsräume', x: 540, y: 500, init: 3, lp: 'r' },
+        { id: 'o_qCoffee', name: 'Kaffeeschlange', x: 640, y: 280, lp: 'a' },
+        { id: 'o_coffee', name: 'Kaffeemaschine', x: 720, y: 170, init: 1, lp: 'a' },
+        { id: 'o_exit', name: 'Zum Ausgang', x: 800, y: 280, lp: 'b' },
+        { id: 'o_gateOut', name: 'Drehkreuz aus', x: 880, y: 170, init: 1, lp: 'a' },
+        { id: 'o_gone', name: 'Gegangen', x: 955, y: 280, lp: 'b' },
+      ],
+      transitions: [
+        { id: 'o_arr', name: 'Ankunft', x: 50, y: 280, lp: 'b' },
+        { id: 'o_in', name: 'Zutritt', x: 210, y: 280, dur: [3, 6], lp: 'b' },
+        { id: 'o_wD', name: 'Weg Arbeitsplatz', x: 370, y: 180, dur: [15, 25], w: 0.75, lp: 'a' },
+        { id: 'o_wM', name: 'Weg Meeting', x: 370, y: 390, dur: [20, 35], w: 0.25, lp: 'b' },
+        { id: 'o_work', name: 'Arbeiten', x: 540, y: 180, dur: [480, 840], lp: 'b' },
+        { id: 'o_meet', name: 'Meeting', x: 540, y: 390, dur: [720, 1080], lp: 'a' },
+        { id: 'o_coffeeT', name: 'Kaffee holen', x: 720, y: 280, dur: [50, 90], lp: 'b' },
+        { id: 'o_out', name: 'Verlassen', x: 880, y: 280, dur: [3, 6], lp: 'b' },
+      ],
+      arcs: [
+        ['o_arr', 'o_foyer'],
+        ['o_foyer', 'o_in'],
+        ['o_gateIn', 'o_in'],
+        ['o_in', 'o_gateIn'],
+        ['o_in', 'o_flur'],
+        ['o_flur', 'o_wD'],
+        ['o_flur', 'o_wM'],
+        ['o_wD', 'o_qDesk'],
+        ['o_wM', 'o_qRoom'],
+        ['o_qDesk', 'o_work'],
+        ['o_desks', 'o_work'],
+        ['o_work', 'o_desks'],
+        ['o_work', 'o_qCoffee'],
+        ['o_qRoom', 'o_meet'],
+        ['o_rooms', 'o_meet'],
+        ['o_meet', 'o_rooms'],
+        ['o_meet', 'o_qCoffee'],
+        ['o_qCoffee', 'o_coffeeT'],
+        ['o_coffee', 'o_coffeeT'],
+        ['o_coffeeT', 'o_coffee'],
+        ['o_coffeeT', 'o_exit'],
+        ['o_exit', 'o_out'],
+        ['o_gateOut', 'o_out'],
+        ['o_out', 'o_gateOut'],
+        ['o_out', 'o_gone'],
+      ],
+    };
+
+    const OFFICE_MAP = {
+      theme: 'Smart Office',
+      object: 'Person',
+      viewName: 'Grundriss',
+      token: 'person',
+      laneStyle: 'queue',
+      connectors: false,
+      speed: 12,
+      travelClamp: [2, 90],
+      approachMax: 20,
+      places: {
+        o_foyer: {
+          as: 'queue',
+          lane: [
+            [46, 436],
+            [96, 380],
+            [182, 380],
+          ],
+        },
+        o_flur: {
+          as: 'queue',
+          lane: [
+            [224, 332],
+            [330, 332],
+          ],
+        },
+        o_qDesk: {
+          as: 'queue',
+          lane: [
+            [548, 272],
+            [300, 272],
+          ],
+        },
+        o_qRoom: {
+          as: 'queue',
+          lane: [
+            [640, 250],
+            [800, 250],
+          ],
+        },
+        o_qCoffee: {
+          as: 'queue',
+          lane: [
+            [480, 396],
+            [480, 470],
+            [640, 470],
+          ],
+        },
+        o_exit: {
+          as: 'queue',
+          lane: [
+            [352, 490],
+            [218, 490],
+          ],
+        },
+        o_gateIn: { as: 'slots', of: 'o_in' },
+        o_gateOut: { as: 'slots', of: 'o_out' },
+        o_desks: { as: 'slots', of: 'o_work' },
+        o_rooms: { as: 'slots', of: 'o_meet' },
+        o_coffee: { as: 'slots', of: 'o_coffeeT' },
+        o_gone: { as: 'exit', box: [42, 478, 48, 30], label: 'Ausgang' },
+      },
+      transitions: {
+        o_arr: { as: 'door', pos: [16, 440], label: 'Eingang', sensor: 'Türkontakt' },
+        o_in: {
+          as: 'turnstile',
+          pos: [200, 380],
+          slots: [[200, 380]],
+          label: 'Drehkreuz ein',
+          sensor: 'Badge-Leser',
+        },
+        o_wD: {
+          as: 'waypoint',
+          pos: [565, 318],
+          motion: 'pass',
+          label: 'Tür Open Space',
+          sensor: 'Bewegungsmelder Flur',
+        },
+        o_wM: {
+          as: 'waypoint',
+          pos: [660, 318],
+          motion: 'pass',
+          label: 'Zugang Wartezone',
+          sensor: 'Bewegungsmelder Flur',
+        },
+        o_work: {
+          as: 'area',
+          box: [206, 22, 388, 240],
+          label: 'Open Space',
+          sensor: 'Präsenzsensor je Schreibtisch',
+          slots: [
+            [255, 100],
+            [310, 100],
+            [365, 100],
+            [420, 100],
+            [255, 214],
+            [310, 214],
+            [365, 214],
+            [420, 214],
+            [475, 100],
+            [475, 214],
+            [530, 100],
+            [530, 214],
+          ],
+        },
+        o_meet: {
+          as: 'rooms',
+          entry: 'hv',
+          label: 'Besprechungsräume',
+          sensor: 'Raumbelegungssensor',
+          slots: [
+            [664, 92],
+            [792, 92],
+            [920, 92],
+            [771, 456],
+            [913, 456],
+          ],
+          rooms: [
+            [600, 16, 128, 150],
+            [728, 16, 128, 150],
+            [856, 16, 128, 150],
+            [700, 360, 142, 184],
+            [842, 360, 142, 184],
+          ],
+        },
+        o_coffeeT: {
+          as: 'machine',
+          label: 'Kaffeemaschine',
+          sensor: 'Smart Plug (Leistungsaufnahme)',
+          slots: [
+            [664, 470],
+            [664, 420],
+          ],
+          machines: [
+            [680, 454, 16, 32],
+            [680, 404, 16, 32],
+          ],
+        },
+        o_out: {
+          as: 'turnstile',
+          pos: [200, 490],
+          slots: [[200, 490]],
+          label: 'Drehkreuz aus',
+          sensor: 'Badge-Leser',
+        },
+      },
+      arcs: {
+        'o_work>o_qCoffee': {
+          path: [
+            [565, 300],
+            [565, 332],
+            [480, 332],
+            [480, 378],
+          ],
+        },
+        'o_meet>o_qCoffee': { path: [{ y: 332 }, [480, 332], [480, 378]] },
+        'o_coffeeT>o_exit': {
+          path: [
+            [520, 440],
+            [480, 378],
+            [480, 332],
+            [352, 332],
+          ],
+        },
+        'o_out>o_gone': { path: [[110, 492]] },
+      },
+      decor: [
+        { kind: 'room', rect: [16, 16, 184, 140], label: 'WC' },
+        { kind: 'room', rect: [16, 156, 184, 144], label: 'Technik' },
+        { kind: 'room', rect: [200, 16, 400, 284], label: 'Open Space' },
+        { kind: 'room', rect: [600, 16, 128, 150], label: 'Raum A' },
+        { kind: 'room', rect: [728, 16, 128, 150], label: 'Raum B' },
+        { kind: 'room', rect: [856, 16, 128, 150], label: 'Raum C' },
+        { kind: 'room', rect: [420, 360, 280, 184], label: 'Teeküche', lx: 96 },
+        { kind: 'room', rect: [700, 360, 142, 184], label: 'Flexraum 1', sub: 'öffnet bei Bedarf' },
+        { kind: 'room', rect: [842, 360, 142, 184], label: 'Flexraum 2', sub: 'öffnet bei Bedarf' },
+        { kind: 'furn', rect: [96, 316, 64, 16] },
+        { kind: 'furn', rect: [676, 388, 24, 146] },
+        { kind: 'furn', rect: [540, 404, 84, 38] },
+        { kind: 'furn', rect: [220, 526, 120, 8] },
+        { kind: 'furn', rect: [872, 268, 98, 20] },
+        { kind: 'label', pos: [28, 322], text: 'Foyer' },
+        { kind: 'label', pos: [250, 420], text: 'Garderobe' },
+        { kind: 'label', pos: [612, 188], text: 'Wartezone' },
+        { kind: 'label', pos: [880, 334], text: 'Flur' },
+        {
+          kind: 'walls',
+          w: 5,
+          segs: [
+            [16, 16, 984, 16],
+            [984, 16, 984, 544],
+            [16, 544, 984, 544],
+            [16, 16, 16, 405],
+            [16, 475, 16, 544],
+            [16, 156, 200, 156],
+            [16, 300, 200, 300],
+            [200, 16, 200, 300],
+            [200, 300, 540, 300],
+            [590, 300, 600, 300],
+            [600, 16, 600, 300],
+            [728, 16, 728, 166],
+            [856, 16, 856, 166],
+            [600, 166, 644, 166],
+            [684, 166, 772, 166],
+            [812, 166, 900, 166],
+            [940, 166, 984, 166],
+            [200, 300, 200, 366],
+            [200, 394, 200, 476],
+            [200, 504, 200, 544],
+            [420, 360, 420, 544],
+            [420, 360, 455, 360],
+            [505, 360, 751, 360],
+            [791, 360, 893, 360],
+            [933, 360, 984, 360],
+            [700, 360, 700, 544],
+            [842, 360, 842, 544],
+          ],
+        },
+      ],
+    };
+
+    /* ---------------- Beispiel 2: reines PNML ohne Abbildung ---------------- */
+    const SAMPLE_PNML = `<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+ <net id="reklamation" type="http://www.pnml.org/version-2009/grammar/ptnet">
+  <name><text>Reklamation</text></name>
+  <page id="page1">
+   <place id="i"><name><text>Eingang</text></name><initialMarking><text>1</text></initialMarking></place>
+   <place id="p1"><name><text>Ware offen</text></name></place>
+   <place id="p2"><name><text>Historie offen</text></name></place>
+   <place id="p3"><name><text>Ware geprüft</text></name></place>
+   <place id="p4"><name><text>Historie geprüft</text></name></place>
+   <place id="p5"><name><text>Entscheidbar</text></name></place>
+   <place id="p6"><name><text>Entschieden</text></name></place>
+   <place id="o"><name><text>Erledigt</text></name></place>
+   <transition id="t1"><name><text>Reklamation erfassen</text></name></transition>
+   <transition id="t2"><name><text>Ware prüfen</text></name></transition>
+   <transition id="t3"><name><text>Historie prüfen</text></name></transition>
+   <transition id="t4"><name><text>Entscheiden</text></name></transition>
+   <transition id="t5"><name><text>Erstatten</text></name></transition>
+   <transition id="t6"><name><text>Ablehnen</text></name></transition>
+   <transition id="t7"><name><text>Kunde informieren</text></name></transition>
+   <arc id="a1" source="i" target="t1"/><arc id="a2" source="t1" target="p1"/><arc id="a3" source="t1" target="p2"/>
+   <arc id="a4" source="p1" target="t2"/><arc id="a5" source="p2" target="t3"/><arc id="a6" source="t2" target="p3"/>
+   <arc id="a7" source="t3" target="p4"/><arc id="a8" source="p3" target="t4"/><arc id="a9" source="p4" target="t4"/>
+   <arc id="a10" source="t4" target="p5"/><arc id="a11" source="p5" target="t5"/><arc id="a12" source="p5" target="t6"/>
+   <arc id="a13" source="t5" target="p6"/><arc id="a14" source="t6" target="p6"/><arc id="a15" source="p6" target="t7"/>
+   <arc id="a16" source="t7" target="o"/>
+  </page>
+ </net>
+</pnml>`;
+
+    /* ---------------- Hilfsfunktionen ---------------- */
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+    const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const uni = (d) => d[0] + Math.random() * (d[1] - d[0]);
+    const expo = (m) => -Math.log(1 - Math.random()) * m;
+    const avg = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN);
+    const r1 = (v) => Math.round(v);
+    const boxCenter = (b) => [b[0] + b[2] / 2, b[1] + b[3] / 2];
+    function polyLen(p) {
+      let L = 0;
+      for (let i = 1; i < p.length; i++) L += dist(p[i - 1], p[i]);
+      return L;
+    }
+    function pointAt(p, d) {
+      if (d <= 0) return p[0].slice();
+      for (let i = 1; i < p.length; i++) {
+        const s = dist(p[i - 1], p[i]);
+        if (d <= s) return lerp(p[i - 1], p[i], s ? d / s : 0);
+        d -= s;
+      }
+      return p[p.length - 1].slice();
+    }
+    function prefix(p, d) {
+      const out = [p[0]];
+      let acc = 0;
+      for (let i = 1; i < p.length; i++) {
+        const s = dist(p[i - 1], p[i]);
+        if (acc + s >= d) {
+          out.push(lerp(p[i - 1], p[i], s ? (d - acc) / s : 0));
+          return out;
+        }
+        acc += s;
+        out.push(p[i]);
+      }
+      return out;
+    }
+    function distToPoly(q, p) {
+      let best = Infinity;
+      for (let i = 1; i < p.length; i++) {
+        const a = p[i - 1],
+          b = p[i];
+        const dx = b[0] - a[0],
+          dy = b[1] - a[1];
+        const L2 = dx * dx + dy * dy || 1;
+        const k = clamp(((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2, 0, 1);
+        best = Math.min(best, dist(q, [a[0] + dx * k, a[1] + dy * k]));
+      }
+      return best;
+    }
+    const laneCap = (lane) => Math.max(1, Math.floor(polyLen(lane) / SPACING));
+    function fmtClock(t) {
+      const s = Math.floor((NET ? NET.clockStart : 6 * 3600) + t);
+      const h = Math.floor(s / 3600) % 24,
+        m = Math.floor(s / 60) % 60,
+        x = s % 60;
+      return [h, m, x].map((v) => String(v).padStart(2, '0')).join(':');
+    }
+    function fmtDur(s) {
+      if (!isFinite(s)) return '–';
+      s = Math.round(s);
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+    function isoTs(t) {
+      const d = new Date(new Date(2026, 9, 27, 0, 0, 0).getTime() + (NET.clockStart + t) * 1000);
+      const p = (v) => String(v).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+    }
+    const esc = (s) =>
+      String(s).replace(
+        /[&<>"]/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+      );
+
+    /* ---------------- Netz kompilieren ---------------- */
+    let NET = null,
+      MAP = null,
+      S = null,
+      CONNECTORS = [],
+      ARCGEOM = {},
+      REVSET = new Set();
+    let running = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let speed = 8,
+      rate = 300,
+      hoverId = null,
+      importedRaw = null;
+
+    function compileNet(raw) {
+      const net = {
+        key: raw.key,
+        name: raw.name,
+        noun: raw.noun || 'Fall',
+        plural: raw.plural || 'Fälle',
+        prefix: raw.prefix || 'F-',
+        arrivalLabel: raw.arrivalLabel || 'Zugang',
+        defaultRate: raw.defaultRate || 300,
+        warmup: raw.warmup || 1200,
+        generic: !!raw.generic,
+        notes: raw.notes || [],
+        rateRange: raw.rateRange || [60, 600, 10],
+        defaultSpeed: raw.defaultSpeed || 8,
+        clockStart: raw.clockStart != null ? raw.clockStart : 6 * 3600,
+      };
+      net.places = raw.places.map((p) => ({
+        id: p.id,
+        name: p.name || p.id,
+        x: p.x,
+        y: p.y,
+        init: p.init || 0,
+        lp: p.lp || 'b',
+        pre: [],
+        post: [],
+      }));
+      net.transitions = raw.transitions.map((t) => ({
+        id: t.id,
+        name: t.name || t.id,
+        x: t.x,
+        y: t.y,
+        dur: t.dur || [5, 11],
+        w: t.w || 1,
+        lp: t.lp || 'a',
+        inputs: [],
+        outputs: [],
+      }));
+      net.P = {};
+      net.places.forEach((p) => (net.P[p.id] = p));
+      net.T = {};
+      net.transitions.forEach((t) => (net.T[t.id] = t));
+      net.arcs = [];
+      const seen = new Set();
+      raw.arcs.forEach(([s, d]) => {
+        const k = s + '>' + d;
+        if (seen.has(k)) return;
+        if (net.P[s] && net.T[d]) {
+          net.T[d].inputs.push(s);
+          net.P[s].post.push(d);
+        } else if (net.T[s] && net.P[d]) {
+          net.T[s].outputs.push(d);
+          net.P[d].pre.push(s);
+        } else return;
+        seen.add(k);
+        net.arcs.push({ s, d });
+      });
+      net.places.forEach((p) => {
+        if (!p.pre.length && !p.post.length) p.role = 'isolated';
+        else if (!p.post.length) p.role = 'sink';
+        else if (!p.pre.length) p.role = 'source';
+        else if (p.init > 0) p.role = 'resource';
+        else p.role = 'case';
+      });
+      net.transitions.forEach((t) => {
+        t.source = t.inputs.length === 0;
+        const hasRes = t.inputs.some(
+          (pid) => net.P[pid].role === 'resource' && t.outputs.includes(pid),
+        );
+        t.cap0 = raw.implicitCap && !hasRes && !t.source ? 1 : Infinity;
+        t.cap = t.cap0;
+      });
+      return net;
+    }
+
+    /* ---------------- PNML lesen ---------------- */
+    function parsePNML(text, label) {
+      const doc = new DOMParser().parseFromString(text, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length)
+        throw new Error('Die Datei ist kein gültiges XML.');
+      const all = (el, tag) => Array.from(el.getElementsByTagNameNS('*', tag));
+      const kid = (el, tag) =>
+        el ? Array.from(el.children).find((c) => c.localName === tag) : null;
+      const nameOf = (el) => {
+        const t = kid(kid(el, 'name'), 'text');
+        return t ? t.textContent.trim() : '';
+      };
+      const posOf = (el) => {
+        const p = kid(kid(el, 'graphics'), 'position');
+        if (!p) return null;
+        const x = parseFloat(p.getAttribute('x')),
+          y = parseFloat(p.getAttribute('y'));
+        return isFinite(x) && isFinite(y) ? [x, y] : null;
+      };
+      const places = all(doc, 'place')
+        .map((el) => {
+          const im = kid(el, 'initialMarking');
+          const tx = im && (kid(im, 'text') || im);
+          const m = tx ? (tx.textContent.match(/(\d+)\s*$/) || [])[1] : null;
+          return {
+            id: el.getAttribute('id'),
+            name: nameOf(el) || el.getAttribute('id'),
+            init: m ? parseInt(m, 10) : 0,
+            pos: posOf(el),
+          };
+        })
+        .filter((p) => p.id);
+      const transitions = all(doc, 'transition')
+        .map((el) => ({
+          id: el.getAttribute('id'),
+          name: nameOf(el) || el.getAttribute('id'),
+          pos: posOf(el),
+        }))
+        .filter((t) => t.id);
+      if (!places.length || !transitions.length)
+        throw new Error(
+          'Keine Plätze oder Transitionen gefunden. Erwartet wird PNML mit <place> und <transition>.',
+        );
+      let heavy = false,
+        special = false;
+      const arcs = all(doc, 'arc').map((el) => {
+        const tx = kid(kid(el, 'inscription'), 'text');
+        if (tx && parseInt(tx.textContent, 10) > 1) heavy = true;
+        const ty = kid(el, 'type');
+        if (ty || (el.getAttribute('type') || '').match(/inhib|reset|read/i)) special = true;
+        return [el.getAttribute('source'), el.getAttribute('target')];
+      });
+      const notes = [];
+      if (heavy) notes.push('Kantengewichte größer 1 werden als 1 behandelt.');
+      if (special)
+        notes.push('Sonderkanten (Inhibitor, Reset) werden wie normale Kanten behandelt.');
+      const netEl = all(doc, 'net')[0];
+      return {
+        key: 'import',
+        name: (netEl && nameOf(netEl)) || label,
+        places,
+        transitions,
+        arcs,
+        generic: true,
+        implicitCap: true,
+        notes,
+        defaultRate: 300,
+      };
+    }
+
+    function layoutNet(net, raw) {
+      const nodes = [...raw.places, ...raw.transitions];
+      if (nodes.every((n) => n.pos)) {
+        const xs = nodes.map((n) => n.pos[0]),
+          ys = nodes.map((n) => n.pos[1]);
+        const minX = Math.min(...xs),
+          maxX = Math.max(...xs),
+          minY = Math.min(...ys),
+          maxY = Math.max(...ys);
+        const s = Math.min(860 / (maxX - minX || 1), 400 / (maxY - minY || 1), 3);
+        const ox = 500 - ((minX + maxX) / 2) * s,
+          oy = 285 - ((minY + maxY) / 2) * s;
+        raw.places.forEach((p) => {
+          net.P[p.id].x = p.pos[0] * s + ox;
+          net.P[p.id].y = p.pos[1] * s + oy;
+        });
+        raw.transitions.forEach((t) => {
+          net.T[t.id].x = t.pos[0] * s + ox;
+          net.T[t.id].y = t.pos[1] * s + oy;
+        });
+        return;
+      }
+      autoLayout(net);
+    }
+
+    function autoLayout(net) {
+      const ids = [...net.places.map((p) => p.id), ...net.transitions.map((t) => t.id)];
+      const succ = {},
+        pred = {};
+      ids.forEach((n) => {
+        succ[n] = [];
+        pred[n] = [];
+      });
+      net.arcs.forEach((a) => {
+        succ[a.s].push(a.d);
+        pred[a.d].push(a.s);
+      });
+      const isRes = (id) => net.P[id] && net.P[id].role === 'resource';
+      const flow = ids.filter((n) => !isRes(n));
+      let roots = flow.filter((n) => !pred[n].some((x) => !isRes(x)));
+      if (!roots.length && flow.length) roots = [flow[0]];
+      const state = {},
+        back = new Set();
+      const dfs = (n) => {
+        state[n] = 1;
+        for (const m of succ[n]) {
+          if (isRes(m)) continue;
+          if (state[m] === 1) back.add(n + '>' + m);
+          else if (!state[m]) dfs(m);
+        }
+        state[n] = 2;
+      };
+      roots.forEach((r) => {
+        if (!state[r]) dfs(r);
+      });
+      flow.forEach((n) => {
+        if (!state[n]) dfs(n);
+      });
+      const rank = {};
+      const getRank = (n) => {
+        if (rank[n] !== undefined) return rank[n];
+        rank[n] = 0;
+        let r = 0;
+        for (const p of pred[n]) {
+          if (isRes(p) || back.has(p + '>' + n)) continue;
+          r = Math.max(r, getRank(p) + 1);
+        }
+        rank[n] = r;
+        return r;
+      };
+      flow.forEach(getRank);
+      const maxR = Math.max(1, ...flow.map((n) => rank[n]));
+      const layers = [];
+      flow.forEach((n) => {
+        (layers[rank[n]] ||= []).push(n);
+      });
+      const order = {};
+      layers.forEach((L, ri) => {
+        if (!L) return;
+        if (ri > 0)
+          L.sort((a, b) => {
+            const bc = (n) => {
+              const ps = pred[n].filter((p) => order[p] !== undefined);
+              return ps.length ? avg(ps.map((p) => order[p])) : 0;
+            };
+            return bc(a) - bc(b);
+          });
+        L.forEach((n, i) => (order[n] = i - (L.length - 1) / 2));
+      });
+      const node = (id) => net.P[id] || net.T[id];
+      layers.forEach((L, ri) => {
+        if (!L) return;
+        const gap = Math.min(150, 420 / Math.max(1, L.length));
+        L.forEach((n) => {
+          const o = node(n);
+          o.x = 100 + ri * (800 / maxR);
+          o.y = 285 + order[n] * gap;
+        });
+      });
+      net.places
+        .filter((p) => p.role === 'resource')
+        .forEach((p) => {
+          const ts = [...new Set([...p.pre, ...p.post])].map((id) => net.T[id]);
+          p.x = avg(ts.map((t) => t.x));
+          const top = Math.min(...ts.map((t) => t.y));
+          p.y = top - 90 > 30 ? top - 90 : Math.max(...ts.map((t) => t.y)) + 90;
+        });
+    }
+
+    /* Generische Abbildung: Plätze werden Förderstrecken, Transitionen werden Stationen */
+    function genericMap(net) {
+      const places = {},
+        transitions = {};
+      net.transitions.forEach((t) => {
+        transitions[t.id] = t.source
+          ? { as: 'dock', pos: [r1(t.x), r1(t.y)], label: t.name }
+          : { as: 'station', box: [r1(t.x - 22), r1(t.y - 22), 44, 44], label: t.name };
+      });
+      const avgPos = (ids) =>
+        ids.length ? [avg(ids.map((id) => net.T[id].x)), avg(ids.map((id) => net.T[id].y))] : null;
+      net.places.forEach((p) => {
+        if (p.role === 'resource') {
+          const loops = p.post.filter((id) => p.pre.includes(id));
+          places[p.id] =
+            loops.length === 1 && p.post.length === 1 && p.pre.length === 1
+              ? { as: 'slots', of: loops[0] }
+              : { as: 'pool', pos: [r1(p.x), r1(p.y)] };
+          return;
+        }
+        if (p.role === 'sink') {
+          places[p.id] = {
+            as: 'exit',
+            box: [r1(p.x - 26), r1(p.y - 18), 52, 36],
+            label: 'Ausgang',
+          };
+          return;
+        }
+        const a = avgPos(p.pre),
+          b = avgPos(p.post);
+        let dx = 1,
+          dy = 0;
+        if (a && b) {
+          dx = b[0] - a[0];
+          dy = b[1] - a[1];
+        } else if (b) {
+          dx = b[0] - p.x;
+          dy = b[1] - p.y;
+        } else if (a) {
+          dx = p.x - a[0];
+          dy = p.y - a[1];
+        }
+        const L = Math.hypot(dx, dy) || 1;
+        dx /= L;
+        dy /= L;
+        let near = Infinity;
+        [...p.pre, ...p.post].forEach((id) => {
+          near = Math.min(near, Math.hypot(net.T[id].x - p.x, net.T[id].y - p.y));
+        });
+        const half = clamp((isFinite(near) ? near : 90) - 36, 14, 48);
+        places[p.id] = {
+          as: p.role === 'source' ? 'entry' : 'conveyor',
+          lane: [
+            [r1(p.x - dx * half), r1(p.y - dy * half)],
+            [r1(p.x + dx * half), r1(p.y + dy * half)],
+          ],
+        };
+      });
+      return {
+        theme: 'Generisch',
+        object: net.noun,
+        viewName: 'Halle',
+        token: 'parcel',
+        laneStyle: 'belt',
+        places,
+        transitions,
+        arcs: {},
+        decor: [{ kind: 'text', pos: [24, 40], text: net.name }],
+      };
+    }
+
+    /* ---------------- Simulation (Schaltregel, deterministischer Code) ---------------- */
+    function newCase(t) {
+      return { kind: 'case', id: NET.prefix + String(++S.seq).padStart(4, '0'), born: t, enter: t };
+    }
+    function log(ts, cid, act, life) {
+      S.log.push({ ts, cid, act, life });
+      if (S.log.length > 30000) S.log.splice(0, 5000);
+    }
+    function genCount() {
+      return (
+        NET.transitions.filter((t) => t.source && t.outputs.length).length +
+        NET.places.filter((p) => p.role === 'source').length
+      );
+    }
+    function genMean() {
+      return (3600 / rate) * Math.max(1, genCount());
+    }
+
+    function initState() {
+      S = {
+        t: 0,
+        P: {},
+        firings: [],
+        travels: [],
+        seq: 0,
+        log: [],
+        cycles: [],
+        doneTimes: [],
+        sinkBy: {},
+        gens: [],
+      };
+      NET.transitions.forEach((t) => {
+        t.cap = t.cap0;
+      });
+      NET.places.forEach((p) => {
+        const st = { tokens: [], waits: [], debt: 0, count: 0, cap0: 0 };
+        S.P[p.id] = st;
+        if (p.role === 'resource') {
+          for (let i = 0; i < p.init; i++) st.tokens.push({ kind: 'res' });
+          st.cap0 = p.init;
+        } else if (p.role !== 'sink') {
+          for (let i = 0; i < p.init; i++) st.tokens.push(newCase(0));
+        }
+      });
+      const m = genMean();
+      NET.transitions
+        .filter((t) => t.source && t.outputs.length)
+        .forEach((t) => S.gens.push({ type: 't', id: t.id, next: expo(m) }));
+      NET.places
+        .filter((p) => p.role === 'source')
+        .forEach((p) => S.gens.push({ type: 'p', id: p.id, next: expo(m) }));
+    }
+
+    function resOf(t) {
+      return t.inputs.find((pid) => NET.P[pid].role === 'resource' && t.outputs.includes(pid));
+    }
+    function resInUse(pid) {
+      let n = 0;
+      for (const f of S.firings)
+        if (f.t.outputs.includes(pid) && f.consumed.some((c) => c.pid === pid)) n++;
+      return n;
+    }
+    function resCap(pid) {
+      const st = S.P[pid];
+      return st.tokens.length + resInUse(pid) - st.debt;
+    }
+    function busyOf(t) {
+      let n = 0;
+      for (const f of S.firings) if (f.t === t) n++;
+      return n;
+    }
+    function capInfo(t) {
+      const rp = resOf(t),
+        busy = busyOf(t);
+      if (rp) return { cap: resCap(rp), cap0: S.P[rp].cap0, busy };
+      return { cap: t.cap, cap0: t.cap0 === Infinity ? 1 : t.cap0, busy };
+    }
+    function slotCount(t) {
+      const i = capInfo(t);
+      let m = 0;
+      for (const f of S.firings) if (f.t === t) m = Math.max(m, f.slot + 1);
+      return Math.max(1, i.cap === Infinity ? 0 : i.cap, i.cap0, m);
+    }
+    function approach(f) {
+      const tm = MAP.transitions[f.t.id];
+      const d = f.end - f.start;
+      return tm && tm.motion === 'pass' ? d : Math.min(d * 0.35, MAP.approachMax || 3);
+    }
+
+    function enabled(t) {
+      if (t.source) return false;
+      for (const pid of t.inputs) if (!S.P[pid].tokens.length) return false;
+      if (t.cap !== Infinity && busyOf(t) >= t.cap) return false;
+      return true;
+    }
+    function start(t) {
+      const T = S.t,
+        consumed = [];
+      for (const pid of t.inputs) {
+        const st = S.P[pid],
+          tok = st.tokens.shift();
+        if (tok.kind === 'case') {
+          st.waits.push(T - tok.enter);
+          if (st.waits.length > 40) st.waits.shift();
+        }
+        consumed.push({ pid, tok });
+      }
+      const cases = consumed
+        .filter((c) => c.tok.kind === 'case')
+        .sort((a, b) => (a.tok.clone ? 1 : 0) - (b.tok.clone ? 1 : 0));
+      const primary = cases.find((c) => !t.outputs.includes(c.pid)) || cases[0] || null;
+      const used = new Set(S.firings.filter((f) => f.t === t).map((f) => f.slot));
+      let slot = 0;
+      while (used.has(slot)) slot++;
+      S.firings.push({
+        t,
+        consumed,
+        primary,
+        start: T,
+        end: T + uni(t.dur),
+        slot,
+        fromPid: primary ? primary.pid : null,
+      });
+      if (primary) log(T, primary.tok.id, t.name, 'start');
+    }
+    function complete(f) {
+      const t = f.t,
+        T = f.end;
+      for (const pid of t.outputs) {
+        if (!t.inputs.includes(pid)) continue;
+        const c = f.consumed.find((c) => c.pid === pid),
+          st = S.P[pid];
+        if (NET.P[pid].role === 'resource') {
+          if (st.debt > 0) st.debt--;
+          else st.tokens.push(c.tok);
+        } else {
+          c.tok.enter = T;
+          st.tokens.push(c.tok);
+        }
+      }
+      let prim = f.primary ? f.primary.tok : null,
+        sent = false;
+      t.outputs
+        .filter((pid) => !t.inputs.includes(pid))
+        .forEach((pid) => {
+          let tok;
+          if (NET.P[pid].role === 'resource') tok = { kind: 'res' };
+          else if (!prim) {
+            prim = newCase(T);
+            tok = prim;
+            sent = true;
+          } else {
+            tok = sent ? { ...prim, clone: true } : prim;
+            sent = true;
+          }
+          S.travels.push({
+            tok,
+            from: t.id,
+            to: pid,
+            start: T,
+            dur: travelDur(t.id, pid, f.slot),
+            slot: f.slot,
+          });
+        });
+      if (f.primary) log(T, f.primary.tok.id, t.name, 'complete');
+    }
+    function arrive(x) {
+      const p = NET.P[x.to],
+        st = S.P[x.to],
+        T = x.start + x.dur;
+      if (p.role === 'sink') {
+        st.count++;
+        S.sinkBy[x.from] = (S.sinkBy[x.from] || 0) + 1;
+        if (x.tok.kind === 'case' && !x.tok.clone) {
+          S.cycles.push(T - x.tok.born);
+          if (S.cycles.length > 120) S.cycles.shift();
+          S.doneTimes.push(T);
+        }
+        return;
+      }
+      if (p.role === 'resource') {
+        if (st.debt > 0) st.debt--;
+        else st.tokens.push(x.tok);
+        return;
+      }
+      x.tok.enter = T;
+      st.tokens.push(x.tok);
+    }
+    function spawn(g, T) {
+      const tok = newCase(T);
+      if (g.type === 't') {
+        const t = NET.T[g.id];
+        log(T, tok.id, t.name, 'complete');
+        let sent = false;
+        t.outputs.forEach((pid) => {
+          const tk =
+            NET.P[pid].role === 'resource' ? { kind: 'res' } : sent ? { ...tok, clone: true } : tok;
+          if (NET.P[pid].role !== 'resource') sent = true;
+          S.travels.push({
+            tok: tk,
+            from: t.id,
+            to: pid,
+            start: T,
+            dur: travelDur(t.id, pid, 0),
+            slot: 0,
+          });
+        });
+      } else S.P[g.id].tokens.push(tok);
+    }
+    function fireEnabled() {
+      for (let guard = 0; guard < 400; guard++) {
+        const en = [];
+        let tw = 0;
+        for (const t of NET.transitions)
+          if (enabled(t)) {
+            en.push(t);
+            tw += t.w;
+          }
+        if (!en.length) return;
+        let r = Math.random() * tw,
+          pick = en[en.length - 1];
+        for (const t of en) {
+          r -= t.w;
+          if (r <= 0) {
+            pick = t;
+            break;
+          }
+        }
+        start(pick);
+      }
+    }
+    function tick() {
+      const T = S.t,
+        m = genMean();
+      for (const g of S.gens)
+        while (g.next <= T) {
+          spawn(g, g.next);
+          g.next += expo(m);
+        }
+      if (S.firings.some((f) => f.end <= T)) {
+        const done = S.firings.filter((f) => f.end <= T).sort((a, b) => a.end - b.end);
+        S.firings = S.firings.filter((f) => f.end > T);
+        done.forEach(complete);
+      }
+      if (S.travels.some((x) => x.start + x.dur <= T)) {
+        const arr = S.travels
+          .filter((x) => x.start + x.dur <= T)
+          .sort((a, b) => a.start + a.dur - (b.start + b.dur));
+        S.travels = S.travels.filter((x) => x.start + x.dur > T);
+        arr.forEach(arrive);
+      }
+      fireEnabled();
+      while (S.doneTimes.length && S.doneTimes[0] < T - 900) S.doneTimes.shift();
+    }
+    function advance(dt) {
+      const target = S.t + dt;
+      while (S.t < target - 1e-9) {
+        S.t = Math.min(target, S.t + 0.25);
+        tick();
+      }
+    }
+
+    /* ---------------- Geometrie der Halle ---------------- */
+    function resolvePath(start, path) {
+      const out = [];
+      let last = start;
+      for (const q of path) {
+        const pt = Array.isArray(q)
+          ? q
+          : [q.x != null ? q.x : last[0], q.y != null ? q.y : last[1]];
+        out.push(pt);
+        last = pt;
+      }
+      return out;
+    }
+    function hallCenter(tid) {
+      const tm = MAP.transitions[tid];
+      if (!tm) return [NET.T[tid].x, NET.T[tid].y];
+      return tm.pos ? tm.pos : boxCenter(tm.box);
+    }
+    function hallSlotPos(t, i) {
+      const tm = MAP.transitions[t.id];
+      if (!tm) return [t.x, t.y];
+      if (tm.slots) return tm.slots[Math.min(i, tm.slots.length - 1)];
+      if (tm.as === 'dock' || tm.as === 'diverter' || tm.as === 'door' || tm.as === 'waypoint')
+        return tm.pos;
+      const n = slotCount(t);
+      if (tm.as === 'sorter') {
+        if (n <= 1) return tm.pos;
+        const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+        return [tm.pos[0] + Math.cos(a) * tm.r * 0.52, tm.pos[1] + Math.sin(a) * tm.r * 0.52];
+      }
+      const [x, y, w, h] = tm.box;
+      if (h >= w) {
+        const st = h / n;
+        return [x + w / 2, y + st * (i + 0.5)];
+      }
+      const st = w / n;
+      return [x + st * (i + 0.5), y + h / 2];
+    }
+    function slotSize(t) {
+      const tm = MAP.transitions[t.id],
+        n = slotCount(t);
+      if (tm.as === 'sorter') return n <= 1 ? 20 : 14;
+      const along = Math.max(tm.box[2], tm.box[3]);
+      return clamp(along / n - 8, 12, 26);
+    }
+    function laneHead(pid) {
+      const pm = MAP.places[pid];
+      if (!pm) return null;
+      if (pm.lane) return pointAt(pm.lane, polyLen(pm.lane) - SPACING / 2);
+      if (pm.pos) return pm.pos;
+      return null;
+    }
+    function hallTravelPts(x) {
+      const tm = MAP.transitions[x.from];
+      const pts = [
+        tm && (tm.as === 'dock' || tm.as === 'diverter' || tm.as === 'door' || tm.as === 'waypoint')
+          ? tm.pos
+          : hallSlotPos(NET.T[x.from], x.slot || 0),
+      ];
+      const custom = MAP.arcs && MAP.arcs[x.from + '>' + x.to];
+      if (custom) resolvePath(pts[0], custom.path).forEach((q) => pts.push(q));
+      const pm = MAP.places[x.to];
+      if (pm && pm.lane) {
+        const L = polyLen(pm.lane),
+          cap = laneCap(pm.lane),
+          idx = Math.min(S.P[x.to].tokens.length, cap - 1);
+        prefix(pm.lane, Math.max(SPACING / 2, L - SPACING * (idx + 0.5))).forEach((q) =>
+          pts.push(q),
+        );
+      } else if (pm && pm.as === 'exit') pts.push(boxCenter(pm.box));
+      else if (pm && pm.as === 'pool') pts.push(pm.pos);
+      else if (!custom) pts.push([NET.P[x.to].x, NET.P[x.to].y]);
+      return pts;
+    }
+    function travelDur(tid, pid, slot) {
+      const pm = MAP.places[pid];
+      if (!pm || pm.as === 'slots') return 1.5;
+      const cl = MAP.travelClamp || [1.2, 10];
+      return clamp(
+        polyLen(hallTravelPts({ from: tid, to: pid, slot })) / (MAP.speed || BELT),
+        cl[0],
+        cl[1],
+      );
+    }
+    function hallFiringPos(f) {
+      const target = hallSlotPos(f.t, f.slot);
+      const from = (f.fromPid && laneHead(f.fromPid)) || target;
+      const k = ease(clamp((S.t - f.start) / approach(f), 0, 1)),
+        tm = MAP.transitions[f.t.id];
+      if (tm && tm.entry === 'hv') {
+        const pts = [from, [target[0], from[1]], target];
+        return pointAt(pts, polyLen(pts) * k);
+      }
+      return lerp(from, target, k);
+    }
+    function hallConnectors() {
+      const segs = [];
+      if (MAP.connectors === false) return segs;
+      for (const a of NET.arcs) {
+        if (NET.P[a.s]) {
+          const t = NET.T[a.d];
+          if (t.outputs.includes(a.s)) continue;
+          const pm = MAP.places[a.s];
+          if (!pm || !pm.lane) continue;
+          segs.push([pm.lane[pm.lane.length - 1], hallCenter(a.d)]);
+        } else {
+          const t = NET.T[a.s];
+          if (t.inputs.includes(a.d)) continue;
+          const pm = MAP.places[a.d];
+          if (!pm) continue;
+          const custom = MAP.arcs && MAP.arcs[a.s + '>' + a.d];
+          if (custom) {
+            const st = hallCenter(a.s);
+            segs.push([st, ...resolvePath(st, custom.path)]);
+            continue;
+          }
+          if (pm.lane) segs.push([hallCenter(a.s), pm.lane[0]]);
+          else if (pm.as === 'exit') segs.push([hallCenter(a.s), boxCenter(pm.box)]);
+        }
+      }
+      return segs;
+    }
+
+    /* ---------------- Geometrie des Netzes ---------------- */
+    function clipNode(id, c, dir) {
+      if (NET.P[id]) {
+        const r = PR + 1.5;
+        return [c[0] + dir[0] * r, c[1] + dir[1] * r];
+      }
+      const hw = TW / 2 + 1.5,
+        hh = TH / 2 + 1.5;
+      const tx = Math.abs(dir[0]) > 1e-6 ? hw / Math.abs(dir[0]) : Infinity,
+        ty = Math.abs(dir[1]) > 1e-6 ? hh / Math.abs(dir[1]) : Infinity;
+      const s = Math.min(tx, ty);
+      return [c[0] + dir[0] * s, c[1] + dir[1] * s];
+    }
+    function nodeXY(id) {
+      const n = NET.P[id] || NET.T[id];
+      return [n.x, n.y];
+    }
+    function arcGeom(a) {
+      const s = nodeXY(a.s),
+        d = nodeXY(a.d);
+      let dx = d[0] - s[0],
+        dy = d[1] - s[1];
+      const L = Math.hypot(dx, dy) || 1;
+      dx /= L;
+      dy /= L;
+      const off = REVSET.has(a.d + '>' + a.s) ? 5 : 0,
+        nx = -dy * off,
+        ny = dx * off;
+      return [
+        clipNode(a.s, [s[0] + nx, s[1] + ny], [dx, dy]),
+        clipNode(a.d, [d[0] + nx, d[1] + ny], [-dx, -dy]),
+      ];
+    }
+    function prepareGeometry() {
+      REVSET = new Set(NET.arcs.map((a) => a.s + '>' + a.d));
+      ARCGEOM = {};
+      NET.arcs.forEach((a) => {
+        ARCGEOM[a.s + '>' + a.d] = arcGeom(a);
+      });
+      CONNECTORS = hallConnectors();
+    }
+
+    /* ---------------- Zeichnen ---------------- */
+    const C = {};
+    function readColors() {
+      const cs = getComputedStyle(document.documentElement),
+        g = (n) => cs.getPropertyValue(n).trim();
+      Object.assign(C, {
+        panel: g('--panel'),
+        floor: g('--floor'),
+        grid: g('--grid'),
+        ink: g('--ink'),
+        ink2: g('--ink-2'),
+        line: g('--line'),
+        belt: g('--belt'),
+        roller: g('--roller'),
+        safety: g('--safety'),
+        onSafety: g('--on-safety'),
+        kraft: g('--kraft'),
+        tape: g('--tape'),
+        res: g('--res'),
+        warn: g('--warn'),
+        crit: g('--crit'),
+        ok: g('--ok'),
+        bg: g('--bg'),
+        person: g('--person'),
+        person2: g('--person-2'),
+      });
+    }
+    const FD = '"Barlow Condensed","Arial Narrow",sans-serif',
+      FB = '"IBM Plex Sans",system-ui,sans-serif',
+      FM = '"IBM Plex Mono",ui-monospace,monospace';
+    function setLS(ctx, v) {
+      if ('letterSpacing' in ctx) ctx.letterSpacing = v;
+    }
+    function wrap(ctx, text, maxW) {
+      const words = String(text).split(/\s+/),
+        lines = [];
+      let cur = '';
+      for (const w of words) {
+        const t = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(t).width > maxW && cur) {
+          lines.push(cur);
+          cur = w;
+        } else cur = t;
+      }
+      if (cur) lines.push(cur);
+      if (lines.length > 2) {
+        lines.length = 2;
+        lines[1] += '…';
+      }
+      return lines;
+    }
+    function textBlock(ctx, text, x, y, mode, maxW, lh, halo) {
+      const lines = wrap(ctx, text, maxW);
+      const put = (l, yy) => {
+        if (halo) {
+          ctx.save();
+          ctx.strokeStyle = halo;
+          ctx.lineWidth = 4;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(l, x, yy);
+          ctx.restore();
+        }
+        ctx.fillText(l, x, yy);
+      };
+      if (mode === 'above') {
+        ctx.textBaseline = 'bottom';
+        lines
+          .slice()
+          .reverse()
+          .forEach((l, i) => put(l, y - i * lh));
+      } else if (mode === 'below') {
+        ctx.textBaseline = 'top';
+        lines.forEach((l, i) => put(l, y + i * lh));
+      } else {
+        ctx.textBaseline = 'middle';
+        const y0 = y - ((lines.length - 1) * lh) / 2;
+        lines.forEach((l, i) => put(l, y0 + i * lh));
+      }
+    }
+    function rr(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function strokePath(ctx, pts) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.stroke();
+    }
+    const level = (n) => (n >= CRIT ? 'crit' : n >= WARN ? 'warn' : null);
+    const isQueue = (p) => p.role === 'case' || p.role === 'source' || p.role === 'isolated';
+
+    function hoverPlace() {
+      return hoverId && hoverId[0] === 'P' ? hoverId.slice(2) : null;
+    }
+    function hoverTrans() {
+      if (!hoverId) return null;
+      if (hoverId[0] === 'T') return hoverId.slice(2);
+      const pm = MAP.places[hoverId.slice(2)];
+      return pm && pm.as === 'slots' ? pm.of : null;
+    }
+
+    function drawBelt(ctx, pts, w) {
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = C.belt;
+      ctx.lineWidth = w;
+      strokePath(ctx, pts);
+      ctx.strokeStyle = C.roller;
+      ctx.lineWidth = 1.3;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1],
+          b = pts[i],
+          L = dist(a, b);
+        if (L < 2) continue;
+        const ux = (b[0] - a[0]) / L,
+          uy = (b[1] - a[1]) / L,
+          nx = -uy * (w / 2 - 2.5),
+          ny = ux * (w / 2 - 2.5);
+        ctx.beginPath();
+        for (let s = 4; s < L - 2; s += 8) {
+          const x = a[0] + ux * s,
+            y = a[1] + uy * s;
+          ctx.moveTo(x + nx, y + ny);
+          ctx.lineTo(x - nx, y - ny);
+        }
+        const ex = (-uy * w) / 2,
+          ey = (ux * w) / 2;
+        ctx.moveTo(a[0] + ex, a[1] + ey);
+        ctx.lineTo(b[0] + ex, b[1] + ey);
+        ctx.moveTo(a[0] - ex, a[1] - ey);
+        ctx.lineTo(b[0] - ex, b[1] - ey);
+        ctx.stroke();
+      }
+    }
+    function glow(ctx, pts, w, color, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      strokePath(ctx, pts);
+      ctx.restore();
+    }
+    function drawParcel(ctx, x, y) {
+      ctx.fillStyle = C.kraft;
+      ctx.fillRect(x - 6, y - 5, 12, 10);
+      ctx.strokeStyle = C.tape;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 5.5, y - 4.5, 11, 9);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x, y + 5);
+      ctx.stroke();
+    }
+    function drawPerson(ctx, x, y) {
+      ctx.fillStyle = C.person;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 7, 4.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = C.person2;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function drawTok(ctx, x, y) {
+      if (MAP.token === 'person') drawPerson(ctx, x, y);
+      else drawParcel(ctx, x, y);
+    }
+    const caseCol = () => (MAP && MAP.token === 'person' ? C.person : C.kraft);
+    const caseEdge = () => (MAP && MAP.token === 'person' ? C.person2 : C.tape);
+    function drawQueueLane(ctx, pts) {
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 18;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      strokePath(ctx, pts);
+      ctx.restore();
+      ctx.save();
+      ctx.setLineDash([3, 6]);
+      ctx.strokeStyle = C.ink2;
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = 'round';
+      strokePath(ctx, pts);
+      ctx.restore();
+      const h = pts[pts.length - 1],
+        q = pts[pts.length - 2],
+        L = dist(h, q) || 1,
+        nx = (-(h[1] - q[1]) / L) * 10,
+        ny = ((h[0] - q[0]) / L) * 10;
+      ctx.strokeStyle = C.safety;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(h[0] + nx, h[1] + ny);
+      ctx.lineTo(h[0] - nx, h[1] - ny);
+      ctx.stroke();
+    }
+    function light(ctx, x, y, st) {
+      if (st === 'busy') {
+        ctx.fillStyle = C.safety;
+      } else if (st === 'free') {
+        ctx.fillStyle = C.ok;
+      } else {
+        ctx.fillStyle = C.crit;
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function cross(ctx, x, y, s) {
+      ctx.strokeStyle = C.crit;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(x - s, y - s);
+      ctx.lineTo(x + s, y + s);
+      ctx.moveTo(x + s, y - s);
+      ctx.lineTo(x - s, y + s);
+      ctx.stroke();
+    }
+    function slotStates(t) {
+      const info = capInfo(t),
+        n = slotCount(t),
+        busy = new Set(S.firings.filter((f) => f.t === t).map((f) => f.slot));
+      let idle = Math.max(0, info.cap - busy.size);
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        if (busy.has(i)) out.push('busy');
+        else if (idle > 0) {
+          idle--;
+          out.push('free');
+        } else out.push('off');
+      }
+      return out;
+    }
+    function drawStyledSlots(ctx, t, tm, hl) {
+      const sts = slotStates(t);
+      sts.forEach((st, i) => {
+        const [x, y] = hallSlotPos(t, i);
+        if (tm.as === 'area') {
+          ctx.fillStyle = C.bg;
+          ctx.fillRect(x - 17, y - 31, 34, 15);
+          ctx.strokeStyle = C.ink2;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x - 16.5, y - 30.5, 33, 14);
+          ctx.beginPath();
+          ctx.moveTo(x - 8, y - 26);
+          ctx.lineTo(x + 8, y - 26);
+          ctx.stroke();
+          ctx.strokeStyle = C.line;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+          ctx.stroke();
+          if (st === 'off') cross(ctx, x, y - 23, 7);
+          else light(ctx, x + 12, y - 23, st);
+          if (hl) {
+            ctx.strokeStyle = C.safety;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(x - 21, y - 35, 42, 46);
+          }
+        } else if (tm.as === 'rooms') {
+          const [rx, ry, rw] = tm.rooms[i];
+          ctx.fillStyle = C.bg;
+          ctx.strokeStyle = C.ink2;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.ellipse(x, y, 28, 13, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.strokeStyle = C.line;
+          ctx.lineWidth = 1.4;
+          for (let k = 0; k < 6; k++) {
+            const a = (k * Math.PI) / 3 + Math.PI / 6;
+            ctx.beginPath();
+            ctx.arc(x + Math.cos(a) * 36, y + Math.sin(a) * 20, 4.5, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          if (st === 'off') {
+            cross(ctx, x, y, 10);
+          }
+          light(ctx, rx + rw - 16, ry + 18, st);
+          if (hl) {
+            const r = tm.rooms[i];
+            ctx.strokeStyle = C.safety;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(r[0] + 4, r[1] + 4, r[2] - 8, r[3] - 8);
+          }
+        } else if (tm.as === 'machine') {
+          const [mx, my, mw, mh] = tm.machines[i];
+          ctx.fillStyle = C.ink2;
+          rr(ctx, mx, my, mw, mh, 2);
+          ctx.fill();
+          if (st === 'off') cross(ctx, mx + mw / 2, my + mh / 2, 6);
+          else light(ctx, mx + mw / 2, my + 7, st);
+          if (hl) {
+            ctx.strokeStyle = C.safety;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(mx - 4, my - 4, mw + 8, mh + 8);
+          }
+        } else if (tm.as === 'turnstile') {
+          ctx.fillStyle = C.ink2;
+          ctx.fillRect(x - 4, y - 13, 8, 26);
+          ctx.strokeStyle = C.ink2;
+          ctx.lineWidth = 2;
+          const a0 = st === 'busy' ? S.t * 2 : 0;
+          ctx.beginPath();
+          for (let k = 0; k < 3; k++) {
+            const a = a0 + (k * 2 * Math.PI) / 3;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11);
+          }
+          ctx.stroke();
+          if (st === 'off') cross(ctx, x, y, 8);
+          else light(ctx, x + 12, y - 14, st);
+          if (hl) {
+            ctx.strokeStyle = C.safety;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(x, y, 17, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      });
+    }
+    function hazard(ctx, x, y, w, h) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.fillStyle = C.safety;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = C.onSafety;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let k = -Math.max(w, h); k < w + h; k += 10) {
+        ctx.moveTo(x + k, y);
+        ctx.lineTo(x + k + h, y + h);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    function drawTruck(ctx, rect, cab, count) {
+      const [x, y, w, h] = rect,
+        cw = 22,
+        tx = cab === 'left' ? x + cw + 2 : x,
+        tw = w - cw - 2,
+        cx = cab === 'left' ? x : x + w - cw;
+      ctx.fillStyle = C.ink2;
+      rr(ctx, cx, y + 9, cw, h - 18, 4);
+      ctx.fill();
+      ctx.fillStyle = C.floor;
+      ctx.fillRect(cab === 'left' ? cx + 3 : cx + cw - 8, y + 14, 5, h - 28);
+      ctx.fillStyle = C.panel;
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 1.5;
+      rr(ctx, tx, y, tw, h, 3);
+      ctx.fill();
+      ctx.stroke();
+      if (count != null) {
+        const fill = (count % 60) / 60;
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = C.kraft;
+        ctx.fillRect(tx + 3, y + 3, (tw - 6) * fill, h - 6);
+        ctx.restore();
+        ctx.fillStyle = C.ink2;
+        ctx.font = `600 14px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        setLS(ctx, '0.06em');
+        ctx.fillText('LKW ' + (Math.floor(count / 60) + 1), tx + 52, y + 22);
+        setLS(ctx, '0px');
+        ctx.fillStyle = C.ink;
+        ctx.font = `500 13px ${FM}`;
+        ctx.fillText(`${count % 60}/60`, tx + 52, y + 42);
+      }
+    }
+    function stationLabel(ctx, text, x, y, mode) {
+      ctx.fillStyle = C.ink;
+      ctx.font = `600 14px ${FD}`;
+      ctx.textAlign = 'center';
+      setLS(ctx, '0.07em');
+      textBlock(ctx, String(text).toUpperCase(), x, y, mode || 'above', 104, 14);
+      setLS(ctx, '0px');
+    }
+
+    function drawDecor(ctx, d) {
+      if (d.kind === 'zone') {
+        const [x, y, w, h] = d.rect;
+        ctx.save();
+        ctx.globalAlpha = 0.09;
+        ctx.fillStyle = C.safety;
+        ctx.fillRect(x, y, w, h);
+        ctx.restore();
+        ctx.strokeStyle = C.safety;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        ctx.fillStyle = C.safety;
+        ctx.font = `700 22px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        setLS(ctx, '0.08em');
+        ctx.fillText(String(d.label).toUpperCase(), x + 8, y + 5);
+        setLS(ctx, '0px');
+      } else if (d.kind === 'room') {
+        const [x, y, w, h] = d.rect;
+        ctx.fillStyle = C.panel;
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = C.ink2;
+        ctx.font = `600 14px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        setLS(ctx, '0.08em');
+        ctx.fillText(String(d.label).toUpperCase(), x + (d.lx || 10), y + 24);
+        setLS(ctx, '0px');
+        if (d.sub) {
+          ctx.font = `400 11.5px ${FB}`;
+          ctx.fillText(d.sub, x + (d.lx || 10), y + 40);
+        }
+      } else if (d.kind === 'walls') {
+        ctx.strokeStyle = C.ink;
+        ctx.lineWidth = d.w || 5;
+        ctx.lineCap = 'square';
+        ctx.beginPath();
+        d.segs.forEach(([a, b, c, e]) => {
+          ctx.moveTo(a, b);
+          ctx.lineTo(c, e);
+        });
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+      } else if (d.kind === 'furn') {
+        const [x, y, w, h] = d.rect;
+        ctx.fillStyle = C.grid;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      } else if (d.kind === 'label') {
+        ctx.fillStyle = C.ink2;
+        ctx.font = `600 14px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        setLS(ctx, '0.08em');
+        ctx.fillText(String(d.text).toUpperCase(), d.pos[0], d.pos[1]);
+        setLS(ctx, '0px');
+      } else if (d.kind === 'hazard') {
+        hazard(ctx, ...d.rect);
+      } else if (d.kind === 'truck') {
+        drawTruck(ctx, d.rect, d.cab, null);
+      } else if (d.kind === 'text') {
+        ctx.fillStyle = C.ink2;
+        ctx.font = `600 16px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        setLS(ctx, '0.1em');
+        ctx.fillText(String(d.text).toUpperCase(), d.pos[0], d.pos[1]);
+        setLS(ctx, '0px');
+      } else if (d.kind === 'walkway') {
+        ctx.save();
+        ctx.strokeStyle = C.safety;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([12, 8]);
+        ctx.beginPath();
+        ctx.moveTo(d.from[0], d.from[1] - 9);
+        ctx.lineTo(d.to[0], d.to[1] - 9);
+        ctx.moveTo(d.from[0], d.from[1] + 9);
+        ctx.lineTo(d.to[0], d.to[1] + 9);
+        ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = C.ink2;
+        ctx.font = `600 12px ${FD}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        setLS(ctx, '0.12em');
+        ctx.fillText(String(d.label).toUpperCase(), d.from[0] + 6, d.from[1]);
+        setLS(ctx, '0px');
+      } else if (d.kind === 'scale') {
+        const [x, y] = d.pos;
+        ctx.strokeStyle = C.ink2;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 5);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + d.px, y);
+        ctx.lineTo(x + d.px, y - 5);
+        ctx.stroke();
+        ctx.fillStyle = C.ink2;
+        ctx.font = `500 12px ${FM}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(d.label, x + d.px + 8, y - 2);
+      }
+    }
+
+    function drawStation(ctx, t, ht) {
+      const tm = MAP.transitions[t.id];
+      if (!tm) return;
+      const hl = ht === t.id;
+      if (tm.as === 'area' || tm.as === 'rooms' || tm.as === 'machine' || tm.as === 'turnstile') {
+        drawStyledSlots(ctx, t, tm, hl);
+        if (hl && tm.as === 'area') {
+          ctx.save();
+          ctx.setLineDash([8, 6]);
+          ctx.strokeStyle = C.safety;
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(...tm.box);
+          ctx.restore();
+        }
+      } else if (tm.as === 'waypoint') {
+        const [x, y] = tm.pos;
+        ctx.strokeStyle = hl ? C.safety : C.ink2;
+        ctx.lineWidth = hl ? 3 : 1.3;
+        ctx.beginPath();
+        ctx.arc(x, y, hl ? 9 : 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = C.ink2;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (tm.as === 'door') {
+        const [x, y] = tm.pos;
+        ctx.strokeStyle = hl ? C.safety : C.ink2;
+        ctx.lineWidth = hl ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 35);
+        ctx.lineTo(x + 70, y - 35);
+        ctx.stroke();
+        ctx.save();
+        ctx.setLineDash([3, 4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y - 35, 70, 0, Math.PI / 2);
+        ctx.stroke();
+        ctx.restore();
+      } else if (tm.as === 'dock') {
+        const [x, y] = tm.pos;
+        ctx.fillStyle = C.roller;
+        ctx.fillRect(x - 5, y - 32, 10, 64);
+        if (hl) {
+          ctx.strokeStyle = C.safety;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x - 9, y - 36, 18, 72);
+        }
+        stationLabel(ctx, tm.label, x, y - 40);
+      } else if (tm.as === 'diverter') {
+        const [x, y] = tm.pos,
+          s = hl ? 12 : 9;
+        ctx.beginPath();
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+        ctx.fillStyle = C.safety;
+        ctx.fill();
+        ctx.strokeStyle = hl ? C.ink : C.onSafety;
+        ctx.lineWidth = hl ? 2 : 1.2;
+        ctx.stroke();
+      } else if (tm.as === 'sorter') {
+        const [x, y] = tm.pos;
+        ctx.beginPath();
+        ctx.arc(x, y, tm.r, 0, Math.PI * 2);
+        ctx.fillStyle = C.panel;
+        ctx.fill();
+        ctx.strokeStyle = hl ? C.safety : C.ink;
+        ctx.lineWidth = hl ? 3 : 1.6;
+        ctx.stroke();
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        const a0 = S.t * 0.6;
+        for (let k = 0; k < 6; k++) {
+          const a = a0 + (k * Math.PI) / 3;
+          ctx.moveTo(x + Math.cos(a) * (tm.r - 4), y + Math.sin(a) * (tm.r - 4));
+          ctx.lineTo(x + Math.cos(a) * 12, y + Math.sin(a) * 12);
+        }
+        ctx.stroke();
+        drawSlots(ctx, t);
+        stationLabel(ctx, tm.label, x, y - tm.r - 8);
+      } else {
+        const [x, y, w, h] = tm.box;
+        ctx.fillStyle = C.panel;
+        rr(ctx, x, y, w, h, 3);
+        ctx.fill();
+        ctx.strokeStyle = hl ? C.safety : C.ink;
+        ctx.lineWidth = hl ? 3 : 1.6;
+        ctx.stroke();
+        drawSlots(ctx, t);
+        if (MAP.theme === 'Generisch' && t.y > 292)
+          stationLabel(ctx, tm.label, x + w / 2, y + h + 7, 'below');
+        else stationLabel(ctx, tm.label, x + w / 2, y - 8);
+        if (tm.truck) {
+          drawTruck(ctx, tm.truck, 'right', S.sinkBy[t.id] || 0);
+          if (hl || hoverPlace() === 'p_done') {
+            ctx.strokeStyle = C.safety;
+            ctx.lineWidth = 3;
+            const [a, b, c, d] = tm.truck;
+            ctx.strokeRect(a - 3, b - 3, c + 6, d + 6);
+          }
+        }
+      }
+    }
+    function drawSlots(ctx, t) {
+      const info = capInfo(t);
+      if (info.cap === Infinity) return;
+      const n = slotCount(t),
+        s = slotSize(t);
+      const busy = new Set(S.firings.filter((f) => f.t === t).map((f) => f.slot));
+      let idle = Math.max(0, info.cap - busy.size);
+      for (let i = 0; i < n; i++) {
+        const [x, y] = hallSlotPos(t, i);
+        const bx = x - s / 2,
+          by = y - s / 2;
+        if (busy.has(i)) {
+          ctx.strokeStyle = C.ink2;
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(bx, by, s, s);
+        } else if (idle > 0) {
+          idle--;
+          ctx.strokeStyle = C.res;
+          ctx.lineWidth = 1.4;
+          ctx.strokeRect(bx, by, s, s);
+          ctx.fillStyle = C.res;
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = C.crit;
+          ctx.lineWidth = 1.4;
+          ctx.strokeRect(bx, by, s, s);
+          ctx.beginPath();
+          ctx.moveTo(bx + 3, by + 3);
+          ctx.lineTo(bx + s - 3, by + s - 3);
+          ctx.moveTo(bx + s - 3, by + 3);
+          ctx.lineTo(bx + 3, by + s - 3);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawHall(ctx) {
+      ctx.fillStyle = C.floor;
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = C.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 64) {
+        ctx.moveTo(x + 0.5, 0);
+        ctx.lineTo(x + 0.5, H);
+      }
+      for (let y = 0; y <= H; y += 64) {
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(W, y + 0.5);
+      }
+      ctx.stroke();
+      (MAP.decor || []).forEach((d) => drawDecor(ctx, d));
+      const hp = hoverPlace(),
+        ht = hoverTrans();
+
+      for (const p of NET.places) {
+        const pm = MAP.places[p.id];
+        if (!pm || !pm.lane) continue;
+        const lv = level(S.P[p.id].tokens.length);
+        if (hp === p.id) glow(ctx, pm.lane, 36, C.safety, 0.6);
+        if (lv) glow(ctx, pm.lane, 29, lv === 'crit' ? C.crit : C.warn, 0.55);
+      }
+      CONNECTORS.forEach((pts) => drawBelt(ctx, pts, 12));
+      const queueStyle = MAP.laneStyle === 'queue';
+      for (const p of NET.places) {
+        const pm = MAP.places[p.id];
+        if (!pm || !pm.lane) continue;
+        if (queueStyle) drawQueueLane(ctx, pm.lane);
+        else drawBelt(ctx, pm.lane, 20);
+        if (MAP.labelLanes) {
+          const mid = pointAt(pm.lane, polyLen(pm.lane) / 2);
+          ctx.fillStyle = C.ink2;
+          ctx.font = `400 12px ${FB}`;
+          ctx.textAlign = 'center';
+          textBlock(ctx, p.name, mid[0], mid[1] + 15, 'below', 110, 13);
+        }
+        if (pm.as === 'entry') {
+          ctx.fillStyle = C.ink;
+          ctx.font = `600 14px ${FD}`;
+          ctx.textAlign = 'left';
+          setLS(ctx, '0.08em');
+          textBlock(ctx, 'ZUGANG', pm.lane[0][0], pm.lane[0][1] + 16, 'below', 90, 14);
+          setLS(ctx, '0px');
+        }
+      }
+      for (const t of NET.transitions) drawStation(ctx, t, ht);
+      for (const p of NET.places) {
+        const pm = MAP.places[p.id];
+        if (!pm) continue;
+        if (pm.as === 'exit') {
+          const [x, y, w, h] = pm.box;
+          ctx.fillStyle = C.panel;
+          rr(ctx, x, y, w, h, 3);
+          ctx.fill();
+          ctx.strokeStyle = hp === p.id ? C.safety : C.ink;
+          ctx.lineWidth = hp === p.id ? 3 : 1.6;
+          ctx.stroke();
+          ctx.fillStyle = C.ink;
+          ctx.font = `500 13px ${FM}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(S.P[p.id].count), x + w / 2, y + h / 2 + 1);
+          stationLabel(ctx, pm.label, x + w / 2, y + h + 7, 'below');
+        } else if (pm.as === 'pool') {
+          const [x, y] = pm.pos,
+            n = S.P[p.id].tokens.length;
+          ctx.fillStyle = C.panel;
+          rr(ctx, x - 24, y - 14, 48, 28, 4);
+          ctx.fill();
+          ctx.strokeStyle = hp === p.id ? C.safety : C.res;
+          ctx.lineWidth = hp === p.id ? 3 : 1.5;
+          ctx.stroke();
+          ctx.fillStyle = C.res;
+          for (let k = 0; k < Math.min(n, 6); k++) {
+            ctx.beginPath();
+            ctx.arc(x - 15 + k * 6, y, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.font = `400 12px ${FB}`;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = C.ink2;
+          textBlock(ctx, p.name, x, y - 18, 'above', 100, 13);
+        }
+      }
+      for (const p of NET.places) {
+        const pm = MAP.places[p.id];
+        if (!pm || !pm.lane) continue;
+        const toks = S.P[p.id].tokens,
+          cap = laneCap(pm.lane),
+          L = polyLen(pm.lane),
+          m = Math.min(toks.length, cap);
+        for (let i = m - 1; i >= 0; i--) {
+          const q = pointAt(pm.lane, L - SPACING * (i + 0.5));
+          drawTok(ctx, q[0], q[1]);
+        }
+        if (toks.length > cap) {
+          const lv = level(toks.length) || 'warn',
+            [x, y] = pm.lane[0],
+            txt = '+' + (toks.length - cap);
+          ctx.fillStyle = lv === 'crit' ? C.crit : C.warn;
+          rr(ctx, x - 2, y - 30, 34, 17, 3);
+          ctx.fill();
+          ctx.fillStyle = C.panel;
+          ctx.font = `500 12px ${FM}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(txt, x + 15, y - 21);
+        }
+      }
+      for (const f of S.firings) {
+        if (!f.primary) continue;
+        const [x, y] = hallFiringPos(f);
+        drawTok(ctx, x, y);
+        const tm = MAP.transitions[f.t.id];
+        if (tm && tm.as !== 'diverter' && tm.as !== 'waypoint' && S.t - f.start >= approach(f)) {
+          const k = clamp((S.t - f.start) / (f.end - f.start), 0, 1);
+          ctx.strokeStyle = C.safety;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(x, y, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      for (const x of S.travels) {
+        const pts = hallTravelPts(x),
+          k = clamp((S.t - x.start) / x.dur, 0, 1),
+          q = pointAt(pts, polyLen(pts) * k);
+        if (x.tok.kind === 'res') {
+          ctx.fillStyle = C.res;
+          ctx.beginPath();
+          ctx.arc(q[0], q[1], 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else drawTok(ctx, q[0], q[1]);
+      }
+    }
+
+    function drawArrow(ctx, a, b) {
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]),
+        s = 7.5;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0] - Math.cos(ang) * s * 0.8, b[1] - Math.sin(ang) * s * 0.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(b[0], b[1]);
+      ctx.lineTo(
+        b[0] - Math.cos(ang) * s + Math.sin(ang) * s * 0.45,
+        b[1] - Math.sin(ang) * s - Math.cos(ang) * s * 0.45,
+      );
+      ctx.lineTo(
+        b[0] - Math.cos(ang) * s - Math.sin(ang) * s * 0.45,
+        b[1] - Math.sin(ang) * s + Math.cos(ang) * s * 0.45,
+      );
+      ctx.closePath();
+      ctx.fill();
+    }
+    const DOTS = {
+      1: [[0, 0]],
+      2: [
+        [-5.5, 0],
+        [5.5, 0],
+      ],
+      3: [
+        [-5.5, 4],
+        [5.5, 4],
+        [0, -5.5],
+      ],
+      4: [
+        [-5.5, -5.5],
+        [5.5, -5.5],
+        [-5.5, 5.5],
+        [5.5, 5.5],
+      ],
+      5: [
+        [-6.5, -6.5],
+        [6.5, -6.5],
+        [0, 0],
+        [-6.5, 6.5],
+        [6.5, 6.5],
+      ],
+    };
+    function netLabel(ctx, text, n, isPlace) {
+      const r = isPlace ? PR + 5 : n.lp === 'a' || n.lp === 'b' ? TH / 2 + 5 : TW / 2 + 7;
+      ctx.fillStyle = C.ink2;
+      ctx.font = `400 12.5px ${FB}`;
+      const h = C.panel;
+      if (n.lp === 'a') {
+        ctx.textAlign = 'center';
+        textBlock(ctx, text, n.x, n.y - r, 'above', 104, 14, h);
+      } else if (n.lp === 'l') {
+        ctx.textAlign = 'right';
+        textBlock(ctx, text, n.x - r, n.y, 'mid', 120, 14, h);
+      } else if (n.lp === 'r') {
+        ctx.textAlign = 'left';
+        textBlock(ctx, text, n.x + r, n.y, 'mid', 120, 14, h);
+      } else {
+        ctx.textAlign = 'center';
+        textBlock(ctx, text, n.x, n.y + r, 'below', 104, 14, h);
+      }
+    }
+    function drawNet(ctx) {
+      ctx.fillStyle = C.panel;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = C.grid;
+      for (let x = 20; x < W; x += 20)
+        for (let y = 20; y < H; y += 20) ctx.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
+      const hp = hoverPlace(),
+        htRaw = hoverId && hoverId[0] === 'T' ? hoverId.slice(2) : null;
+      ctx.strokeStyle = C.ink2;
+      ctx.fillStyle = C.ink2;
+      ctx.lineWidth = 1.3;
+      for (const a of NET.arcs) {
+        const g = ARCGEOM[a.s + '>' + a.d];
+        drawArrow(ctx, g[0], g[1]);
+      }
+      for (const p of NET.places) {
+        const st = S.P[p.id],
+          n = p.role === 'sink' ? st.count : st.tokens.length,
+          lv = isQueue(p) ? level(n) : null;
+        if (hp === p.id) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, PR + 6, 0, Math.PI * 2);
+          ctx.fillStyle = C.safety;
+          ctx.globalAlpha = 0.45;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, PR, 0, Math.PI * 2);
+        ctx.fillStyle = C.panel;
+        ctx.fill();
+        ctx.strokeStyle = lv ? (lv === 'crit' ? C.crit : C.warn) : C.ink;
+        ctx.lineWidth = lv ? 3 : 1.6;
+        ctx.stroke();
+        if (p.role === 'sink') {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, PR - 4, 0, Math.PI * 2);
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = C.ink;
+          ctx.stroke();
+        }
+        const col = p.role === 'resource' ? C.res : caseCol();
+        if (p.role === 'sink' || n > 5) {
+          ctx.fillStyle =
+            p.role === 'sink' ? C.ink : lv ? (lv === 'crit' ? C.crit : C.warn) : C.ink;
+          ctx.font = `500 ${n > 99 ? 11 : 13}px ${FM}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(n), p.x, p.y + 1);
+        } else if (n > 0) {
+          ctx.fillStyle = col;
+          for (const [dx, dy] of DOTS[n]) {
+            ctx.beginPath();
+            ctx.arc(p.x + dx, p.y + dy, 3.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        netLabel(ctx, p.name, p, true);
+      }
+      for (const t of NET.transitions) {
+        const busy = busyOf(t);
+        if (htRaw === t.id) {
+          ctx.fillStyle = C.safety;
+          ctx.globalAlpha = 0.45;
+          ctx.fillRect(t.x - TW / 2 - 6, t.y - TH / 2 - 6, TW + 12, TH + 12);
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = busy ? C.safety : C.ink;
+        ctx.fillRect(t.x - TW / 2, t.y - TH / 2, TW, TH);
+        ctx.strokeStyle = C.ink;
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(t.x - TW / 2, t.y - TH / 2, TW, TH);
+        if (busy) {
+          ctx.fillStyle = C.onSafety;
+          ctx.font = `600 11px ${FM}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(busy), t.x, t.y + 1);
+        }
+        netLabel(ctx, t.name, t, false);
+      }
+      for (const f of S.firings) {
+        if (!f.primary || !f.fromPid) continue;
+        const k = (S.t - f.start) / approach(f);
+        if (k >= 1) continue;
+        const g = ARCGEOM[f.fromPid + '>' + f.t.id];
+        if (!g) continue;
+        const q = lerp(g[0], g[1], ease(clamp(k, 0, 1)));
+        ctx.fillStyle = caseCol();
+        ctx.strokeStyle = caseEdge();
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], 4.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      for (const x of S.travels) {
+        const g = ARCGEOM[x.from + '>' + x.to];
+        if (!g) continue;
+        const q = lerp(g[0], g[1], clamp((S.t - x.start) / x.dur, 0, 1));
+        ctx.fillStyle = x.tok.kind === 'res' ? C.res : caseCol();
+        ctx.strokeStyle = caseEdge();
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], 4.2, 0, Math.PI * 2);
+        ctx.fill();
+        if (x.tok.kind !== 'res') ctx.stroke();
+      }
+    }
+
+    /* ---------------- Trefferprüfung und Tooltip ---------------- */
+    function hitNet(x, y) {
+      for (const t of NET.transitions)
+        if (Math.abs(x - t.x) <= TW / 2 + 5 && Math.abs(y - t.y) <= TH / 2 + 5) return 'T:' + t.id;
+      for (const p of NET.places) if (Math.hypot(x - p.x, y - p.y) <= PR + 4) return 'P:' + p.id;
+      return null;
+    }
+    function inBox(x, y, b, pad = 0) {
+      return x >= b[0] - pad && x <= b[0] + b[2] + pad && y >= b[1] - pad && y <= b[1] + b[3] + pad;
+    }
+    function hitHall(x, y) {
+      for (const t of NET.transitions) {
+        const tm = MAP.transitions[t.id];
+        if (!tm) continue;
+        if (tm.as === 'dock' && Math.abs(x - tm.pos[0]) < 14 && Math.abs(y - tm.pos[1]) < 36)
+          return 'T:' + t.id;
+        if (tm.as === 'door' && x < tm.pos[0] + 60 && Math.abs(y - tm.pos[1]) < 36)
+          return 'T:' + t.id;
+        if (
+          (tm.as === 'turnstile' || tm.as === 'waypoint') &&
+          Math.hypot(x - tm.pos[0], y - tm.pos[1]) < 16
+        )
+          return 'T:' + t.id;
+        if (tm.as === 'area' && inBox(x, y, tm.box, 0)) return 'T:' + t.id;
+        if (tm.rooms) {
+          const n = Math.min(slotCount(t), tm.rooms.length);
+          for (let i = 0; i < n; i++) if (inBox(x, y, tm.rooms[i], 0)) return 'T:' + t.id;
+        }
+        if (tm.machines) {
+          const n = Math.min(slotCount(t), tm.machines.length);
+          for (let i = 0; i < n; i++) {
+            const m = tm.machines[i];
+            if (inBox(x, y, m, 6) || Math.hypot(x - tm.slots[i][0], y - tm.slots[i][1]) < 12)
+              return 'T:' + t.id;
+          }
+        }
+        if (tm.as === 'diverter' && Math.hypot(x - tm.pos[0], y - tm.pos[1]) < 13)
+          return 'T:' + t.id;
+        if (tm.as === 'sorter' && Math.hypot(x - tm.pos[0], y - tm.pos[1]) < tm.r + 3)
+          return 'T:' + t.id;
+        if (tm.box && inBox(x, y, tm.box, 3)) return 'T:' + t.id;
+        if (tm.truck && inBox(x, y, tm.truck, 2)) {
+          const sink = t.outputs.find((pid) => NET.P[pid].role === 'sink');
+          return sink ? 'P:' + sink : 'T:' + t.id;
+        }
+      }
+      for (const p of NET.places) {
+        const pm = MAP.places[p.id];
+        if (!pm) continue;
+        if (pm.lane && distToPoly([x, y], pm.lane) < 14) return 'P:' + p.id;
+        if (pm.as === 'exit' && inBox(x, y, pm.box, 3)) return 'P:' + p.id;
+        if (pm.as === 'pool' && Math.abs(x - pm.pos[0]) < 26 && Math.abs(y - pm.pos[1]) < 16)
+          return 'P:' + p.id;
+      }
+      return null;
+    }
+    const AS_LABEL = {
+      queue: 'Wartebereich',
+      area: 'Arbeitsplatzbereich',
+      rooms: 'Besprechungsräume',
+      machine: 'Gerät',
+      turnstile: 'Drehkreuz',
+      waypoint: 'Wegpunkt',
+      door: 'Eingangstür',
+      conveyor: 'Förderband',
+      buffer: 'Pufferstrecke',
+      entry: 'Zugangsband',
+      slots: 'Arbeitsplätze',
+      trucks: 'LKW an den Toren',
+      station: 'Station',
+      sorter: 'Sorter',
+      diverter: 'Weiche',
+      gate: 'Verladetor',
+      dock: 'Wareneingang',
+      pool: 'Ressourcenpool',
+      exit: 'Ausgang',
+    };
+    const ROLE_LABEL = {
+      case: 'Platz',
+      source: 'Startplatz',
+      sink: 'Endplatz',
+      resource: 'Ressourcenplatz',
+      isolated: 'Platz',
+    };
+    function tipHTML(id) {
+      const k = id[0],
+        nid = id.slice(2);
+      if (k === 'P') {
+        const p = NET.P[nid],
+          st = S.P[nid],
+          pm = MAP.places[nid];
+        let state = '';
+        if (isQueue(p))
+          state = `${st.tokens.length} ${st.tokens.length === 1 ? NET.noun : NET.plural} wartend · Ø Wartezeit ${fmtDur(avg(st.waits))} min`;
+        else if (p.role === 'resource') {
+          const cap = resCap(nid);
+          state = `${st.tokens.length} frei von ${cap}`;
+        } else if (p.role === 'sink') state = `${st.count} abgeschlossen`;
+        const hall = pm
+          ? pm.as === 'slots'
+            ? `${AS_LABEL.slots} an „${(MAP.transitions[pm.of] || {}).label || NET.T[pm.of].name}“`
+            : AS_LABEL[pm.as] || pm.as
+          : '–';
+        return `<b>${esc(p.name)}</b><div class="m">Netz: ${ROLE_LABEL[p.role]} · ${esc(MAP.viewName || 'Halle')}: ${esc(hall)}</div><div>${esc(state)}</div>`;
+      }
+      const t = NET.T[nid],
+        tm = MAP.transitions[nid];
+      let state;
+      if (t.source) state = `Zugang ${rate} ${NET.plural}/h (Poisson)`;
+      else {
+        const i = capInfo(t);
+        state = `${i.busy} in Bearbeitung${i.cap === Infinity ? '' : ' · Kapazität ' + Math.max(0, i.cap)} · Dauer ${t.dur[0]}–${t.dur[1]} s`;
+        if (t.w !== 1) state += ` · Gewicht ${t.w}`;
+      }
+      const sensor =
+        tm && tm.sensor ? `<div class="m">Ereignisquelle: ${esc(tm.sensor)}</div>` : '';
+      return `<b>${esc(t.name)}</b><div class="m">Netz: Transition · ${esc(MAP.viewName || 'Halle')}: ${esc(tm ? (tm.as === 'area' || tm.as === 'machine' ? tm.label : AS_LABEL[tm.as] || tm.as) : '–')}</div>${sensor}<div>${esc(state)}</div>`;
+    }
+    const tip = $('#tip');
+    let tipXY = null;
+    function setHover(id, cx, cy) {
+      hoverId = id;
+      if (id && cx != null) {
+        tipXY = [cx, cy];
+        tip.hidden = false;
+        renderTip();
+      } else {
+        tipXY = null;
+        tip.hidden = true;
+      }
+    }
+    function renderTip() {
+      if (!tipXY || !hoverId) return;
+      tip.innerHTML = tipHTML(hoverId);
+      const r = tip.getBoundingClientRect();
+      let x = tipXY[0] + 14,
+        y = tipXY[1] + 14;
+      if (x + r.width > innerWidth - 8) x = tipXY[0] - r.width - 14;
+      if (y + r.height > innerHeight - 8) y = tipXY[1] - r.height - 14;
+      tip.style.left = Math.max(8, x) + 'px';
+      tip.style.top = Math.max(8, y) + 'px';
+    }
+
+    /* ---------------- Seitenleiste ---------------- */
+    const qList = $('#queues'),
+      cList = $('#caps'),
+      evList = $('#events');
+    let capCtl = [];
+    function buildSide() {
+      qList.innerHTML = NET.places
+        .filter(isQueue)
+        .map(
+          (p) =>
+            `<li class="qrow" data-id="P:${esc(p.id)}"><span class="qname">${esc(p.name)}</span><span class="bar"><i></i></span><span class="num n">0</span><span class="num w">–</span></li>`,
+        )
+        .join('');
+      capCtl = [];
+      const maxFor = (pid) => {
+        const pm = MAP.places[pid],
+          tm = pm && pm.as === 'slots' ? MAP.transitions[pm.of] : null;
+        return tm && tm.slots ? tm.slots.length : 6;
+      };
+      NET.places
+        .filter((p) => p.role === 'resource')
+        .forEach((p) =>
+          capCtl.push({
+            id: 'P:' + p.id,
+            label: p.name,
+            get: () => resCap(p.id),
+            inc: () => {
+              const st = S.P[p.id];
+              if (resCap(p.id) >= maxFor(p.id)) {
+                toast(`Mehr ${p.name} sieht die Abbildung nicht vor.`);
+                return;
+              }
+              if (st.debt > 0) st.debt--;
+              else st.tokens.push({ kind: 'res' });
+            },
+            dec: () => {
+              const st = S.P[p.id];
+              if (resCap(p.id) <= 0) return;
+              if (st.tokens.length) st.tokens.pop();
+              else st.debt++;
+            },
+          }),
+        );
+      NET.transitions
+        .filter((t) => t.cap0 !== Infinity)
+        .forEach((t) =>
+          capCtl.push({
+            id: 'T:' + t.id,
+            label: t.name,
+            get: () => t.cap,
+            inc: () => {
+              t.cap = Math.min(6, t.cap + 1);
+            },
+            dec: () => {
+              t.cap = Math.max(0, t.cap - 1);
+            },
+          }),
+        );
+      cList.innerHTML = capCtl
+        .map(
+          (
+            c,
+            i,
+          ) => `<li class="crow" data-id="${esc(c.id)}"><span class="qname">${esc(c.label)}</span><span class="pips" aria-hidden="true"></span>
+    <span class="stepper"><button type="button" data-i="${i}" data-d="-1" aria-label="${esc(c.label)}: Kapazität verringern">−</button><button type="button" data-i="${i}" data-d="1" aria-label="${esc(c.label)}: Kapazität erhöhen">+</button></span></li>`,
+        )
+        .join('');
+      $('#capSub').textContent = NET.places.some((p) => p.role === 'resource')
+        ? 'Ressourcenmarken im Netz. Änderungen wirken sofort.'
+        : 'Gleichzeitige Bearbeitungen je Transition. Änderungen wirken sofort.';
+      [...qList.children, ...cList.children].forEach((li) => {
+        li.addEventListener('mouseenter', () => {
+          hoverId = li.dataset.id;
+        });
+        li.addEventListener('mouseleave', () => {
+          if (hoverId === li.dataset.id) hoverId = null;
+        });
+      });
+      updateSide();
+    }
+    cList.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-i]');
+      if (!b) return;
+      const c = capCtl[+b.dataset.i];
+      (+b.dataset.d > 0 ? c.inc : c.dec)();
+      fireEnabled();
+      updateSide();
+    });
+    function updateSide() {
+      $('#kClock').textContent = fmtClock(S.t);
+      let wip = 0;
+      NET.places.forEach((p) => {
+        if (isQueue(p)) wip += S.P[p.id].tokens.filter((t) => !t.clone).length;
+      });
+      wip += S.firings.filter((f) => f.primary && !f.primary.tok.clone).length;
+      wip += S.travels.filter((x) => x.tok.kind === 'case' && !x.tok.clone).length;
+      $('#kWip').textContent = wip.toLocaleString('de-DE');
+      const win = Math.min(900, S.t);
+      $('#kThr').textContent =
+        win < 120 ? '–' : Math.round((S.doneTimes.length / win) * 3600).toLocaleString('de-DE');
+      $('#kCyc').textContent = fmtDur(avg(S.cycles.slice(-60)));
+      const qs = NET.places.filter(isQueue),
+        maxN = Math.max(WARN * 2, ...qs.map((p) => S.P[p.id].tokens.length));
+      let worst = null,
+        wn = 3;
+      qs.forEach((p) => {
+        const n = S.P[p.id].tokens.length;
+        if (n > wn) {
+          wn = n;
+          worst = p.id;
+        }
+      });
+      [...qList.children].forEach((li) => {
+        const pid = li.dataset.id.slice(2),
+          st = S.P[pid],
+          n = st.tokens.length,
+          lv = level(n);
+        li.className = 'qrow' + (lv ? ' ' + lv : '');
+        li.querySelector('.bar i').style.width = (n / maxN) * 100 + '%';
+        li.querySelector('.n').textContent = n;
+        li.querySelector('.w').textContent = fmtDur(avg(st.waits));
+        const nm = li.querySelector('.qname');
+        const want = pid === worst;
+        if (want !== !!nm.querySelector('.pill'))
+          nm.innerHTML = esc(NET.P[pid].name) + (want ? '<span class="pill">Engpass</span>' : '');
+      });
+      [...cList.children].forEach((li, i) => {
+        const c = capCtl[i],
+          v = Math.max(0, c.get()),
+          base = c.id[0] === 'P' ? S.P[c.id.slice(2)].cap0 : NET.T[c.id.slice(2)].cap0;
+        const n = Math.max(v, base, 1);
+        const pe = li.querySelector('.pips');
+        pe.classList.toggle('dense', n > 8);
+        pe.innerHTML =
+          Array.from(
+            { length: n },
+            (_, k) => `<i class="${k < v ? 'on' : k < base ? 'off' : ''}"></i>`,
+          ).join('') + (v === 0 ? ' <span class="halt">Stillstand</span>' : '');
+      });
+      evList.innerHTML = S.log
+        .slice(-7)
+        .reverse()
+        .map(
+          (e) =>
+            `<li><span>${fmtClock(e.ts)}</span><span>${esc(e.cid)}</span><span>${esc(e.act)}</span><span class="life">${e.life}</span></li>`,
+        )
+        .join('');
+      $('#logCount').textContent = S.log.length.toLocaleString('de-DE') + ' Ereignisse';
+      if (tipXY) renderTip();
+    }
+
+    /* ---------------- Laden und Steuerung ---------------- */
+    function fmtJSON(o) {
+      return JSON.stringify(o, null, 2)
+        .replace(
+          /\[\n\s+([^\[\]{}]*?)\n\s+\]/g,
+          (m, inner) => '[' + inner.split(/,\n\s+/).join(', ') + ']',
+        )
+        .replace(
+          /\[\n\s+((?:\[[^\[\]]*\](?:,\n\s+)?)+)\n\s+\]/g,
+          (m, inner) => '[' + inner.split(/,\n\s+/).join(', ') + ']',
+        );
+    }
+    function loadNet(raw, map) {
+      NET = compileNet(raw);
+      if (raw.generic) layoutNet(NET, raw);
+      MAP = map || genericMap(NET);
+      prepareGeometry();
+      hoverId = null;
+      setHover(null);
+      const rEl = $('#rate');
+      rEl.min = NET.rateRange[0];
+      rEl.max = NET.rateRange[1];
+      rEl.step = NET.rateRange[2];
+      rate = NET.defaultRate;
+      rEl.value = rate;
+      speed = NET.defaultSpeed;
+      $('#speed').value = speed;
+      $('#speedOut').textContent = speed + '×';
+      const vn = MAP.viewName || 'Halle';
+      $('#hallTag').textContent = vn;
+      $('#vHall').textContent = vn;
+      $('#mapSummary').textContent = 'Abbildung Netz → ' + vn;
+      $('#legDot').style.background = MAP.token === 'person' ? 'var(--person)' : 'var(--kraft)';
+      $('#rateLbl').textContent = NET.arrivalLabel;
+      $('#legNoun').textContent = NET.noun;
+      $('#kWipLbl').textContent = NET.plural + ' im System';
+      updateRateOut();
+      $('#hallNote').textContent = map
+        ? MAP.token === 'person'
+          ? 'Gezeichnet aus der Abbildung Netz → Grundriss. Jede Transition entspricht einem Sensorereignis, etwa Badge-Leser, Präsenzsensor oder Smart Plug.'
+          : 'Gezeichnet aus der Abbildung Netz → Halle. Fahre über ein Element, um das Gegenstück im Netz zu sehen.'
+        : 'Generische Abbildung aus dem Netz-Layout: Plätze als Förderstrecken, Transitionen als Stationen. Eine Domänenansicht würde ein LLM aus den Beschriftungen ableiten.';
+      $('#mapNote').textContent = map
+        ? 'Die Abbildung ordnet jedem Platz und jeder Transition ein Element der Darstellung zu. Für dieses Beispiel ist sie von Hand geschrieben. Im Zielbild erzeugt ein LLM sie aus PNML und Beschriftungen. Die Schaltregel bleibt Code.'
+        : 'Automatisch aus dem Netz-Layout abgeleitet. Ein LLM würde hier Rollen, Beschriftungen und die Raumaufteilung vorschlagen.';
+      $('#mapPre').textContent = fmtJSON(MAP);
+      reset();
+      buildSide();
+      if (NET.notes.length) toast(NET.notes.join(' '));
+      else if (!genCount())
+        toast('Kein Startplatz gefunden. Das Netz läuft nur mit der Anfangsmarkierung.');
+    }
+    function reset() {
+      initState();
+      advance(NET.warmup);
+    }
+    function loadPNMLText(text, label) {
+      const raw = parsePNML(text, label);
+      loadNet(raw, null);
+      return raw;
+    }
+    function updateRateOut() {
+      $('#rateOut').textContent = `${rate} ${NET ? NET.plural : ''}/h`;
+    }
+
+    let toastTimer = null;
+    function toast(msg) {
+      const el = $('#toast');
+      el.textContent = msg;
+      el.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.hidden = true;
+      }, 4200);
+    }
+
+    const playBtn = $('#playBtn');
+    function syncPlay() {
+      playBtn.textContent = running ? 'Pause' : 'Weiter';
+    }
+    playBtn.addEventListener('click', () => {
+      running = !running;
+      syncPlay();
+    });
+    $('#resetBtn').addEventListener('click', () => {
+      reset();
+      updateSide();
+    });
+    $('#speed').addEventListener('input', (e) => {
+      speed = +e.target.value;
+      $('#speedOut').textContent = speed + '×';
+    });
+    $('#rate').addEventListener('input', (e) => {
+      rate = +e.target.value;
+      updateRateOut();
+    });
+
+    const figHall = $('#figHall'),
+      figNet = $('#figNet');
+    document.querySelectorAll('.seg button').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        document
+          .querySelectorAll('.seg button')
+          .forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        figHall.hidden = v === 'net';
+        figNet.hidden = v === 'hall';
+      }),
+    );
+
+    const sel = $('#netSel');
+    sel.addEventListener('change', () => {
+      if (sel.value === 'paket') loadNet(PAKET_NET, PAKET_MAP);
+      else if (sel.value === 'office') loadNet(OFFICE_NET, OFFICE_MAP);
+      else if (sel.value === 'rekla') loadPNMLText(SAMPLE_PNML, 'Reklamation');
+      else if (sel.value === 'import' && importedRaw) loadNet(importedRaw, null);
+    });
+    function importFile(file) {
+      if (!file) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        try {
+          const raw = parsePNML(String(rd.result), file.name.replace(/\.(pnml|xml)$/i, ''));
+          importedRaw = raw;
+          let opt = sel.querySelector('option[value="import"]');
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = 'import';
+            sel.appendChild(opt);
+          }
+          opt.textContent = 'Import · ' + file.name;
+          sel.value = 'import';
+          loadNet(raw, null);
+        } catch (err) {
+          toast('Die Datei konnte nicht geladen werden. ' + err.message);
+        }
+      };
+      rd.onerror = () => toast('Die Datei konnte nicht gelesen werden.');
+      rd.readAsText(file);
+    }
+    $('#pnmlFile').addEventListener('change', (e) => {
+      importFile(e.target.files[0]);
+      e.target.value = '';
+    });
+    const views = $('#views'),
+      drop = $('#drop');
+    let dragDepth = 0;
+    views.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragDepth++;
+      drop.hidden = false;
+    });
+    views.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    views.addEventListener('dragleave', () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) drop.hidden = true;
+    });
+    views.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      drop.hidden = true;
+      importFile(e.dataTransfer.files[0]);
+    });
+
+    $('#copyLog').addEventListener('click', () => {
+      const csv = [
+        'case_id,activity,lifecycle,timestamp',
+        ...S.log.map((e) => `${e.cid},"${e.act.replace(/"/g, '""')}",${e.life},${isoTs(e.ts)}`),
+      ].join('\n');
+      const done = () =>
+        toast(`${S.log.length.toLocaleString('de-DE')} Ereignisse in die Zwischenablage kopiert.`);
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = csv;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (_) {}
+        ta.remove();
+        ok ? done() : toast('Kopieren wird in dieser Ansicht nicht unterstützt.');
+      };
+      try {
+        navigator.clipboard.writeText(csv).then(done, fallback);
+      } catch (_) {
+        fallback();
+      }
+    });
+
+    const cvHall = $('#cvHall'),
+      cvNet = $('#cvNet');
+    function pointer(cv, hit) {
+      const at = (e) => {
+        const r = cv.getBoundingClientRect();
+        return [((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H];
+      };
+      cv.addEventListener('pointermove', (e) => {
+        const [x, y] = at(e);
+        const id = hit(x, y);
+        if (id) setHover(id, e.clientX, e.clientY);
+        else setHover(null);
+        cv.style.cursor = id ? 'help' : 'default';
+      });
+      cv.addEventListener('pointerdown', (e) => {
+        const [x, y] = at(e);
+        const id = hit(x, y);
+        setHover(id, id ? e.clientX : null, e.clientY);
+      });
+      cv.addEventListener('pointerleave', () => setHover(null));
+    }
+    pointer(cvHall, hitHall);
+    pointer(cvNet, hitNet);
+
+    function fit(cv) {
+      const w = cv.clientWidth,
+        h = cv.clientHeight;
+      if (!w || !h) return null;
+      const dpr = Math.min(2, window.devicePixelRatio || 1),
+        pw = Math.round(w * dpr),
+        ph = Math.round(h * dpr);
+      if (cv.width !== pw || cv.height !== ph) {
+        cv.width = pw;
+        cv.height = ph;
+      }
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(pw / W, 0, 0, ph / H, 0, 0);
+      return ctx;
+    }
+    let last = performance.now(),
+      frameN = 0,
+      lastSide = 0;
+    function frame(now) {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (running) advance(dt * speed);
+      if (frameN++ % 20 === 0) readColors();
+      if (!figHall.hidden) {
+        const c = fit(cvHall);
+        if (c) drawHall(c);
+      }
+      if (!figNet.hidden) {
+        const c = fit(cvNet);
+        if (c) drawNet(c);
+      }
+      if (now - lastSide > 300) {
+        updateSide();
+        lastSide = now;
+      }
+      requestAnimationFrame(frame);
+    }
+
+    readColors();
+    loadNet(PAKET_NET, PAKET_MAP);
+    syncPlay();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {});
+    requestAnimationFrame(frame);
+  })();
+</script>

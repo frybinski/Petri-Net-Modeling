@@ -78,7 +78,6 @@ export function openNet(net: PetriNet, fileName: string | null): void {
   useEditorStore.getState().loadNet(net, fileName);
   const errors = validate(net).filter((d) => d.severity === 'error').length;
   if (errors > 0) notify('error', en.files.loadedWithErrors(errors));
-  else if (fileName) notify('success', en.files.opened(fileName));
 }
 
 /** Reads and opens a file chosen by the user. Shows an error message for invalid files. */
@@ -125,6 +124,5 @@ export function newNetGuarded(): void {
 export function openExampleGuarded(net: PetriNet): void {
   guardUnsaved(() => {
     useEditorStore.getState().loadNet(net, null);
-    notify('success', en.files.openedExample(net.name));
   });
 }
