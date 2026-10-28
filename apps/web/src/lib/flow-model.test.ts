@@ -94,12 +94,13 @@ describe('buildFlowNodes', () => {
 });
 
 describe('buildFlowEdges', () => {
-  it('computes geometry, bends opposite arcs and labels weights', () => {
+  it('computes geometry, bends opposite arcs, labels weights and widens the hit area', () => {
     const edges = buildFlowEdges(context({ selection: ['a1'] }));
     expect(edges).toHaveLength(2);
     const a1 = edges.find((e) => e.id === 'a1');
     expect(a1?.selected).toBe(true);
     expect(a1?.data?.weight).toBe(2);
+    expect(a1?.interactionWidth).toBe(20);
     expect(a1?.data?.path).toContain('Q'); // opposite arcs exist
     expect(a1?.ariaLabel).toBe('Arc from Buffer to go, weight 2');
   });
@@ -109,7 +110,10 @@ describe('buildFlowEdges', () => {
     n.arcs.push({ id: 'dangling', source: 'p', target: 'nowhere', weight: 1 });
     const edges = buildFlowEdges(context({ net: n, dragPositions: { t: { x: 300, y: 0 } } }));
     expect(edges.map((e) => e.id)).toEqual(['a1', 'a2']);
-    const straight = buildFlowEdges(context({ net: { ...n, arcs: [n.arcs[0]!] } }));
+    // A short arc without an opposite arc stays straight.
+    const straight = buildFlowEdges(
+      context({ net: { ...n, arcs: [n.arcs[0]!] }, dragPositions: { t: { x: 70, y: 0 } } }),
+    );
     expect(straight[0]?.data?.path).not.toContain('Q');
   });
 });

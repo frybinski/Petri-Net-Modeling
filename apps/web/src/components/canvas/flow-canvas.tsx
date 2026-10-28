@@ -3,10 +3,10 @@ import {
   Background,
   BackgroundVariant,
   ConnectionMode,
-  Controls,
   MiniMap,
   ReactFlow,
   useReactFlow,
+  useStore,
   type Connection,
   type EdgeChange,
   type NodeChange,
@@ -18,13 +18,15 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { en } from '../../i18n/en';
 import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
-import { GRID_SIZE, snap } from '../../lib/geometry';
+import { GRID_SIZE, snap, snapDragged } from '../../lib/geometry';
 import { registerViewApi } from '../../lib/view-api';
+import { zoomLevel } from '../../lib/zoom';
 import { currentMarking, useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { AnnotationNode } from './annotation-node';
@@ -33,6 +35,7 @@ import { ArcPreview } from './arc-preview';
 import { ConnectionLine } from './connection-line';
 import { PlaceNode } from './place-node';
 import { TransitionNode } from './transition-node';
+import { ZoomControls } from './zoom-controls';
 import type { ArcFlowEdge, FlowNode } from './types';
 
 const nodeTypes: NodeTypes = {
@@ -41,8 +44,6 @@ const nodeTypes: NodeTypes = {
   annotation: AnnotationNode,
 };
 const edgeTypes: EdgeTypes = { arc: ArcEdge };
-
-const SNAP_GRID: [number, number] = [GRID_SIZE, GRID_SIZE];
 
 export function FlowCanvas() {
   const net = useEditorStore((s) => s.net);
@@ -58,8 +59,23 @@ export function FlowCanvas() {
   const theme = useUiStore((s) => s.theme);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
   const showMinimap = useUiStore((s) => s.showMinimap);
+  const scrollToZoom = useUiStore((s) => s.scrollToZoom);
+  const level = useStore((s) => zoomLevel(s.transform[2]));
 
-  const { screenToFlowPosition, fitView, setCenter, getZoom } = useReactFlow();
+  const {
+    screenToFlowPosition,
+    fitView,
+    setCenter,
+    getZoom,
+    getNode,
+    getViewport,
+    setViewport,
+    zoomTo,
+  } = useReactFlow();
+  const wrapper = useRef<HTMLDivElement>(null);
+  /** The user zoomed since the view was last fitted: a resize of the window keeps the zoom. */
+  const userZoomed = useRef(false);
+  const lastZoom = useRef(1);
   const [measured, setMeasured] = useState<ReadonlyMap<Id, { width: number; height: number }>>(
     () => new Map(),
   );
@@ -115,11 +131,19 @@ export function FlowCanvas() {
   const nodes = useMemo(() => buildFlowNodes(context), [context]);
   const edges = useMemo(() => buildFlowEdges(context), [context]);
 
+  const fit = useCallback(
+    (duration = 250) => {
+      userZoomed.current = false;
+      void fitView({ padding: 0.25, maxZoom: 1.25, duration });
+    },
+    [fitView],
+  );
+
   // Expose viewport operations to the header, status bar and shortcuts.
   useEffect(() => {
     registerViewApi({
       fitView: () => {
-        void fitView({ padding: 0.25, maxZoom: 1.25, duration: 250 });
+        fit();
       },
       focus: (ids) => {
         const targets = nodes.filter((n) => ids.includes(n.id));
@@ -128,22 +152,117 @@ export function FlowCanvas() {
         const y = targets.reduce((sum, n) => sum + n.position.y, 0) / targets.length;
         void setCenter(x, y, { zoom: Math.max(getZoom(), 1), duration: 250 });
       },
+      reveal: (ids) => {
+        // The nodes may not be measured yet: wait for the next frames.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const host = wrapper.current;
+            if (!host) return;
+            const { x, y, zoom } = getViewport();
+            const margin = 70;
+            let dx = 0;
+            let dy = 0;
+            for (const id of ids) {
+              const node = getNode(id);
+              if (!node) continue;
+              const sx = node.position.x * zoom + x;
+              const sy = node.position.y * zoom + y;
+              if (sx < margin) dx = Math.max(dx, margin - sx);
+              else if (sx > host.clientWidth - margin)
+                dx = Math.min(dx, host.clientWidth - margin - sx);
+              if (sy < margin) dy = Math.max(dy, margin - sy);
+              else if (sy > host.clientHeight - margin)
+                dy = Math.min(dy, host.clientHeight - margin - sy);
+            }
+            if (dx !== 0 || dy !== 0)
+              void setViewport({ x: x + dx, y: y + dy, zoom }, { duration: 150 });
+          });
+        });
+      },
+      resetZoom: () => {
+        userZoomed.current = true;
+        void zoomTo(1, { duration: 150 });
+      },
+      center: () => {
+        const host = wrapper.current;
+        if (!host) return null;
+        const box = host.getBoundingClientRect();
+        const raw = screenToFlowPosition({
+          x: box.left + box.width / 2,
+          y: box.top + box.height / 2,
+        });
+        return { x: snap(raw.x, GRID_SIZE), y: snap(raw.y, GRID_SIZE) };
+      },
     });
     return () => {
       registerViewApi(null);
     };
-  }, [fitView, setCenter, getZoom, nodes]);
+  }, [
+    fit,
+    setCenter,
+    getZoom,
+    getNode,
+    getViewport,
+    setViewport,
+    zoomTo,
+    screenToFlowPosition,
+    nodes,
+  ]);
 
   // Show the whole net after a different document was loaded.
   useEffect(() => {
     if (docVersion === 0) return;
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.25, maxZoom: 1.25, duration: 0 });
+      fit(0);
     });
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [docVersion, fitView]);
+  }, [docVersion, fit]);
+
+  // Refit when the window or the panels change the size of the canvas, unless the user zoomed.
+  useEffect(() => {
+    const host = wrapper.current;
+    if (!host) return;
+    let size = { width: host.clientWidth, height: host.clientHeight };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const observer = new ResizeObserver(() => {
+      const next = { width: host.clientWidth, height: host.clientHeight };
+      if (Math.abs(next.width - size.width) < 2 && Math.abs(next.height - size.height) < 2) return;
+      size = next;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const state = useEditorStore.getState();
+        const hasNodes = state.net.places.length + state.net.transitions.length > 0;
+        if (!userZoomed.current && hasNodes) fit(150);
+      }, 200);
+    });
+    observer.observe(host);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [fit]);
+
+  // Holding Alt turns every node into a source for arcs.
+  useEffect(() => {
+    const host = wrapper.current;
+    if (!host) return;
+    const update = (event: KeyboardEvent): void => {
+      host.classList.toggle('alt-held', event.altKey);
+    };
+    const clear = (): void => {
+      host.classList.remove('alt-held');
+    };
+    window.addEventListener('keydown', update);
+    window.addEventListener('keyup', update);
+    window.addEventListener('blur', clear);
+    return () => {
+      window.removeEventListener('keydown', update);
+      window.removeEventListener('keyup', update);
+      window.removeEventListener('blur', clear);
+    };
+  }, []);
 
   const applySelection = useCallback((changes: Array<NodeChange<FlowNode> | EdgeChange>) => {
     const store = useEditorStore.getState();
@@ -162,17 +281,22 @@ export function FlowCanvas() {
       applySelection(changes);
       let positions: Record<Id, Position> | null = null;
       let sizes: Map<Id, { width: number; height: number }> | null = null;
+      const dragged: Array<{ id: Id; position: Position }> = [];
       for (const change of changes) {
         if (change.type === 'position' && change.dragging && change.position) {
-          positions ??= { ...(useEditorStore.getState().dragPositions ?? {}) };
-          positions[change.id] = change.position;
+          dragged.push({ id: change.id, position: change.position });
         } else if (change.type === 'dimensions' && change.dimensions) {
           const { width, height } = change.dimensions;
           sizes ??= new Map();
           sizes.set(change.id, { width, height });
         }
       }
-      if (positions) useEditorStore.getState().setDragPositions(positions);
+      if (dragged.length > 0) {
+        positions = { ...(useEditorStore.getState().dragPositions ?? {}) };
+        const grid = useUiStore.getState().snapToGrid ? GRID_SIZE : null;
+        for (const move of snapDragged(dragged, grid)) positions[move.id] = move.position;
+        useEditorStore.getState().setDragPositions(positions);
+      }
       if (sizes) {
         const updates = sizes;
         setMeasured((previous) => {
@@ -202,7 +326,13 @@ export function FlowCanvas() {
   const onNodeDragStop = useCallback<OnNodeDrag<FlowNode>>((_event, _node, dragged) => {
     const store = useEditorStore.getState();
     const moves: Record<Id, Position> = {};
-    for (const node of dragged) moves[node.id] = { x: node.position.x, y: node.position.y };
+    // The snapped positions of the last drag step; the nodes of React Flow itself are not snapped.
+    for (const node of dragged) {
+      moves[node.id] = store.dragPositions?.[node.id] ?? {
+        x: Math.round(node.position.x),
+        y: Math.round(node.position.y),
+      };
+    }
     // One undo step per drag, however many nodes moved.
     store.moveNodes(moves);
     store.setDragPositions(null);
@@ -230,15 +360,12 @@ export function FlowCanvas() {
         return;
       }
       if (activeTool === 'select') return;
-      const position = flowPosition(event);
-      if (activeTool === 'place') store.addPlace(position);
-      else if (activeTool === 'transition') store.addTransition(position);
-      else {
-        const id = store.addAnnotation(position);
-        if (id) store.startRename(id);
-      }
-      // Shift keeps the tool active to add several places or transitions in a row.
-      if (!(event.shiftKey && activeTool !== 'annotation')) store.setTool('select');
+      // Shift keeps the tool active to add several places or transitions in a row; a sticky tool
+      // stays active anyway.
+      store.placeWithTool(flowPosition(event), {
+        keepTool: event.shiftKey && activeTool !== 'annotation',
+        rename: false,
+      });
     },
     [flowPosition],
   );
@@ -258,6 +385,25 @@ export function FlowCanvas() {
       const created = store.addArc(store.arcSource, node.id);
       if (created) store.setArcSource(null);
     }
+  }, []);
+
+  const onPaneDoubleClick = useCallback(
+    (event: ReactMouseEvent) => {
+      if (
+        !(event.target instanceof Element) ||
+        !event.target.classList.contains('react-flow__pane')
+      ) {
+        return;
+      }
+      if (useEditorStore.getState().tool === 'select') fit();
+    },
+    [fit],
+  );
+
+  const onEdgeDoubleClick = useCallback((_event: ReactMouseEvent, edge: ArcFlowEdge) => {
+    const store = useEditorStore.getState();
+    if (store.mode === 'simulate' || store.tool !== 'select') return;
+    store.startRename(edge.id);
   }, []);
 
   const onNodeDoubleClick = useCallback((_event: ReactMouseEvent, node: FlowNode) => {
@@ -288,27 +434,19 @@ export function FlowCanvas() {
     [screenToFlowPosition, cursor],
   );
 
-  const hint =
-    tool === 'arc' && arcSource !== null
-      ? en.tools.hintArcTarget
-      : {
-          select: en.tools.hintSelect,
-          place: en.tools.hintPlace,
-          transition: en.tools.hintTransition,
-          arc: en.tools.hintArc,
-          annotation: en.tools.hintAnnotation,
-        }[tool];
-
   return (
     <div
+      ref={wrapper}
       className="relative h-full w-full"
       data-testid="canvas"
       data-tool={tool}
       data-mode={mode}
+      data-zoom-level={level}
       onPointerMove={onPointerMove}
+      onDoubleClick={onPaneDoubleClick}
     >
       <ReactFlow<FlowNode, ArcFlowEdge>
-        className={`tool-${tool} mode-${mode}`}
+        className={`tool-${tool} mode-${mode} zoom-${level}`}
         aria-label={en.canvas.label}
         nodes={nodes}
         edges={edges}
@@ -322,6 +460,14 @@ export function FlowCanvas() {
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onEdgeDoubleClick={onEdgeDoubleClick}
+        onMoveEnd={(event, viewport) => {
+          // A move that comes from the user (not from fit or zoom buttons) and changes the zoom.
+          if (event && Math.abs(viewport.zoom - lastZoom.current) > 0.0005) {
+            userZoomed.current = true;
+          }
+          lastZoom.current = viewport.zoom;
+        }}
         onNodeMouseEnter={(_event, node) => {
           setHoverId(node.id);
         }}
@@ -333,8 +479,6 @@ export function FlowCanvas() {
         connectionMode={ConnectionMode.Loose}
         connectionRadius={36}
         connectionLineComponent={ConnectionLine}
-        snapToGrid={snapToGrid}
-        snapGrid={SNAP_GRID}
         nodesDraggable={!simulating}
         nodesConnectable={!simulating && tool === 'select'}
         elementsSelectable={tool === 'select'}
@@ -345,6 +489,9 @@ export function FlowCanvas() {
         deleteKeyCode={null}
         selectionKeyCode={null}
         zoomOnDoubleClick={false}
+        panOnScroll={!scrollToZoom}
+        zoomOnScroll={scrollToZoom}
+        zoomActivationKeyCode={['Control', 'Meta']}
         minZoom={0.15}
         maxZoom={3}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
@@ -357,7 +504,7 @@ export function FlowCanvas() {
           size={snapToGrid ? 1.6 : 0}
           color="var(--grid)"
         />
-        <Controls showInteractive={false} position="bottom-left" aria-label="Zoom controls" />
+        <ZoomControls />
         {showMinimap ? (
           <MiniMap
             pannable
@@ -371,13 +518,6 @@ export function FlowCanvas() {
         ) : null}
         <ArcPreview cursor={cursor} hoverId={hoverId} />
       </ReactFlow>
-      <div
-        className="pointer-events-none absolute top-3 left-1/2 w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-full border border-border bg-surface/90 px-3 py-1 text-xs text-muted shadow-panel backdrop-blur"
-        role="status"
-        data-testid="tool-hint"
-      >
-        {simulating ? en.simulation.hint : hint}
-      </div>
     </div>
   );
 }

@@ -51,9 +51,13 @@ export const en = {
     emptyBody:
       'Choose the place or transition tool on the left and click on the canvas, or open one of the examples.',
     dropFile: 'Drop a .pn.json file to open it',
+    zoomControls: 'Zoom controls',
     zoomIn: 'Zoom in',
+    zoomInTip: 'Zoom in · Ctrl+scroll',
     zoomOut: 'Zoom out',
+    zoomOutTip: 'Zoom out · Ctrl+scroll',
     fitView: 'Fit view',
+    resetZoom: 'Reset zoom',
     minimap: 'Minimap',
   },
   elements: {
@@ -184,6 +188,7 @@ export const en = {
     saveAnyway: 'You can still save; the mismatch is reported as an error.',
     total: (n: number) => (n === 1 ? '1 token' : `${n} tokens`),
     tooltipMore: (n: number) => `… and ${n} more`,
+    more: (n: number) => `+${n} more`,
   },
   inscriptions: {
     inscription: 'Inscription',
@@ -288,6 +293,9 @@ export const en = {
   },
   dialog: {
     close: 'Close',
+  },
+  toast: {
+    dismiss: 'Dismiss',
   },
   empty: {
     examples: 'Examples',

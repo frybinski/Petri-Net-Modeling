@@ -59,6 +59,8 @@ import {
 } from '@pnm/core';
 import { create } from 'zustand';
 import { en } from '../i18n/en';
+import { chainPosition } from '../lib/placement';
+import { getViewApi } from '../lib/view-api';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
@@ -91,11 +93,18 @@ export interface EditorState {
 
   selection: Id[];
   tool: Tool;
+  /** The tool stays active after use (double click on the tool) until Escape or another tool. */
+  toolSticky: boolean;
   mode: Mode;
   /** First click of the two-click arc tool. */
   arcSource: Id | null;
-  /** Element whose name is being edited in place. */
+  /** Element whose name, weight or inscription is being edited in place. */
   renamingId: Id | null;
+  /**
+   * Node that Tab just added: renaming it again is merged into the step that created it, so that
+   * one undo removes the node together with its first name.
+   */
+  amendId: Id | null;
   /** Positions of nodes while they are being dragged (not part of the document). */
   dragPositions: Record<Id, Position> | null;
 
@@ -125,6 +134,15 @@ export interface EditorState {
   updateArc(id: Id, patch: Partial<Omit<Arc, 'id' | 'source' | 'target'>>): void;
   updateAnnotation(id: Id, patch: Partial<Omit<Annotation, 'id'>>): void;
   reverseArc(id: Id): void;
+  /** Renames a place, transition or note (inline editing). */
+  renameElement(id: Id, name: string): void;
+  /**
+   * Adds the next node of the other kind 160 px to the right (`direction` 1) or the previous
+   * node to the left (-1), connects it, selects it and starts renaming it. One undo step.
+   */
+  extendFrom(id: Id, direction: 1 | -1): Id | null;
+  /** Adds a node with the active tool; the tool falls back to Select unless it is kept. */
+  placeWithTool(position: Position, options: { keepTool: boolean; rename: boolean }): Id | null;
   moveNodes(moves: Record<Id, Position>): void;
   nudgeSelected(dx: number, dy: number): void;
   setTokens(placeId: Id, count: number): void;
@@ -163,7 +181,9 @@ export interface EditorState {
   select(ids: Id[]): void;
   selectAll(): void;
   clearSelection(): void;
-  setTool(tool: Tool): void;
+  setTool(tool: Tool, sticky?: boolean): void;
+  /** Double click on a tool: makes it sticky, or turns stickiness off again. */
+  toggleStickyTool(tool: Tool): void;
   setArcSource(id: Id | null): void;
   startRename(id: Id | null): void;
   setDragPositions(positions: Record<Id, Position> | null): void;
@@ -240,6 +260,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       future: [],
       diagnostics: validate(next),
       selection: prune(selection ?? get().selection, next),
+      amendId: null,
     });
   };
 
@@ -273,8 +294,10 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       diagnostics: validate(net),
       mode: 'edit',
       tool: 'select',
+      toolSticky: false,
       arcSource: null,
       renamingId: null,
+      amendId: null,
       dragPositions: null,
       simMarking: null,
       simHistory: [],
@@ -326,9 +349,11 @@ export const useEditorStore = create<EditorState>()((set, get) => {
 
     selection: [],
     tool: 'select',
+    toolSticky: false,
     mode: 'edit',
     arcSource: null,
     renamingId: null,
+    amendId: null,
     dragPositions: null,
 
     simMarking: null,
@@ -363,11 +388,10 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       const existing = findArc(get().net, source, target);
       if (existing) {
         const weight = existing.weight + 1;
-        if (edit((net) => setWeight(net, existing.id, weight), [existing.id])) {
-          notify('info', en.messages.arcExistsWeight(weight));
-          return existing.id;
-        }
-        return null;
+        // The weight label on the canvas shows the result; no toast needed.
+        return edit((net) => setWeight(net, existing.id, weight), [existing.id])
+          ? existing.id
+          : null;
       }
       const id = createId();
       return edit((net) => coreAddArc(net, source, target, { id }), [id]) ? id : null;
@@ -399,6 +423,65 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     reverseArc(id) {
       edit((net) => coreReverseArc(net, id));
+    },
+    renameElement(id, name) {
+      const { net, amendId } = get();
+      const target =
+        net.places.find((p) => p.id === id) ??
+        net.transitions.find((t) => t.id === id) ??
+        net.annotations?.find((a) => a.id === id);
+      if (!target) return;
+      if (amendId === id && get().mode === 'edit' && 'name' in target) {
+        if (target.name === name) return;
+        // Part of the step that created the node: change the document without a new undo step.
+        const next = updateNode(net, id, { name });
+        set({ net: next, diagnostics: validate(next), amendId: null });
+        return;
+      }
+      if (net.places.some((p) => p.id === id)) get().updatePlace(id, { name });
+      else if (net.transitions.some((t) => t.id === id)) get().updateTransition(id, { name });
+      else get().updateAnnotation(id, { text: name });
+    },
+    extendFrom(id, direction) {
+      const { net, mode } = get();
+      if (mode === 'simulate') return null;
+      const place = net.places.find((p) => p.id === id);
+      const transition = net.transitions.find((t) => t.id === id);
+      const from = place ?? transition;
+      if (!from) return null;
+      const position = chainPosition(net, from.position, direction);
+      const created = createId();
+      const arcId = createId();
+      const ok = edit(
+        (current) => {
+          const next = place
+            ? coreAddTransition(current, { id: created, position })
+            : coreAddPlace(current, { id: created, position });
+          return direction === 1
+            ? coreAddArc(next, id, created, { id: arcId })
+            : coreAddArc(next, created, id, { id: arcId });
+        },
+        [created],
+      );
+      if (!ok) return null;
+      set({ renamingId: created, amendId: created });
+      getViewApi()?.reveal([created]);
+      return created;
+    },
+    placeWithTool(position, options) {
+      const { tool, toolSticky } = get();
+      const id =
+        tool === 'place'
+          ? get().addPlace(position)
+          : tool === 'transition'
+            ? get().addTransition(position)
+            : tool === 'annotation'
+              ? get().addAnnotation(position)
+              : null;
+      if (id === null) return null;
+      if (tool === 'annotation' || options.rename) get().startRename(id);
+      if (!toolSticky && !options.keepTool) set({ tool: 'select', toolSticky: false });
+      return id;
     },
     moveNodes(moves) {
       const { net } = get();
@@ -534,6 +617,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         diagnostics: validate(previous),
         selection: prune(get().selection, previous),
         renamingId: null,
+        amendId: null,
       });
     },
     redo() {
@@ -547,6 +631,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         diagnostics: validate(next),
         selection: prune(get().selection, next),
         renamingId: null,
+        amendId: null,
       });
     },
 
@@ -601,16 +686,21 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     clearSelection() {
       if (get().selection.length > 0) set({ selection: [] });
     },
-    setTool(tool) {
+    setTool(tool, sticky = false) {
       if (get().mode === 'simulate' && tool !== 'select') return;
-      set({ tool, arcSource: null });
+      set({ tool, toolSticky: sticky && tool !== 'select', arcSource: null });
+    },
+    toggleStickyTool(tool) {
+      if (tool === 'select') return;
+      const { tool: active, toolSticky } = get();
+      get().setTool(tool, !(active === tool && toolSticky));
     },
     setArcSource(id) {
       set({ arcSource: id });
     },
     startRename(id) {
       if (id !== null && get().mode === 'simulate') return;
-      set({ renamingId: id });
+      set(id === null ? { renamingId: null, amendId: null } : { renamingId: id });
     },
     setDragPositions(positions) {
       set({ dragPositions: positions });
@@ -631,6 +721,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       recompute({
         mode: 'simulate',
         tool: 'select',
+        toolSticky: false,
         arcSource: null,
         renamingId: null,
         dragPositions: null,

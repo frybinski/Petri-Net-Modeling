@@ -18,6 +18,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     viewport: { width: 1360, height: 820 },
     acceptDownloads: true,
+    // Node pop-in and pulse animations would make bounding boxes move while a test measures them.
+    reducedMotion: 'reduce',
     launchOptions: {
       ...(executablePath ? { executablePath } : {}),
       args: ['--no-sandbox'],

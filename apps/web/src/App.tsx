@@ -14,6 +14,7 @@ import { SimulationPanel } from './components/simulation-panel';
 import { StatusBar } from './components/status-bar';
 import { Toaster } from './components/toaster';
 import { ToolPalette } from './components/tool-palette';
+import { TooltipProvider } from './components/ui/tooltip';
 import { en } from './i18n/en';
 import { restoreAutosave, startAutosave } from './lib/autosave';
 import { handleShortcut } from './lib/commands';
@@ -101,63 +102,65 @@ export function App() {
 
   return (
     <ReactFlowProvider>
-      <div
-        className="flex h-full flex-col"
-        onDragOver={onDragOver}
-        onDragEnter={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-      >
-        <Header />
-        <div className="flex min-h-0 flex-1">
-          <ToolPalette />
-          <main className="relative min-w-0 flex-1" aria-label={en.canvas.label}>
-            <FlowCanvas />
-            <EmptyHint />
-            <DiagnosticsPanel />
-            {dropActive ? (
-              <div
-                className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80 text-accent"
-                data-testid="drop-overlay"
-              >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <FileUp size={18} aria-hidden="true" />
-                  {en.canvas.dropFile}
-                </span>
-              </div>
-            ) : null}
-          </main>
-          {mode === 'simulate' ? <SimulationPanel /> : <PropertiesPanel />}
+      <TooltipProvider>
+        <div
+          className="flex h-full flex-col"
+          onDragOver={onDragOver}
+          onDragEnter={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
+          <Header />
+          <div className="flex min-h-0 flex-1">
+            <ToolPalette />
+            <main className="relative min-w-0 flex-1" aria-label={en.canvas.label}>
+              <FlowCanvas />
+              <EmptyHint />
+              <DiagnosticsPanel />
+              {dropActive ? (
+                <div
+                  className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80 text-accent"
+                  data-testid="drop-overlay"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <FileUp size={18} aria-hidden="true" />
+                    {en.canvas.dropFile}
+                  </span>
+                </div>
+              ) : null}
+            </main>
+            {mode === 'simulate' ? <SimulationPanel /> : <PropertiesPanel />}
+          </div>
+          <StatusBar />
         </div>
-        <StatusBar />
-      </div>
-      <Toaster />
-      <ConfirmDialog />
-      <ShortcutsDialog />
-      {tokenDialog ? (
-        <TokenDialog
-          key={`${tokenDialog.placeId}:${tokenDialog.index ?? 'new'}`}
-          placeId={tokenDialog.placeId}
-          index={tokenDialog.index}
+        <Toaster />
+        <ConfirmDialog />
+        <ShortcutsDialog />
+        {tokenDialog ? (
+          <TokenDialog
+            key={`${tokenDialog.placeId}:${tokenDialog.index ?? 'new'}`}
+            placeId={tokenDialog.placeId}
+            index={tokenDialog.index}
+          />
+        ) : null}
+        {typeDialog ? (
+          <TypeDialog key={typeDialog.name ?? '(new)'} original={typeDialog.name} />
+        ) : null}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          data-testid="open-file-input"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) openFileGuarded(file);
+          }}
         />
-      ) : null}
-      {typeDialog ? (
-        <TypeDialog key={typeDialog.name ?? '(new)'} original={typeDialog.name} />
-      ) : null}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        aria-hidden="true"
-        tabIndex={-1}
-        data-testid="open-file-input"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (file) openFileGuarded(file);
-        }}
-      />
+      </TooltipProvider>
     </ReactFlowProvider>
   );
 }
