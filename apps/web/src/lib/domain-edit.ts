@@ -9,6 +9,8 @@ import {
   hideEntry,
   insertPoint,
   moveEntry,
+  movePoint,
+  moveSlot,
   newDecor,
   normalizeDomainView,
   ref,
@@ -103,7 +105,8 @@ export function editView(change: (view: DomainView, net: PetriNet) => DomainView
   const view = getDomainView();
   if (!view) return false;
   const next = change(view, state.net);
-  if (next === view) return false;
+  // A drag that ends where it began changes nothing and must not leave an undo step.
+  if (next === view || JSON.stringify(next) === JSON.stringify(view)) return false;
   try {
     state.setDomainView(normalizeDomainView(next));
   } catch (error) {
@@ -341,4 +344,30 @@ export function editJson(entry: EntryRef): void {
 export function decorEntryAt(view: DomainView, p: Point, slack: number): EntryRef | null {
   const index = decorAt(view, p, slack);
   return index === null ? null : ref('decor', index);
+}
+
+/** Moves one point of a path or wall of an entry to exact coordinates (the panel fields). */
+export function setPointAt(entry: EntryRef, index: number, to: Point): boolean {
+  return editView((view, net) => movePoint(view, entry, index, to, { snap: 0, net }));
+}
+
+/** Adds a point after the point `index` (in the middle of the next segment). */
+export function insertPointAfter(entry: EntryRef, index: number): boolean {
+  return editView((view) => insertPoint(view, entry, index));
+}
+
+export function removePointIndex(entry: EntryRef, index: number): boolean {
+  return editView((view) => removePoint(view, entry, index));
+}
+
+export function setSlotAt(entry: EntryRef, index: number, to: Point): boolean {
+  return editView((view) => moveSlot(view, entry, index, to, { snap: 0 }));
+}
+
+export function addSlotDefault(entry: EntryRef): boolean {
+  return editView((view) => addSlot(view, entry));
+}
+
+export function removeSlotIndex(entry: EntryRef, index: number): boolean {
+  return editView((view) => removeSlot(view, entry, index));
 }

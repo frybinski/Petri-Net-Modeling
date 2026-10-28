@@ -168,13 +168,14 @@ export function useDomainEditing(args: Args) {
     p: Point,
     shown: DomainView,
   ): { entry: EntryRef; elementId: string | null } | null => {
+    // A placeholder is drawn on top of the picture, so it is hit first.
+    const hole = placeholderAt(latest.current.placeholders, p, 2 / viewportRef.current.zoom);
+    if (hole) return { entry: hole.entry, elementId: hole.elementId };
     const hit = hitAt(px, py);
     if (hit) {
       const found = refOfElement(latest.current.net, shown, hit.elementId);
       return found ? { entry: found, elementId: hit.elementId } : null;
     }
-    const hole = placeholderAt(latest.current.placeholders, p, 2 / viewportRef.current.zoom);
-    if (hole) return { entry: hole.entry, elementId: hole.elementId };
     const index = decorAt(shown, p, 3 / viewportRef.current.zoom);
     return index === null ? null : { entry: ref('decor', index), elementId: null };
   };

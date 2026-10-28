@@ -688,6 +688,7 @@ export const en = {
     entryHidden: (reason: string) => `Hidden in the view: ${reason}`,
     entryDecor: (kind: string) => `Decor: ${kind}`,
     entryReset: 'Reset to generic',
+    entryRaw: 'JSON of the entry',
     entryJson: 'Edit as JSON',
     fieldX: 'x',
     fieldY: 'y',

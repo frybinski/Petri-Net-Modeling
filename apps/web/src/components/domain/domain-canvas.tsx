@@ -236,8 +236,12 @@ export function DomainCanvas() {
               `${h.kind}${h.index !== undefined ? `:${h.index}` : ''}@${Math.round(h.at[0] * 10) / 10},${Math.round(h.at[1] * 10) / 10}`,
           )
           .join(';');
+        canvas.dataset['placeholders'] = overlayRef.current.placeholders
+          .map((h) => `${h.elementId}@${h.rect.map((n) => Math.round(n)).join(',')}`)
+          .join(';');
       } else if (canvas.dataset['handles'] !== undefined) {
         delete canvas.dataset['handles'];
+        delete canvas.dataset['placeholders'];
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       canvas.dataset['zoom'] = String(Math.round(zoom * 1000) / 1000);
