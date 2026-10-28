@@ -1,6 +1,6 @@
 import type { Diagnostic, EnabledBinding, Id, Marking, PetriNet, Token } from '@pnm/core';
 import type { MetricsSnapshot } from './metrics';
-import type { Breakpoints, SimEvent, SimOptions, SimSnapshot } from './types';
+import type { Breakpoints, SimEvent, SimOptions, SimSnapshot, TokenMeta } from './types';
 
 /** A firing that is under way, as shown in the editor. */
 export interface RunningView {
@@ -24,6 +24,8 @@ export interface EnabledEntry {
 export interface SimView {
   time: number;
   marking: Marking;
+  /** Parallel to `marking`: the identity of every token, for the animation of the domain view. */
+  meta: Record<Id, TokenMeta[]>;
   running: RunningView[];
   /** Enabled transitions now; `null` if the command did not ask for them. */
   enabled: EnabledEntry[] | null;

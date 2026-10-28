@@ -98,11 +98,17 @@ interface UiState {
   hover: HoverState;
   /** Zoom of the domain view, for the status bar. */
   domainZoom: number;
+  /** The floating control bar and key figure strip of the domain view are shown. */
+  domainControls: boolean;
+  /** The case that the domain view follows: its sprites are ringed, a card lists its steps. */
+  followedCase: string | null;
   setViewMode(mode: ViewMode): void;
   setRightTab(tab: RightTab): void;
   setSplitRatio(ratio: number): void;
   setHover(id: string | null, source: 'net' | 'domain'): void;
   setDomainZoom(zoom: number): void;
+  toggleDomainControls(): void;
+  followCase(caseId: string | null): void;
   setTheme(theme: Theme): void;
   toggleTheme(): void;
   toggleSnap(): void;
@@ -131,6 +137,7 @@ const THEME_KEY = 'pnm:theme';
 const INSCRIPTIONS_KEY = 'pnm:inscriptions';
 const BOTTLENECK_KEY = 'pnm:bottleneck';
 const SPLIT_KEY = 'pnm:split';
+const DOMAIN_CONTROLS_KEY = 'pnm:domain-controls';
 
 /** Queue lengths for the yellow and red ring on the canvas. */
 export const DEFAULT_BOTTLENECK = { warn: 6, critical: 10 };
@@ -202,6 +209,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   splitRatio: readSplit(),
   hover: { id: null, source: null },
   domainZoom: 1,
+  domainControls: readStored(DOMAIN_CONTROLS_KEY) !== 'off',
+  followedCase: null,
 
   setViewMode(mode) {
     // The domain panel is the one that belongs to the domain view; the net view has no tabs.
@@ -228,6 +237,14 @@ export const useUiStore = create<UiState>()((set, get) => ({
   },
   setDomainZoom(zoom) {
     if (get().domainZoom !== zoom) set({ domainZoom: zoom });
+  },
+  toggleDomainControls() {
+    const next = !get().domainControls;
+    writeStored(DOMAIN_CONTROLS_KEY, next ? 'on' : 'off');
+    set({ domainControls: next });
+  },
+  followCase(caseId) {
+    if (get().followedCase !== caseId) set({ followedCase: caseId });
   },
 
   setTheme(theme) {

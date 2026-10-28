@@ -33,6 +33,7 @@ export function createHandler(): (request: Request) => Promise<Response> {
     return {
       time: state.time,
       marking: state.marking,
+      meta: state.meta,
       running: state.running.map((f) => ({
         firingId: f.id,
         transitionId: f.transitionId,
