@@ -97,14 +97,42 @@ export function CanvasContextMenu({ children }: CanvasContextMenuProps) {
 function MenuContent({ target }: { target: MenuTarget }) {
   const simulating = useEditorStore((s) => s.mode === 'simulate');
   let entries: ReactElement;
-  if (simulating) entries = <ViewEntries />;
-  else if (target.kind === 'node' && target.id !== undefined)
+  if (simulating) {
+    entries = (
+      <>
+        {target.kind === 'node' && target.id !== undefined ? (
+          <SimulationEntries id={target.id} />
+        ) : null}
+        <ViewEntries />
+      </>
+    );
+  } else if (target.kind === 'node' && target.id !== undefined)
     entries = <NodeEntries id={target.id} />;
   else if (target.kind === 'edge' && target.id !== undefined)
     entries = <EdgeEntries id={target.id} />;
   else if (target.kind === 'selection') entries = <SelectionEntries />;
   else entries = <PaneEntries position={target.position ?? { x: 0, y: 0 }} />;
   return <ContextMenuContent label={en.menu.contextMenu}>{entries}</ContextMenuContent>;
+}
+
+/** Entries of a transition or place while simulating: the breakpoint. */
+function SimulationEntries({ id }: { id: string }) {
+  const isTransition = useEditorStore((s) => s.net.transitions.some((t) => t.id === id));
+  const has = useEditorStore((s) => s.simBreakpoints.transitions.includes(id));
+  if (!isTransition) return null;
+  return (
+    <>
+      <ContextMenuItem
+        label={has ? en.simulation.removeBreakpoint : en.simulation.toggleBreakpoint}
+        shortcut={shortcut('breakpoint')}
+        onSelect={() => {
+          useEditorStore.getState().toggleTransitionBreakpoint(id);
+        }}
+        data-testid="menu-breakpoint"
+      />
+      <ContextMenuSeparator />
+    </>
+  );
 }
 
 function ViewEntries() {

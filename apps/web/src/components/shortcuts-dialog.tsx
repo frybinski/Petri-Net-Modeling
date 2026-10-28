@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { Kbd } from './ui/kbd';
 
-const GROUPS: CommandGroup[] = ['tools', 'editing', 'view'];
+const GROUPS: CommandGroup[] = ['tools', 'editing', 'view', 'simulation'];
 
 const MOUSE = (
   <section className="mt-6" data-testid="mouse-help">
@@ -37,7 +37,7 @@ export function ShortcutsDialog() {
       width="max-w-4xl"
       footer={<Button onClick={close}>{en.shortcuts.close}</Button>}
     >
-      <div className="grid gap-5 md:grid-cols-3" data-testid="shortcuts-list">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-testid="shortcuts-list">
         {GROUPS.map((group) => (
           <section key={group}>
             <h3 className="mt-0 mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">

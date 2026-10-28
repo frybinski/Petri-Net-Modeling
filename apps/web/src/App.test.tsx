@@ -1,5 +1,5 @@
 import { createEmptyNet, serializeNet } from '@pnm/core';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from './App';
@@ -96,7 +96,10 @@ describe('App', () => {
     render(<App />);
     await user.click(screen.getByTestId('mode-simulate'));
     expect(await screen.findByTestId('simulation-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('enabled-summary')).toHaveTextContent(/Deadlock/);
+    // The engine answers asynchronously; an empty net has nothing enabled.
+    await waitFor(() => {
+      expect(screen.getByTestId('enabled-summary')).toHaveTextContent(/Deadlock/);
+    });
     await user.click(screen.getByTestId('mode-edit'));
     expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
   });

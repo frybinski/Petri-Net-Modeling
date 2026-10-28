@@ -6,7 +6,7 @@ import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
 
-export type CommandGroup = 'tools' | 'editing' | 'view';
+export type CommandGroup = 'tools' | 'editing' | 'view' | 'simulation';
 
 export interface KeySpec {
   /** `KeyboardEvent.key`, compared case-insensitively. */
@@ -81,6 +81,17 @@ function selectedNodeId(): string | null {
   return net.places.some((p) => p.id === id) || net.transitions.some((t) => t.id === id)
     ? id
     : null;
+}
+
+function inSimulationMode(): boolean {
+  return editor().mode === 'simulate';
+}
+
+/** The one transition that is selected, if exactly one element is selected. */
+function selectedTransitionId(): string | null {
+  const { selection, net } = editor();
+  const id = selection.length === 1 ? selection[0] : undefined;
+  return id !== undefined && net.transitions.some((t) => t.id === id) ? id : null;
 }
 
 function placeAtViewCenter(): void {
@@ -359,6 +370,64 @@ export const commands: Command[] = [
       else state.startSimulation();
     },
     inSimulation: true,
+  },
+  {
+    id: 'sim-play',
+    label: 'Play or pause',
+    group: 'simulation',
+    keys: [{ key: ' ' }],
+    display: 'Space',
+    inSimulation: true,
+    when: (event) => inSimulationMode() && !event.repeat && focusOnCanvas(event),
+    run: () => {
+      editor().togglePlaying();
+    },
+  },
+  {
+    id: 'sim-step',
+    label: 'Step to the next event',
+    group: 'simulation',
+    keys: [{ key: '.' }],
+    inSimulation: true,
+    when: inSimulationMode,
+    run: () => {
+      const state = editor();
+      void (state.simTimed ? state.stepNext() : state.stepRandom());
+    },
+  },
+  {
+    id: 'sim-back',
+    label: 'Step back',
+    group: 'simulation',
+    keys: [{ key: ',' }],
+    inSimulation: true,
+    when: inSimulationMode,
+    run: () => {
+      void editor().stepBack();
+    },
+  },
+  {
+    id: 'sim-reset',
+    label: 'Reset the simulation',
+    group: 'simulation',
+    keys: [{ key: 'r' }],
+    inSimulation: true,
+    when: inSimulationMode,
+    run: () => {
+      void editor().resetSimulation();
+    },
+  },
+  {
+    id: 'breakpoint',
+    label: 'Toggle breakpoint on the selected transition',
+    group: 'simulation',
+    keys: [{ key: 'b' }],
+    inSimulation: true,
+    when: () => inSimulationMode() && selectedTransitionId() !== null,
+    run: () => {
+      const id = selectedTransitionId();
+      if (id !== null) editor().toggleTransitionBreakpoint(id);
+    },
   },
   {
     id: 'help',

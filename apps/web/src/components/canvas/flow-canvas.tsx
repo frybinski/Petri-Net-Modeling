@@ -27,6 +27,7 @@ import { en } from '../../i18n/en';
 import { targetElement } from '../../lib/context-target';
 import { buildHoverCard } from '../../lib/hover-card';
 import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
+import { findBottlenecks, runningByTransition } from '../../lib/sim-view';
 import { GRID_SIZE, snap, snapDragged } from '../../lib/geometry';
 import { registerViewApi } from '../../lib/view-api';
 import { zoomLevel } from '../../lib/zoom';
@@ -39,6 +40,7 @@ import { ArcPreview } from './arc-preview';
 import { ConnectionLine } from './connection-line';
 import { HoverCard, type AnchorRect } from './hover-card';
 import { PlaceNode } from './place-node';
+import { TokenFlights } from './token-flights';
 import { TransitionNode } from './transition-node';
 import { ZoomControls } from './zoom-controls';
 import type { ArcFlowEdge, FlowNode } from './types';
@@ -109,6 +111,12 @@ export function FlowCanvas() {
   const renamingId = useEditorStore((s) => s.renamingId);
   const diagnostics = useEditorStore((s) => s.diagnostics);
   const simMarking = useEditorStore((s) => s.simMarking);
+  const simRunning = useEditorStore((s) => s.simRunning);
+  const simTime = useEditorStore((s) => s.simTime);
+  const simTimed = useEditorStore((s) => s.simTimed);
+  const simBreakpoints = useEditorStore((s) => s.simBreakpoints);
+  const bottleneckWarn = useUiStore((s) => s.bottleneckWarn);
+  const bottleneckCritical = useUiStore((s) => s.bottleneckCritical);
   const docVersion = useEditorStore((s) => s.docVersion);
   const theme = useUiStore((s) => s.theme);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
@@ -152,6 +160,22 @@ export function FlowCanvas() {
     return counts;
   }, [simulating, enabledResults]);
 
+  const running = useMemo(
+    () => (simulating ? runningByTransition(simRunning, simTime) : undefined),
+    [simulating, simRunning, simTime],
+  );
+  const breakpointTransitions = useMemo(
+    () => (simulating ? new Set(simBreakpoints.transitions) : undefined),
+    [simulating, simBreakpoints.transitions],
+  );
+  const bottlenecks = useMemo(
+    () =>
+      simulating && simTimed
+        ? findBottlenecks(net, marking, bottleneckWarn, bottleneckCritical)
+        : undefined,
+    [simulating, simTimed, net, marking, bottleneckWarn, bottleneckCritical],
+  );
+
   const context = useMemo(
     () => ({
       net,
@@ -168,6 +192,10 @@ export function FlowCanvas() {
       editable: !simulating,
       connectable: !simulating && tool === 'select',
       measured,
+      ...(running && { running }),
+      ...(breakpointTransitions && { breakpointTransitions }),
+      ...(simulating && { breakpointPlaces: simBreakpoints.places }),
+      ...(bottlenecks && { bottlenecks }),
     }),
     [
       net,
@@ -183,6 +211,10 @@ export function FlowCanvas() {
       arcSource,
       tool,
       measured,
+      running,
+      breakpointTransitions,
+      simBreakpoints.places,
+      bottlenecks,
     ],
   );
   const nodes = useMemo(() => buildFlowNodes(context), [context]);
@@ -570,6 +602,7 @@ export function FlowCanvas() {
           id: card.id,
           diagnostics,
           enabled: simulating ? enabledResults : undefined,
+          running: simulating ? running?.get(card.id)?.count : undefined,
         })
       : null;
 
@@ -654,7 +687,8 @@ export function FlowCanvas() {
           selectionOnDrag={tool === 'select' && !simulating}
           // The right button is for the context menu.
           panOnDrag={tool === 'select' ? [1] : [0, 1]}
-          panActivationKeyCode="Space"
+          // Space plays and pauses the simulation, so it cannot also start panning there.
+          panActivationKeyCode={simulating ? null : 'Space'}
           multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
           deleteKeyCode={null}
           selectionKeyCode={null}
@@ -677,6 +711,7 @@ export function FlowCanvas() {
           <ZoomControls />
           {showMinimap ? <AutoMiniMap /> : null}
           <ArcPreview cursor={cursor} hoverId={hoverId} />
+          {simulating ? <TokenFlights edges={edges} /> : null}
         </ReactFlow>
         {card && cardModel ? <HoverCard model={cardModel} anchor={card.anchor} /> : null}
       </div>

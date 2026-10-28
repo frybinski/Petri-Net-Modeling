@@ -26,6 +26,7 @@ import {
   setInitialTokens,
   setPlaceType as corePlaceType,
   setProfile as coreSetProfile,
+  setSimulationSettings as coreSetSimulationSettings,
   setTokens as coreSetTokens,
   setWeight,
   uniqueName,
@@ -49,6 +50,7 @@ import {
   type Place,
   type Position,
   type Profile,
+  type SimulationSettings,
   type Token,
   type Transition,
 } from '@pnm/core';
@@ -210,6 +212,8 @@ export interface EditorState {
   removeType(name: string): void;
   setPlaceType(placeId: Id, type: string | undefined): void;
   renameNet(name: string): void;
+  /** Changes the simulation settings of the net; a key set to `undefined` is removed. */
+  updateSimulationSettings(patch: Partial<SimulationSettings>): void;
   align(mode: AlignMode): void;
   distribute(axis: DistributeAxis): void;
   applyLayout(positions: Record<Id, Position>): void;
@@ -838,6 +842,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     renameNet(name) {
       if (name === get().net.name) return;
       edit((net) => coreRenameNet(net, name));
+    },
+    updateSimulationSettings(patch) {
+      edit((net) => coreSetSimulationSettings(net, patch));
     },
     align(mode) {
       edit((net) => alignNodes(net, get().selection, mode));

@@ -212,6 +212,8 @@ interface NumberFieldProps {
   max?: number;
   step?: number;
   allowEmpty?: boolean;
+  /** Round to this many decimals instead of to multiples of `step`. */
+  decimals?: number;
   disabled?: boolean;
   hint?: string;
   placeholder?: string;
@@ -226,6 +228,7 @@ export function NumberField({
   max,
   step = 1,
   allowEmpty,
+  decimals,
   disabled,
   hint,
   placeholder,
@@ -239,6 +242,7 @@ export function NumberField({
   const clamp = (n: number): number => {
     let result = Math.max(min, n);
     if (max !== undefined) result = Math.min(max, result);
+    if (decimals !== undefined) return Number(result.toFixed(decimals));
     return Math.round(result / step) * step;
   };
 
@@ -282,7 +286,7 @@ export function NumberField({
         <input
           id={id}
           type="text"
-          inputMode="numeric"
+          inputMode={decimals === undefined ? 'numeric' : 'decimal'}
           value={draft}
           disabled={disabled}
           placeholder={placeholder}

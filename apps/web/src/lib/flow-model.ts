@@ -8,6 +8,8 @@ import {
   type Token,
 } from '@pnm/core';
 import type { ArcFlowEdge, FlowNode } from '../components/canvas/types';
+import { describeTiming } from './sim-format';
+import type { Bottleneck, RunInfo } from './sim-view';
 import {
   PLACE_SIZE,
   PLACE_SHAPE,
@@ -87,6 +89,13 @@ export interface FlowContext {
   editable: boolean;
   connectable: boolean;
   measured: ReadonlyMap<Id, { width: number; height: number }>;
+  /** Firings under way per transition (timed simulation). */
+  running?: ReadonlyMap<Id, RunInfo>;
+  /** Transitions with a breakpoint, and places with a breakpoint and its token count. */
+  breakpointTransitions?: ReadonlySet<Id>;
+  breakpointPlaces?: Readonly<Record<Id, number>>;
+  /** Queues that are filling up. */
+  bottlenecks?: ReadonlyMap<Id, Bottleneck>;
 }
 
 /** Ids of elements that have at least one error diagnostic. */
@@ -164,6 +173,10 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         ...(errors.has(place.id) && { errorText: errorText.get(place.id) }),
         isArcSource: ctx.arcSource === place.id,
         renaming: ctx.renamingId === place.id,
+        ...(ctx.bottlenecks?.get(place.id) && { bottleneck: ctx.bottlenecks.get(place.id) }),
+        ...(ctx.breakpointPlaces?.[place.id] !== undefined && {
+          breakpoint: ctx.breakpointPlaces[place.id],
+        }),
       },
     });
   }
@@ -171,6 +184,7 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
   for (const transition of ctx.net.transitions) {
     const enabled = ctx.enabled.has(transition.id);
     const guard = transition.guard?.trim();
+    const run = ctx.running?.get(transition.id);
     nodes.push({
       id: transition.id,
       type: 'transition',
@@ -193,6 +207,10 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         ...(errors.has(transition.id) && { errorText: errorText.get(transition.id) }),
         isArcSource: ctx.arcSource === transition.id,
         renaming: ctx.renamingId === transition.id,
+        ...(transition.timing && { timing: describeTiming(transition.timing) }),
+        running: run?.count ?? 0,
+        progress: run?.progress ?? 0,
+        breakpoint: ctx.breakpointTransitions?.has(transition.id) ?? false,
       },
     });
   }

@@ -1,10 +1,13 @@
 import type { NodeProps } from '@xyflow/react';
+import { Clock } from 'lucide-react';
 import { memo } from 'react';
+import { en } from '../../i18n/en';
 import { GUARD_LABEL_LENGTH } from '../../lib/flow-model';
 import { truncate } from '../../lib/inscriptions';
 import { NODE_STROKE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '../../lib/geometry';
 import { Tooltip } from '../ui/tooltip';
 import { BindingPicker } from './binding-picker';
+import { BreakpointMarker } from './breakpoint-marker';
 import { ErrorMarker } from './error-marker';
 import { RING_OUTSIDE, NodeHandles } from './node-handles';
 import { useDropState } from './use-drop-state';
@@ -26,9 +29,15 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
     errorText,
     isArcSource,
     renaming,
+    timing,
+    running,
+    progress,
+    breakpoint,
   } = data;
   const drop = useDropState(id);
   const showBindings = simulating && enabled && bindings > 1;
+  const busy = simulating && running > 0;
+  const percent = Math.round(progress * 100);
   return (
     <div
       className="pn-node pn-transition relative"
@@ -37,6 +46,7 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
       data-error={hasError}
       data-drop={drop}
       data-enabled={simulating ? String(enabled) : undefined}
+      data-busy={busy ? 'true' : undefined}
     >
       <svg
         className="pn-svg pointer-events-none absolute inset-0 overflow-visible"
@@ -75,6 +85,40 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
         data-testid="transition-shape"
         data-enabled={simulating ? String(enabled) : undefined}
       />
+      {busy ? (
+        <div
+          className="pointer-events-none absolute inset-[1.5px] overflow-hidden rounded-[2px]"
+          role="progressbar"
+          aria-label={`${name}: ${en.simulation.progress(percent)}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+          data-testid="transition-progress"
+        >
+          <div
+            className="pn-progress absolute inset-x-0 bottom-0"
+            style={{ height: `${percent}%` }}
+          />
+        </div>
+      ) : null}
+      {timing ? (
+        <Clock
+          size={11}
+          strokeWidth={2.25}
+          className="pn-detail pointer-events-none absolute right-[3px] bottom-[3px] text-muted"
+          aria-hidden="true"
+          data-testid="timing-icon"
+        />
+      ) : null}
+      {busy && running > 1 ? (
+        <span
+          className="pointer-events-none absolute -top-2.5 -left-3 min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] leading-5 font-semibold text-accent-contrast select-none"
+          data-testid="running-count"
+        >
+          {running}
+        </span>
+      ) : null}
+      {simulating && breakpoint ? <BreakpointMarker /> : null}
       {guard ? (
         <Tooltip content={guard} side="top">
           <span

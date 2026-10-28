@@ -8,6 +8,7 @@ import {
   TOKEN_DOT_RADIUS,
   tokenDotOffsets,
 } from '../../lib/geometry';
+import { BreakpointMarker } from './breakpoint-marker';
 import { RING_OUTSIDE, NodeHandles } from './node-handles';
 import { useDropState } from './use-drop-state';
 import { NodeLabel } from './node-label';
@@ -36,6 +37,8 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
     errorText,
     isArcSource,
     renaming,
+    bottleneck,
+    breakpoint,
   } = data;
   const drop = useDropState(id);
   const dots = !json && tokens > 0 && tokens <= MAX_TOKEN_DOTS;
@@ -55,6 +58,14 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
         aria-hidden="true"
       >
         <circle className="pn-hover-ring" r={HALF + RING_OUTSIDE / 2 - 0.5} strokeWidth={6} />
+        {bottleneck ? (
+          <circle
+            className="pn-bottleneck"
+            r={HALF + 5}
+            data-level={bottleneck}
+            data-testid="bottleneck-ring"
+          />
+        ) : null}
         <circle className="pn-halo" r={HALF + 1.5} />
         <circle className="pn-body" r={HALF - NODE_STROKE / 2} strokeWidth={NODE_STROKE} />
         {dots
@@ -100,6 +111,7 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
         </span>
       ) : null}
       {hasError ? <ErrorMarker text={errorText} corner={typeName ? 'left' : 'right'} /> : null}
+      {breakpoint !== undefined ? <BreakpointMarker /> : null}
       {json && chips.length > 0 ? (
         <div
           className={`pn-chips pn-detail pointer-events-none absolute flex flex-col items-start gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-panel ${CHIP_POSITION[chipSide]}`}
