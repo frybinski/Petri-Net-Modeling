@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-28 · Status: Entwurf zur Abstimmung
+Stand: 2026-10-28 · Status: in Umsetzung (M0–M2 fertig, UI-Polish läuft) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -152,14 +152,32 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Markenansicht pro Stelle (Tabelle/JSON), Marken anlegen und bearbeiten.
 - Profilumschaltung Stellen/Transitions-Netz ⟷ JSON-Netz.
 
-### M3 · Simulation (2 Wochen)
-- Schrittweise Simulation mit Auswahl der Bindung, Zufallsmodus, Abspielen
-  mit Geschwindigkeit, Pause, Zurück (Verlauf der Markierungen).
-- Animation des Markenflusses auf dem Canvas.
-- Ablaufprotokoll (Trace) als Tabelle und Export (CSV/JSON, XES-kompatibel).
-- Haltepunkte (Transition, Markierungsbedingung).
+### M3 · Simulation (erweitert, 3–4 Wochen)
+- Paket `@pnm/sim`: diskrete Ereignissimulation mit Dauern (fest, gleichverteilt,
+  exponentiell), Prioritäten zur Konfliktauflösung, Raten für Quell-Transitionen,
+  zweiphasigem Schalten, Fall-Identität, seedbarem Zufall und einem
+  Ereignisstrom (`SimEvent`). Läuft im Web Worker. Die atomare Schaltregel aus
+  M1/M2 bleibt der Sonderfall Dauer 0.
+- Optionale Modellfelder `timing`, `priority`, `rate` an Transitionen und `role`
+  an Stellen, mit Feldern im Eigenschaftspanel.
+- Editor: Abspielen mit Geschwindigkeit, Pause, Einzelschritt, Zurück (Verlauf),
+  Haltepunkte (Transition, Markierungsbedingung), Animation des Markenflusses.
+- Trace-Panel und Export als Event Log (CSV: `case_id, activity, timestamp,
+  lifecycle`) und XES, aus demselben Ereignisstrom.
 
-### M4 · Austausch und Export (1–2 Wochen)
+### D1–D4 · Domänenansicht (siehe `docs/plan/Domaenenansicht_Einordnung.md`)
+- D1 Abbildung ohne Simulation: Schema `DomainView`, Prüfung V1–V8, generische
+  Abbildung, statische Canvas-Ansicht, Speicherung unter `domainView`.
+- D2 Animation: Ansicht hört auf den Ereignisstrom, Steuerung, Kennzahlen,
+  Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus.
+- D3 LLM-Erzeugung der Abbildung: OpenAI-kompatibler Anbieter, Prompt mit Netz,
+  Domänenbeschreibung, Schema und Beispielen, Reparaturschleife, Auffüllen,
+  Herkunft je Eintrag. Das Netz bestimmt das Verhalten, die Abbildung nur das
+  Aussehen (neuro-symbolische Arbeitsteilung).
+- D4 Bearbeiten: JSON-Editor mit Live-Prüfung, Ziehen in der Ansicht, Erkennen
+  veralteter Abbildungen mit „Ergänzen".
+
+### M4 · Austausch und Export (1–2 Wochen, nach D4)
 - PNML-Import/-Export (P/T-Netze standardkonform, höhere Netze über
   Toolspecific-Erweiterung).
 - SVG- und PNG-Export, TikZ-Export passend zu den Dissertationsstilen.
@@ -172,6 +190,9 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Prüfung von Eigenschaften über Abläufen (LTLf/DECLARE) auf dem
   Erreichbarkeitsgraphen. Anschluss an Beitrag B3 der Dissertation.
 - Web Worker für rechenintensive Analysen, damit die Oberfläche flüssig bleibt.
+
+### D5 · Kopplung an echte Daten (optional)
+- Replay eines Event Logs oder externe Ereignisquelle auf demselben Ereignisstrom.
 
 ### M6 · Backend, Teilen, Schnittstellen (optional, 3 Wochen)
 - Server (Node, Fastify) mit Projektablage, Versionen, Freigabelinks.
