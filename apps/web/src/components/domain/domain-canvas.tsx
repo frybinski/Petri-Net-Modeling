@@ -436,6 +436,7 @@ export function DomainCanvas() {
         role="img"
         aria-label={summary}
         data-testid="domain-canvas"
+        data-hover={hover.id ?? ''}
         className="absolute inset-0 h-full w-full touch-none"
         style={{ cursor }}
         onPointerDown={onPointerDown}
