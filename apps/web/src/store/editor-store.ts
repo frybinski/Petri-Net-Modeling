@@ -62,6 +62,7 @@ import {
   type MetricsSnapshot,
   type RunningView,
   type SimResult,
+  type TokenMeta,
   type SimulationClient,
 } from '@pnm/sim';
 import { create } from 'zustand';
@@ -69,7 +70,7 @@ import { en } from '../i18n/en';
 import { chainPosition } from '../lib/placement';
 import { createSimulationClientForEditor } from '../lib/sim-client';
 import { getViewApi } from '../lib/view-api';
-import { eventLog, publishSimEvents } from './sim-log';
+import { eventLog, publishSimEvents, publishSimJump } from './sim-log';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
@@ -138,6 +139,8 @@ export interface EditorState {
   dragPositions: Record<Id, Position> | null;
 
   simMarking: Marking | null;
+  /** Parallel to `simMarking`: the identity of every token (the animation follows tokens by it). */
+  simMeta: Record<Id, TokenMeta[]>;
   /** The latest fired steps (the start of a firing), oldest first. */
   simHistory: SimStep[];
   /** Enabled transitions with their bindings under `simMarking`. Empty while `computing`. */
@@ -319,6 +322,7 @@ const NO_BREAKPOINTS = (): Breakpoints => ({ transitions: [], places: {} });
 function idleSimulation() {
   return {
     simMarking: null as Marking | null,
+    simMeta: {} as Record<Id, TokenMeta[]>,
     simHistory: [] as SimStep[],
     enabled: NO_ENABLED(),
     computing: false,
@@ -486,6 +490,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     if (view.enabled) runtime.lastEnabledAt = performance.now();
     set({
       simMarking: view.marking,
+      simMeta: view.meta,
       ...(view.enabled && {
         enabled: toEnabledMap(view.enabled),
         simDiagnostics: view.diagnostics,
@@ -501,6 +506,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       simIdle: idle ? true : events.length > 0 ? false : state.simIdle,
       ...(warning?.type === 'warning' && { simNotice: warning.message }),
     });
+    // The picture of the domain view snaps to a state it cannot reach by events.
+    if (options.reset || options.truncate) publishSimJump();
     if (!options.truncate) publishSimEvents(events);
 
     const stop = events.find((e) => e.type === 'breakpoint');

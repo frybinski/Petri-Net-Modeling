@@ -6,6 +6,7 @@ import {
   type CellStyle,
   type DrawCommand,
   type Glyph,
+  type Layer,
   type Scene,
 } from './scene';
 import type { Point, Sprite } from './schema';
@@ -16,6 +17,69 @@ export interface PaintOptions {
    * in device pixels by the canvas, so they are scaled by this.
    */
   scale?: number;
+  /** Draws sprites from pre-rendered images, which is much cheaper with hundreds of them. */
+  sprites?: SpriteCache;
+}
+
+/** An image that a canvas can draw and that a 2D context can render into. */
+export interface SpriteSurface {
+  width: number;
+  height: number;
+  getContext(kind: '2d'): CanvasRenderingContext2D | null;
+}
+
+/** The steps in which the direction of person and vehicle sprites is rounded in the cache. */
+const ANGLE_STEPS = 32;
+
+/**
+ * Sprites rendered once per picture, size, direction and zoom into small canvases and drawn with
+ * `drawImage` afterwards. A frame with 200 cases then needs 200 blits instead of about 2000 path
+ * operations. The caller supplies how canvases are created, so the painter touches no DOM.
+ */
+export class SpriteCache {
+  private readonly images = new WeakMap<ScenePalette, Map<string, CanvasImageSource>>();
+
+  constructor(private readonly create: (width: number, height: number) => SpriteSurface) {}
+
+  /** Draws a sprite centered on (x, y). Returns false if no surface could be made. */
+  draw(
+    ctx: Ctx,
+    sprite: Sprite,
+    x: number,
+    y: number,
+    size: number,
+    palette: ScenePalette,
+    angle: number | undefined,
+    scale: number,
+  ): boolean {
+    const quality = Math.max(0.25, Math.round(scale * 4) / 4);
+    const oriented = sprite === 'person' || sprite === 'vehicle';
+    const bucket =
+      oriented && angle !== undefined
+        ? ((Math.round((angle / (Math.PI * 2)) * ANGLE_STEPS) % ANGLE_STEPS) + ANGLE_STEPS) %
+          ANGLE_STEPS
+        : 0;
+    const key = `${sprite}|${size}|${quality}|${bucket}`;
+    let byKey = this.images.get(palette);
+    if (!byKey) {
+      byKey = new Map();
+      this.images.set(palette, byKey);
+    }
+    const half = size * 0.75;
+    let image = byKey.get(key);
+    if (!image) {
+      const side = Math.max(2, Math.ceil(2 * half * quality));
+      const surface = this.create(side, side);
+      const inner = surface.getContext('2d');
+      if (!inner) return false;
+      inner.scale(quality, quality);
+      drawSprite(inner, sprite, half, half, size, palette, (bucket / ANGLE_STEPS) * Math.PI * 2);
+      image = surface as unknown as CanvasImageSource;
+      byKey.set(key, image);
+    }
+    ctx.drawImage(image, x - half, y - half, 2 * half, 2 * half);
+    return true;
+  }
 }
 
 type Ctx = CanvasRenderingContext2D;
@@ -59,8 +123,20 @@ export function paintScene(
 ): void {
   const scale = options.scale ?? 1;
   paintSheet(ctx, scene, palette, scale);
+  paintLayers(ctx, scene.layers, palette, options);
+}
+
+/** Draws the layers of a scene without the sheet, for layers on top of another one. */
+export function paintLayers(
+  ctx: Ctx,
+  layers: Record<Layer, readonly DrawCommand[]>,
+  palette: ScenePalette,
+  options: PaintOptions = {},
+): void {
+  const scale = options.scale ?? 1;
   for (const layer of LAYERS) {
-    for (const command of scene.layers[layer]) paintCommand(ctx, command, palette, scale);
+    for (const command of layers[layer])
+      paintCommand(ctx, command, palette, scale, options.sprites);
   }
 }
 
@@ -701,7 +777,30 @@ export function drawSprite(
 
 // --- Commands ---------------------------------------------------------------------------------
 
-function paintCommand(ctx: Ctx, command: DrawCommand, palette: ScenePalette, scale: number): void {
+function paintCommand(
+  ctx: Ctx,
+  command: DrawCommand,
+  palette: ScenePalette,
+  scale: number,
+  sprites?: SpriteCache,
+): void {
+  if (command.op === 'sprite') {
+    // A sprite keeps the state of the context as it was (the cache and `drawSprite` both do).
+    const drawn = sprites?.draw(
+      ctx,
+      command.sprite,
+      command.x,
+      command.y,
+      command.size,
+      palette,
+      command.angle,
+      scale,
+    );
+    if (!drawn) {
+      drawSprite(ctx, command.sprite, command.x, command.y, command.size, palette, command.angle);
+    }
+    return;
+  }
   ctx.save();
   ctx.globalAlpha = 'alpha' in command && command.alpha !== undefined ? command.alpha : 1;
   switch (command.op) {
@@ -819,9 +918,6 @@ function paintCommand(ctx: Ctx, command: DrawCommand, palette: ScenePalette, sca
         palette,
       );
       break;
-    case 'sprite':
-      drawSprite(ctx, command.sprite, command.x, command.y, command.size, palette, command.angle);
-      break;
     case 'badge': {
       ctx.font = `600 10px ${palette.fontMono}`;
       const width = Math.max(18, ctx.measureText(command.text).width + 10);
@@ -856,8 +952,34 @@ function paintCommand(ctx: Ctx, command: DrawCommand, palette: ScenePalette, sca
           command.h,
           command.h / 2,
         );
-        ctx.fillStyle = palette.ok;
+        ctx.fillStyle = palette[command.tone ?? 'ok'];
         ctx.fill();
+      }
+      break;
+    }
+    case 'ring': {
+      const base = ctx.globalAlpha;
+      ctx.lineWidth = command.lineWidth ?? 2.5;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([]);
+      ctx.globalAlpha = base * 0.4;
+      ctx.strokeStyle = palette.line;
+      ctx.beginPath();
+      ctx.arc(command.x, command.y, command.r, 0, Math.PI * 2);
+      ctx.stroke();
+      if (command.value > 0) {
+        ctx.globalAlpha = base;
+        ctx.strokeStyle = palette[command.tone];
+        ctx.beginPath();
+        const start = -Math.PI / 2;
+        ctx.arc(
+          command.x,
+          command.y,
+          command.r,
+          start,
+          start + Math.PI * 2 * Math.min(1, command.value),
+        );
+        ctx.stroke();
       }
       break;
     }

@@ -84,3 +84,33 @@ export function distanceToPath(p: Point, path: readonly Point[]): number {
 export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+/** The part of a path between two distances from its start, in the direction from `from` to `to`. */
+export function subPath(path: readonly Point[], from: number, to: number): Point[] {
+  if (path.length < 2) return path[0] ? [path[0]] : [];
+  const length = pathLength(path);
+  const a = Math.max(0, Math.min(length, from));
+  const b = Math.max(0, Math.min(length, to));
+  const forward = a <= b;
+  const lo = forward ? a : b;
+  const hi = forward ? b : a;
+  const points: Point[] = [pointAlong(path, lo).point];
+  let walked = 0;
+  for (let i = 1; i < path.length - 1; i += 1) {
+    walked += distance(path[i - 1]!, path[i]!);
+    if (walked > lo && walked < hi) points.push(path[i]!);
+  }
+  points.push(pointAlong(path, hi).point);
+  return forward ? points : points.reverse();
+}
+
+/** Removes points that lie closer than `epsilon` to their predecessor (the last one is kept). */
+export function dedupePoints(points: readonly Point[], epsilon = 0.75): Point[] {
+  const result: Point[] = [];
+  points.forEach((point, index) => {
+    const last = result[result.length - 1];
+    if (last === undefined || distance(last, point) >= epsilon) result.push(point);
+    else if (index === points.length - 1) result[result.length - 1] = point;
+  });
+  return result;
+}

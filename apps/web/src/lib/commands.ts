@@ -303,6 +303,7 @@ export const commands: Command[] = [
     run: () => {
       const state = editor();
       if (state.picker !== null) state.setPicker(null);
+      else if (useUiStore.getState().followedCase !== null) useUiStore.getState().followCase(null);
       else if (state.arcSource !== null) state.setArcSource(null);
       else if (state.tool !== 'select') state.setTool('select');
       else state.clearSelection();

@@ -65,3 +65,17 @@ export function publishSimEvents(events: readonly SimEvent[]): void {
   if (events.length === 0) return;
   for (const listener of listeners) listener(events);
 }
+
+const jumpListeners = new Set<() => void>();
+
+/** Calls `listener` when the state changes without events: stepping back, a reset, a new start. */
+export function onSimJump(listener: () => void): () => void {
+  jumpListeners.add(listener);
+  return () => {
+    jumpListeners.delete(listener);
+  };
+}
+
+export function publishSimJump(): void {
+  for (const listener of jumpListeners) listener();
+}

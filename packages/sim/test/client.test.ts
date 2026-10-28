@@ -44,6 +44,17 @@ describe.each([
   ['local client', () => createLocalClient()],
   ['worker client', () => createSimulationClient(fakeWorker())],
 ])('%s', (_name, create) => {
+  it('reports the identity of every token next to the marking', async () => {
+    const client = create();
+    const init = await client.init(net(), { seed: 1 });
+    expect(init.view.meta['p']).toHaveLength(2);
+    expect(init.view.meta['p']!.map((m) => m.id)).toEqual(['k1', 'k2']);
+    const after = await client.step();
+    for (const [placeId, tokens] of Object.entries(after.view.marking)) {
+      expect(after.view.meta[placeId]).toHaveLength(tokens.length);
+    }
+  });
+
   it('initialises, steps and reports the view', async () => {
     const client = create();
     const init = await client.init(net(), { seed: 1 });

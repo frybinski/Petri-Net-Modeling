@@ -2,6 +2,38 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.6.0: Animated domain view
+
+Milestone D2. The file format stays `1.0`; nets and mappings of 0.5.0 work unchanged.
+
+### Added
+
+- `@pnm/domain`: `layoutTokens` (where every token stands), `applyEvents` (motions along the connectors, flashes and
+  counters from the events of a bundle, with a log of handled event ids), `sampleSprites` and `sampleTokens`,
+  `buildStaticScene` and `buildDynamicScene` (the picture in two layers), `stationStatus`, `queueLevel` and
+  `stationInfos` (free, busy, blocked, starved; yellow and red queues), `caseTrail` and `caseActivities`, a sprite cache
+  for the painter, and the new draw commands `ring` and `progress` with a tone.
+- `@pnm/sim`: the view of the simulation carries the metadata of every token (`SimView.meta`), so that the animation can
+  follow tokens by their id.
+- Web app: the domain view runs the simulation. Tokens move along belts and connectors, stations show free, busy and
+  blocked, slots show a progress ring, queues turn yellow and red with the thresholds of the key figure settings, the
+  counters of sinks count up when a case arrives, and elements flash for events that move nothing. Speed _max_ and
+  `prefers-reduced-motion` make tokens jump. The static layer is rendered offscreen and the loop rests when nothing moves.
+- A floating bar in the domain view (_Simulate_, play and pause, step, back, reset, speed, clock, cases, _Edit_, hide), a
+  strip with throughput, cycle time and cases in the system, richer hover cards (state, slots, waiting cases, mean wait,
+  use of resources), following a case by a click (ring, card with its steps, `Esc` lets go), and firing an enabled
+  transition by a click on it, with a list of bindings where there are several.
+- Tests: the A2 log against the event stream, two hours of three nets with layout and animation (A1), the same event
+  stream and exports with the view running (A3), a frame budget for 200 tokens, component tests for the bar, the loop,
+  the order of bundles, following and firing, and Playwright tests for the whole run.
+- Documentation: the section _Animation_ in [docs/domain-view.md](docs/domain-view.md) and ADR 0009.
+
+### Changed
+
+- The fit of the domain view keeps clear of the floating controls (`fitAround`).
+- The net editor stops its token flights while it is hidden behind the domain view.
+- `buildScene` is unchanged and still draws one state; the running view uses the two layers.
+
 ## 0.5.0: Domain view without simulation
 
 Milestone D1. The file format stays `1.0`: `domainView` is an optional field, and nets without it behave as before.

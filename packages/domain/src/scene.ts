@@ -114,7 +114,18 @@ export type DrawCommand = Base &
     | { op: 'glyph'; glyph: Glyph; x: number; y: number; size: number; tone: Tone; alpha?: number }
     | { op: 'sprite'; sprite: Sprite; x: number; y: number; size: number; angle?: number }
     | { op: 'badge'; x: number; y: number; text: string; accent?: boolean }
-    | { op: 'progress'; x: number; y: number; w: number; h: number; value: number }
+    | { op: 'progress'; x: number; y: number; w: number; h: number; value: number; tone?: Tone }
+    /** A circle that fills clockwise from the top: the progress of a firing on its slot. */
+    | {
+        op: 'ring';
+        x: number;
+        y: number;
+        r: number;
+        /** 0 to 1. */
+        value: number;
+        tone: Tone;
+        lineWidth?: number;
+      }
   );
 
 export type Shape =
@@ -465,7 +476,7 @@ export function tokenSpots(path: readonly Point[], count: number): TokenSpots {
   return { spots, extra: count - shown, next };
 }
 
-function cellStyleOf(kind: string): CellStyle {
+export function cellStyleOf(kind: string): CellStyle {
   switch (kind) {
     case 'machine':
       return 'machine';
@@ -478,7 +489,7 @@ function cellStyleOf(kind: string): CellStyle {
   }
 }
 
-function cellSize(style: CellStyle): [number, number] {
+export function cellSize(style: CellStyle): [number, number] {
   switch (style) {
     case 'desk':
       return [38, 24];
@@ -1081,6 +1092,24 @@ export function buildScene(
     hits: b.hits,
   };
   return withHighlight(scene, options);
+}
+
+/**
+ * The part of the picture that depends on the net and the view only: scenery, belts, cards,
+ * connectors and labels, with the regions for hover and clicks. Tokens, counters, slot cells and
+ * progress bars are drawn on top of it by `buildDynamicScene`. A canvas keeps it in an offscreen
+ * layer and redraws it when the net, the view, the zoom or the theme change.
+ */
+export function buildStaticScene(net: PetriNet, view: DomainView): Scene {
+  const scene = buildScene(net, view, {}, {});
+  return {
+    ...scene,
+    layers: {
+      ...scene.layers,
+      tokens: [],
+      transitions: scene.layers.transitions.filter((c) => c.op !== 'progress'),
+    },
+  };
 }
 
 // --- Hover and selection ----------------------------------------------------------------------

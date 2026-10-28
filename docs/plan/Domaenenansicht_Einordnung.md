@@ -119,8 +119,8 @@ und zeigt alle drei Beispiele. Für die Umsetzung sind diese Punkte wichtig:
 | UI-Polish | Bedienung und Erscheinungsbild (Phase A, B1 bis B6) | fertig (0.3.0) |
 | **M3 Simulation (erweitert)** | Paket `@pnm/sim`: diskrete Ereignissimulation mit Dauern, Prioritäten, Raten, zweiphasigem Schalten, Fall-IDs, Seed, `SimEvent`-Strom, Web Worker. Editor: Abspielen mit Geschwindigkeit, Pause, Einzelschritt, Zurück, Haltepunkte, Animation des Markenflusses im Netz, Trace-Panel. Export CSV (Event Log) und XES. Modellfelder `timing`, `priority`, `rate`, `role` mit Panel-Feldern. | fertig (0.4.0) |
 | **D1 Abbildung ohne Simulation** | Schema `DomainView`, Prüfung V1 bis V8, generische Abbildung, statische Canvas-Ansicht, drei Testnetze als `.pn.json`, Speicherung unter `domainView`. Abnahme A4, A5. | fertig (0.5.0) |
-| **D2 Animation** | Ansicht hört auf `SimEvent`, Bewegungen, Engpassfarben, Steuerung, Kennzahlen, Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus. Abnahme A1, A2, A3, A9. | nächster Schritt |
-| **D3 LLM-Erzeugung** | Anbieterkonfiguration, Prompt mit Netz, Domänenbeschreibung, Schema und Beispielen, Reparaturschleife (max. 3), Auffüllen, Herkunft je Eintrag. Abnahme A6. | neu |
+| **D2 Animation** | Ansicht hört auf `SimEvent`, Bewegungen, Engpassfarben, Steuerung, Kennzahlen, Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus. Abnahme A1, A2, A3, A9. | fertig (0.6.0) |
+| **D3 LLM-Erzeugung** | Anbieterkonfiguration, Prompt mit Netz, Domänenbeschreibung, Schema und Beispielen, Reparaturschleife (max. 3), Auffüllen, Herkunft je Eintrag. Abnahme A6. | nächster Schritt |
 | **D4 Bearbeiten** | JSON-Editor mit Live-Prüfung, Ziehen von Punkten, Rechtecken und Pfaden, Erkennen veralteter Abbildungen (V7) mit „Ergänzen". Abnahme A7, A8 (Export kommt aus M3). | neu |
 | M4 Austausch | PNML, PNG, TikZ, CLI | verschoben nach D4 |
 | M5 Analyse | Erreichbarkeit, Invarianten, LTLf/DECLARE | unverändert |
