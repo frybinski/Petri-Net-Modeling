@@ -235,3 +235,36 @@ test('hover cards show how a station and a queue are doing', async ({ page }) =>
   await expect(page.getByTestId('domain-card-slots')).toContainText(/\d of 2/);
   await expect(page.getByTestId('domain-card-waiting')).toBeVisible();
 });
+
+test('acceptance A9: hovering links the two views in both directions while simulating', async ({
+  page,
+}) => {
+  await openExample(page, 'parcel-center');
+  await page.getByTestId('view-both').click();
+  await page.getByTestId('domain-simulate').click();
+  await expect(page.getByTestId('domain-clock')).toHaveText('00:00:00');
+  await page.getByTestId('domain-speed-60').click();
+  await page.getByTestId('domain-play').click();
+  await page.waitForTimeout(1500);
+  const canvas = page.getByTestId('domain-canvas');
+  const sorter = page.locator('.react-flow__node-transition').filter({ hasText: 'Sortieren' });
+
+  // Domain to net: the sorter card lights up its transition in the net, also while the cases move.
+  const [sx, sy] = await sheetToScreen(canvas, 570, 272);
+  await page.mouse.move(sx, sy);
+  await expect(canvas).toHaveAttribute('data-hover', 't_sort');
+  await expect(sorter).toHaveAttribute('data-linked', 'true');
+  await page.mouse.move(sx, sy - 300);
+  await expect(canvas).toHaveAttribute('data-hover', '');
+  await expect(sorter).not.toHaveAttribute('data-linked', 'true');
+
+  // Net to domain: hovering a node of the net marks the element in the picture.
+  await page
+    .locator('.react-flow__node-transition')
+    .filter({ hasText: 'Scannen' })
+    .getByTestId('transition-shape')
+    .hover();
+  await expect(canvas).toHaveAttribute('data-hover', 't_scan');
+  await page.mouse.move(5, 5);
+  await expect(canvas).toHaveAttribute('data-hover', '');
+});

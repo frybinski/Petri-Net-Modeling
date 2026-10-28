@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNetText, type PetriNet } from '@pnm/core';
 import type { SimEvent } from '@pnm/sim';
@@ -599,21 +599,24 @@ describe('acceptance A1: two hours of simulated time with layout and animation',
     }, 20_000);
   }
 
-  it('runs all examples with their generic views', async () => {
-    for (const name of [
-      'producer-consumer',
-      'order-processing',
-      'traffic-light',
-      'mutual-exclusion',
-      'token-ring',
-      'dining-philosophers-3',
-    ]) {
+  it('runs every example of the repository, with its own view or the generic one', async () => {
+    const names = readdirSync(join(root, 'examples'))
+      .filter((file) => file.endsWith('.pn.json'))
+      .map((file) => file.replace('.pn.json', ''));
+    expect(names.length).toBeGreaterThanOrEqual(9);
+    for (const name of names) {
       const exampleNet = example(name);
-      const { events } = await runAnimated(exampleNet, genericDomainView(exampleNet), {
+      const exampleView =
+        (exampleNet.domainView as DomainView | undefined) ?? genericDomainView(exampleNet);
+      const { events, anim } = await runAnimated(exampleNet, exampleView, {
         bundle: 6,
-        seconds: 600,
+        seconds: 1200,
       });
-      expect(events.length, name).toBeGreaterThan(0);
+      const ids = new Set(events.map((e) => e.id));
+      expect(
+        anim.handled.every((h) => ids.has(h.eventId)),
+        name,
+      ).toBe(true);
     }
-  }, 20_000);
+  }, 60_000);
 });
