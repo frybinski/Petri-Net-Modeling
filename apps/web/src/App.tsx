@@ -44,9 +44,11 @@ export function App() {
 
   // Keyboard shortcuts.
   useEffect(() => {
-    document.addEventListener('keydown', handleShortcut);
+    // Capture phase: React Flow handles arrow keys on focused nodes itself and would otherwise
+    // mark the event as handled before it reaches the document.
+    document.addEventListener('keydown', handleShortcut, true);
     return () => {
-      document.removeEventListener('keydown', handleShortcut);
+      document.removeEventListener('keydown', handleShortcut, true);
     };
   }, []);
 

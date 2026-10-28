@@ -1,5 +1,6 @@
 import type { NodeProps } from '@xyflow/react';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
+import { useAutoFocus } from '../../lib/use-auto-focus';
 import { useEditorStore } from '../../store/editor-store';
 import type { AnnotationFlowNode } from './types';
 
@@ -24,10 +25,7 @@ function NoteEditor({ id, text }: { id: string; text: string }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const done = useRef(false);
 
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
+  useAutoFocus(ref);
 
   const finish = (commit: boolean): void => {
     if (done.current) return;

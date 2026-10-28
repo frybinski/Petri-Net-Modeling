@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useAutoFocus } from '../../lib/use-auto-focus';
 import { useEditorStore } from '../../store/editor-store';
 
 interface NodeLabelProps {
@@ -36,10 +37,7 @@ function RenameInput({
   const ref = useRef<HTMLInputElement>(null);
   const done = useRef(false);
 
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
+  useAutoFocus(ref);
 
   const finish = (commit: boolean): void => {
     if (done.current) return;
