@@ -16,7 +16,7 @@ export const editorTheme = EditorView.theme({
     outlineOffset: '1px',
   },
   '.cm-scroller': {
-    fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
+    fontFamily: 'var(--font-mono)',
     lineHeight: '1.5',
   },
   '.cm-content': { padding: '5px 0', caretColor: 'var(--text)' },
@@ -42,7 +42,7 @@ export const editorTheme = EditorView.theme({
     boxShadow: 'var(--shadow)',
   },
   '.cm-tooltip-autocomplete > ul': {
-    fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+    fontFamily: 'var(--font-mono)',
     fontSize: '12px',
   },
   '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
