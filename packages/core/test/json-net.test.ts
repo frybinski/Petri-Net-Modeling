@@ -484,3 +484,34 @@ describe('P/T equivalence', () => {
     );
   });
 });
+
+describe('computeBindings performance guards', () => {
+  it('does not enumerate when a place cannot supply all demanded tokens', async () => {
+    const net = makeJsonNet({
+      places: [
+        { id: 'p', tokens: Array.from({ length: 200 }, (_, i) => i) },
+        { id: 'q', tokens: [1] },
+      ],
+      transitions: [{ id: 't' }],
+      arcs: [
+        { from: 'p', to: 't', inscription: '$a, $b, $c' },
+        { from: 'q', to: 't', weight: 2 },
+      ],
+    });
+    const started = Date.now();
+    const result = await computeBindings(net, net.marking, 't');
+    expect(result.bindings).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+
+  it('stays responsive when the guard rejects a large product', async () => {
+    const net = makeJsonNet({
+      places: [{ id: 'p', tokens: Array.from({ length: 60 }, (_, i) => i) }],
+      transitions: [{ id: 't', guard: '$a + $b + $c = -1' }],
+      arcs: [{ from: 'p', to: 't', inscription: '$a, $b, $c' }],
+    });
+    const result = await computeBindings(net, net.marking, 't');
+    expect(result.bindings).toEqual([]);
+    expect(result.truncated).toBe(true); // 60 * 59 * 58 combinations exceed the candidate limit
+  });
+});

@@ -266,6 +266,14 @@ export async function computeBindings(
       plainDemand.set(input.placeId, (plainDemand.get(input.placeId) ?? 0) + input.plain);
   }
 
+  // Every variable needs its own token instance and arcs without inscription take theirs on top.
+  // If a place cannot supply that many, there is nothing to enumerate.
+  const demand = new Map<Id, number>(plainDemand);
+  for (const slot of slots) demand.set(slot.placeId, (demand.get(slot.placeId) ?? 0) + 1);
+  for (const [placeId, needed] of demand) {
+    if ((marking[placeId]?.length ?? 0) < needed) return finishWith();
+  }
+
   const baseCounts = new Map<Id, number>();
   for (const place of net.places) baseCounts.set(place.id, marking[place.id]?.length ?? 0);
   const boundedPlaces = net.places.filter((p) => p.capacity !== undefined);

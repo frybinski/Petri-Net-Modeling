@@ -120,6 +120,7 @@ export const en = {
     new: 'New type',
     edit: 'Edit type',
     editShort: 'Edit',
+    rename: 'Rename type',
     duplicate: 'Duplicate type',
     delete: 'Delete type',
     usedBy: (n: number) => (n === 0 ? 'unused' : n === 1 ? '1 place' : `${n} places`),

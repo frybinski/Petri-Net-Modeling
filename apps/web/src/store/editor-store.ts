@@ -290,17 +290,19 @@ export const useEditorStore = create<EditorState>()((set, get) => {
    * nets evaluate expressions asynchronously, and a result that arrives after the marking has
    * changed again is dropped.
    */
-  const recompute = (): void => {
+  const recompute = (extra: Partial<EditorState> = {}): void => {
     computationSeq += 1;
     const seq = computationSeq;
-    const { net, simMarking, mode } = get();
+    const { net, simMarking, mode } = { ...get(), ...extra };
     if (mode !== 'simulate' || simMarking === null) return;
     if (net.profile === 'pt-net') {
       const result = findEnabledPt(net, simMarking);
-      set({ enabled: result.enabled, computing: false, simDiagnostics: [] });
+      set({ ...extra, enabled: result.enabled, computing: false, simDiagnostics: [] });
       return;
     }
-    set({ enabled: NO_ENABLED(), computing: true, simDiagnostics: [] });
+    // The marking and the "nothing is enabled yet" state change together, so a stale
+    // enabled set is never drawn next to the new marking.
+    set({ ...extra, enabled: NO_ENABLED(), computing: true, simDiagnostics: [] });
     findEnabled(net, simMarking).then(
       (result) => {
         if (seq !== computationSeq || get().mode !== 'simulate') return;
@@ -626,7 +628,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
 
     startSimulation() {
       const { net } = get();
-      set({
+      recompute({
         mode: 'simulate',
         tool: 'select',
         arcSource: null,
@@ -636,7 +638,6 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         simHistory: [],
         picker: null,
       });
-      recompute();
     },
     stopSimulation() {
       computationSeq += 1; // drops a computation that is still running
@@ -672,7 +673,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         recompute();
         return;
       }
-      set({
+      recompute({
         simMarking: next,
         simHistory: [
           ...simHistory,
@@ -685,7 +686,6 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         ],
         picker: null,
       });
-      recompute();
     },
     setPicker(id) {
       if (get().mode !== 'simulate') return;
@@ -708,12 +708,11 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     resetSimulation() {
       if (get().mode !== 'simulate') return;
-      set({
+      recompute({
         simMarking: initialSimMarking(get().net),
         simHistory: [],
         picker: null,
       });
-      recompute();
     },
   };
 });

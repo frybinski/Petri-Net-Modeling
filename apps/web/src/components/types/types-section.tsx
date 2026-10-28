@@ -1,4 +1,6 @@
-import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Plus, TextCursorInput, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { validateTypeName } from '@pnm/core';
 import { en } from '../../i18n/en';
 import { useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
@@ -14,6 +16,8 @@ export function TypesSection() {
   const openTypeDialog = useUiStore((s) => s.openTypeDialog);
   const askConfirm = useUiStore((s) => s.askConfirm);
 
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const saveType = useEditorStore((s) => s.saveType);
   const names = Object.keys(types);
   const usage = (name: string): number => places.filter((p) => p.type === name).length;
 
@@ -47,20 +51,41 @@ export function TypesSection() {
               data-testid="type-item"
               data-type-name={name}
             >
-              <button
-                type="button"
+              {renaming === name ? (
+                <RenameField
+                  name={name}
+                  taken={names.filter((n) => n !== name)}
+                  onDone={(next) => {
+                    setRenaming(null);
+                    if (next !== null && next !== name) saveType(name, next, types[name]);
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => {
+                    openTypeDialog(name);
+                  }}
+                  className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline disabled:no-underline"
+                  title={en.types.edit}
+                >
+                  {name}
+                  <span className="ml-2 text-xs font-normal text-muted">
+                    {en.types.usedBy(usage(name))}
+                  </span>
+                </button>
+              )}
+              <IconButton
+                size="sm"
+                label={`${en.types.rename} ${name}`}
                 disabled={locked}
                 onClick={() => {
-                  openTypeDialog(name);
+                  setRenaming(name);
                 }}
-                className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline disabled:no-underline"
-                title={en.types.edit}
               >
-                {name}
-                <span className="ml-2 text-xs font-normal text-muted">
-                  {en.types.usedBy(usage(name))}
-                </span>
-              </button>
+                <TextCursorInput size={14} aria-hidden="true" />
+              </IconButton>
               <IconButton
                 size="sm"
                 label={`${en.types.edit} ${name}`}
@@ -107,5 +132,45 @@ export function TypesSection() {
         {en.types.new}
       </Button>
     </div>
+  );
+}
+
+/** Inline name field of a type being renamed. Enter or leaving the field commits, Escape cancels. */
+function RenameField({
+  name,
+  taken,
+  onDone,
+}: {
+  name: string;
+  taken: string[];
+  onDone: (next: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(name);
+  const [finished, setFinished] = useState(false);
+  const valid = validateTypeName(draft.trim()) && !taken.includes(draft.trim());
+  const finish = (commit: boolean): void => {
+    if (finished) return;
+    setFinished(true);
+    onDone(commit && valid ? draft.trim() : null);
+  };
+  return (
+    <input
+      aria-label={`${en.types.rename} ${name}`}
+      aria-invalid={!valid}
+      value={draft}
+      autoFocus
+      onChange={(event) => {
+        setDraft(event.target.value);
+      }}
+      onBlur={() => {
+        finish(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') finish(true);
+        else if (event.key === 'Escape') finish(false);
+      }}
+      className={`h-7 min-w-0 flex-1 rounded border bg-surface px-1.5 text-sm ${valid ? 'border-accent' : 'border-danger'}`}
+      data-testid="type-rename-input"
+    />
   );
 }
