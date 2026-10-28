@@ -63,7 +63,6 @@ export function SimulationPanel() {
   const tab = useUiStore((s) => s.simTab);
   const setTab = useUiStore((s) => s.setSimTab);
   const timed = useEditorStore((s) => s.simTimed);
-  const notice = useEditorStore((s) => s.simNotice);
   // Key figures need a clock; without one the tab would only say so.
   const active: SimTab = tab === 'metrics' && !timed ? 'enabled' : tab;
 
@@ -74,15 +73,6 @@ export function SimulationPanel() {
       data-testid="simulation-panel"
     >
       <SimControls />
-      {notice ? (
-        <p
-          className="m-0 border-b border-border bg-warn-soft px-4 py-2 text-xs text-warn"
-          role="status"
-          data-testid="sim-notice"
-        >
-          {notice}
-        </p>
-      ) : null}
       <Tabs active={active} onSelect={setTab} />
       <div
         role="tabpanel"

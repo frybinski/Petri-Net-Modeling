@@ -406,13 +406,4 @@ describe('controls for a running simulation', () => {
     expect(store().simHistory.map((s) => s.transitionName)).toEqual(['Arrive']);
     expect(screen.getAllByTestId('sim-step')).toHaveLength(1);
   });
-
-  it('shows a notice of the engine', async () => {
-    renderPanel();
-    expect(screen.queryByTestId('sim-notice')).toBeNull();
-    useEditorStore.setState({ simNotice: 'Something happened' });
-    await waitFor(() => {
-      expect(screen.getByTestId('sim-notice')).toHaveTextContent('Something happened');
-    });
-  });
 });

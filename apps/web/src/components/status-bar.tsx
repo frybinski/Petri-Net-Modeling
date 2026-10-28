@@ -1,5 +1,5 @@
 import { useStore } from '@xyflow/react';
-import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon, X } from 'lucide-react';
 import { en } from '../i18n/en';
 import { commandById, shortcutText } from '../lib/commands';
 import { useDiagnostics } from '../lib/use-diagnostics';
@@ -28,6 +28,7 @@ export function StatusBar() {
   const tool = useEditorStore((s) => s.tool);
   const sticky = useEditorStore((s) => s.toolSticky);
   const arcSource = useEditorStore((s) => s.arcSource);
+  const notice = useEditorStore((s) => s.simNotice);
   const zoom = useStore((s) => s.transform[2]);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
   const toggleSnap = useUiStore((s) => s.toggleSnap);
@@ -68,6 +69,29 @@ export function StatusBar() {
       {mode === 'simulate' ? (
         <span className="rounded-full bg-ok-soft px-2 py-0.5 font-medium text-ok">
           {en.status.simulating}
+        </span>
+      ) : null}
+      {mode === 'simulate' && notice ? (
+        <span
+          className="inline-flex min-w-0 items-center gap-1 rounded-full bg-warn-soft py-0.5 pr-1 pl-2 text-warn"
+          role="status"
+          data-testid="sim-notice"
+        >
+          <AlertTriangle size={12} aria-hidden="true" className="shrink-0" />
+          <span className="truncate" title={notice}>
+            {notice}
+          </span>
+          <button
+            type="button"
+            aria-label={en.simulation.dismissNotice}
+            onClick={() => {
+              useEditorStore.setState({ simNotice: null });
+            }}
+            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-surface-hover"
+            data-testid="sim-notice-dismiss"
+          >
+            <X size={11} aria-hidden="true" />
+          </button>
         </span>
       ) : null}
       {hint && mode === 'edit' ? (

@@ -312,7 +312,7 @@ export const en = {
     removeBreakpoint: 'Remove breakpoint',
     running: (n: number) => `${n} running`,
     progress: (percent: number) => `${percent}% done`,
-    notice: 'Engine notice',
+    dismissNotice: 'Dismiss this notice',
     waiting: (running: number) =>
       running > 0
         ? `Waiting for events: ${running} ${running === 1 ? 'firing' : 'firings'} under way.`
