@@ -406,5 +406,651 @@
     "warmup": 1200,
     "startTime": "2026-01-05T06:00:00Z",
     "caseIdPrefix": "P-"
+  },
+  "domainView": {
+    "schemaVersion": 1,
+    "netHash": "fnv1a64:c2edca7dd6f2bd35",
+    "meta": {
+      "theme": "Paketzentrum",
+      "viewName": "Halle",
+      "entity": {
+        "singular": "Paket",
+        "plural": "Pakete",
+        "sprite": "parcel"
+      },
+      "canvas": {
+        "width": 1200,
+        "height": 640
+      },
+      "metersPerPixel": 0.0625
+    },
+    "places": {
+      "p_in": {
+        "kind": "conveyor",
+        "path": [
+          [
+            96,
+            320
+          ],
+          [
+            256,
+            320
+          ]
+        ],
+        "label": "Eingangspuffer"
+      },
+      "p_scanned": {
+        "kind": "conveyor",
+        "path": [
+          [
+            352,
+            320
+          ],
+          [
+            520,
+            320
+          ]
+        ],
+        "label": "Gescannt"
+      },
+      "p_sorted": {
+        "kind": "conveyor",
+        "path": [
+          [
+            620,
+            320
+          ],
+          [
+            790,
+            320
+          ]
+        ],
+        "label": "Sortiert"
+      },
+      "p_A": {
+        "kind": "buffer",
+        "path": [
+          [
+            852,
+            150
+          ],
+          [
+            1022,
+            150
+          ]
+        ]
+      },
+      "p_B": {
+        "kind": "buffer",
+        "path": [
+          [
+            852,
+            320
+          ],
+          [
+            1022,
+            320
+          ]
+        ]
+      },
+      "p_E": {
+        "kind": "buffer",
+        "path": [
+          [
+            852,
+            490
+          ],
+          [
+            1022,
+            490
+          ]
+        ]
+      },
+      "p_scanner": {
+        "kind": "slots",
+        "of": "t_scan"
+      },
+      "p_sorter": {
+        "kind": "slots",
+        "of": "t_sort"
+      },
+      "p_dock1": {
+        "kind": "slots",
+        "of": "t_loadA"
+      },
+      "p_dock2": {
+        "kind": "slots",
+        "of": "t_loadB"
+      },
+      "p_dock3": {
+        "kind": "slots",
+        "of": "t_loadE"
+      },
+      "p_done": {
+        "kind": "sink",
+        "box": [
+          1096,
+          100,
+          78,
+          440
+        ],
+        "label": "Verladen"
+      }
+    },
+    "transitions": {
+      "t_arr": {
+        "kind": "dock",
+        "pos": [
+          52,
+          320
+        ],
+        "label": "Eingang"
+      },
+      "t_scan": {
+        "kind": "station",
+        "box": [
+          256,
+          248,
+          96,
+          144
+        ],
+        "slots": [
+          [
+            304,
+            304
+          ],
+          [
+            304,
+            352
+          ]
+        ],
+        "label": "Scanner"
+      },
+      "t_sort": {
+        "kind": "machine",
+        "box": [
+          520,
+          262,
+          100,
+          116
+        ],
+        "slots": [
+          [
+            570,
+            332
+          ]
+        ],
+        "label": "Sortierer"
+      },
+      "t_rA": {
+        "kind": "waypoint",
+        "pos": [
+          816,
+          150
+        ],
+        "pass": true
+      },
+      "t_rB": {
+        "kind": "waypoint",
+        "pos": [
+          816,
+          320
+        ],
+        "pass": true
+      },
+      "t_rE": {
+        "kind": "waypoint",
+        "pos": [
+          816,
+          490
+        ],
+        "pass": true
+      },
+      "t_loadA": {
+        "kind": "gate",
+        "box": [
+          1022,
+          118,
+          52,
+          64
+        ],
+        "slots": [
+          [
+            1048,
+            158
+          ]
+        ],
+        "label": "Tor 1"
+      },
+      "t_loadB": {
+        "kind": "gate",
+        "box": [
+          1022,
+          288,
+          52,
+          64
+        ],
+        "slots": [
+          [
+            1048,
+            328
+          ]
+        ],
+        "label": "Tor 2"
+      },
+      "t_loadE": {
+        "kind": "gate",
+        "box": [
+          1022,
+          458,
+          52,
+          64
+        ],
+        "slots": [
+          [
+            1048,
+            498
+          ]
+        ],
+        "label": "Express"
+      }
+    },
+    "arcs": {
+      "p_sorted>t_rA": {
+        "path": [
+          [
+            790,
+            320
+          ],
+          [
+            803,
+            320
+          ],
+          [
+            803,
+            150
+          ],
+          [
+            810,
+            150
+          ]
+        ]
+      },
+      "p_sorted>t_rB": {
+        "path": [
+          [
+            790,
+            320
+          ],
+          [
+            810,
+            320
+          ]
+        ]
+      },
+      "p_sorted>t_rE": {
+        "path": [
+          [
+            790,
+            320
+          ],
+          [
+            803,
+            320
+          ],
+          [
+            803,
+            490
+          ],
+          [
+            810,
+            490
+          ]
+        ]
+      },
+      "t_rA>p_A": {
+        "path": [
+          [
+            822,
+            150
+          ],
+          [
+            852,
+            150
+          ]
+        ]
+      },
+      "t_rB>p_B": {
+        "path": [
+          [
+            822,
+            320
+          ],
+          [
+            852,
+            320
+          ]
+        ]
+      },
+      "t_rE>p_E": {
+        "path": [
+          [
+            822,
+            490
+          ],
+          [
+            852,
+            490
+          ]
+        ]
+      },
+      "t_loadA>p_done": {
+        "path": [
+          [
+            1074,
+            150
+          ],
+          [
+            1096,
+            150
+          ]
+        ]
+      },
+      "t_loadB>p_done": {
+        "path": [
+          [
+            1074,
+            320
+          ],
+          [
+            1096,
+            320
+          ]
+        ]
+      },
+      "t_loadE>p_done": {
+        "path": [
+          [
+            1074,
+            490
+          ],
+          [
+            1096,
+            490
+          ]
+        ]
+      }
+    },
+    "decor": [
+      {
+        "kind": "wall",
+        "segs": [
+          [
+            16,
+            16,
+            1184,
+            16
+          ],
+          [
+            1184,
+            16,
+            1184,
+            624
+          ],
+          [
+            1184,
+            624,
+            16,
+            624
+          ],
+          [
+            16,
+            16,
+            16,
+            286
+          ],
+          [
+            16,
+            354,
+            16,
+            624
+          ]
+        ],
+        "width": 5
+      },
+      {
+        "kind": "label",
+        "pos": [
+          40,
+          52
+        ],
+        "text": "Halle 2 · Sortierung"
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          60,
+          76,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          222,
+          76,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          384,
+          76,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          60,
+          500,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          222,
+          500,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          384,
+          500,
+          150,
+          26
+        ]
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          836,
+          106,
+          246,
+          88
+        ],
+        "label": "Zone A"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          836,
+          276,
+          246,
+          88
+        ],
+        "label": "Zone B"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          836,
+          446,
+          246,
+          88
+        ],
+        "label": "Express"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          60,
+          562,
+          700,
+          38
+        ],
+        "label": "Gehweg"
+      },
+      {
+        "kind": "scale",
+        "pos": [
+          980,
+          596
+        ],
+        "px": 80,
+        "label": "5 m"
+      }
+    ],
+    "provenance": {
+      "places.p_in": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_scanned": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_sorted": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_A": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_B": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_E": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_scanner": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_sorter": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_dock1": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_dock2": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_dock3": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.p_done": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_arr": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_scan": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_sort": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_rA": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_rB": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_rE": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_loadA": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_loadB": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.t_loadE": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.p_sorted>t_rA": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.p_sorted>t_rB": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.p_sorted>t_rE": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_rA>p_A": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_rB>p_B": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_rE>p_E": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_loadA>p_done": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_loadB>p_done": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.t_loadE>p_done": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      }
+    }
   }
 }
