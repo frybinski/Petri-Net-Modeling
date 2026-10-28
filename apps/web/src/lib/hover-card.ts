@@ -8,6 +8,7 @@ import {
 } from '@pnm/core';
 import { MAX_CARD_TOKENS } from './flow-model';
 import { boundVariables } from './inscriptions';
+import { describeTiming } from './sim-format';
 
 export interface HoverCardModel {
   id: Id;
@@ -28,6 +29,13 @@ export interface HoverCardModel {
   variables: Array<{ name: string; place: string }>;
   /** While simulating: number of bindings of a transition (0 when it is not enabled). */
   bindings?: number;
+  /** Duration of a transition, as text. */
+  timing?: string;
+  priority?: number;
+  /** Arrivals per hour of a source transition. */
+  rate?: number;
+  /** While simulating: firings of a transition that are under way. */
+  running?: number;
   /** Error messages of the element. */
   errors: string[];
 }
@@ -39,6 +47,8 @@ interface HoverCardInput {
   diagnostics: readonly Diagnostic[];
   /** Set while simulating. */
   enabled?: ReadonlyMap<Id, BindingResult> | undefined;
+  /** Firings of the transition that are under way (simulation of a timed net). */
+  running?: number | undefined;
 }
 
 /** What the hover card of a node shows. Returns null for elements without a card (notes). */
@@ -48,6 +58,7 @@ export function buildHoverCard({
   id,
   diagnostics,
   enabled,
+  running,
 }: HoverCardInput): HoverCardModel | null {
   const errors = diagnostics
     .filter((d) => d.severity === 'error' && d.elementId === id)
@@ -84,6 +95,10 @@ export function buildHoverCard({
       ? boundVariables(net, id).map((v) => ({ name: v.name, place: v.placeName }))
       : [],
     ...(enabled !== undefined && { bindings: enabled.get(id)?.bindings.length ?? 0 }),
+    ...(transition.timing && { timing: describeTiming(transition.timing) }),
+    ...(transition.priority !== undefined && { priority: transition.priority }),
+    ...(transition.rate !== undefined && { rate: transition.rate }),
+    ...(running !== undefined && running > 0 && { running }),
     errors,
   };
 }

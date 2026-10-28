@@ -1,4 +1,4 @@
-import type { PetriNet, Profile } from './model';
+import type { PetriNet, Profile, SimulationSettings, Timing } from './model';
 import { formatIssues, netSchema } from './schema';
 
 /** Raised by `parseNet` when the input is not a valid net document. */
@@ -67,12 +67,16 @@ function canonical(net: PetriNet): Record<string, unknown> {
       name: p.name,
       ...(p.type !== undefined && { type: p.type }),
       ...(p.capacity !== undefined && { capacity: p.capacity }),
+      ...(p.role !== undefined && { role: p.role }),
       position: { x: p.position.x, y: p.position.y },
     })),
     transitions: net.transitions.map((t) => ({
       id: t.id,
       name: t.name,
       ...(t.guard !== undefined && { guard: t.guard }),
+      ...(t.timing !== undefined && { timing: canonicalTiming(t.timing) }),
+      ...(t.priority !== undefined && { priority: t.priority }),
+      ...(t.rate !== undefined && { rate: t.rate }),
       position: { x: t.position.x, y: t.position.y },
     })),
     arcs: net.arcs.map((a) => ({
@@ -85,6 +89,7 @@ function canonical(net: PetriNet): Record<string, unknown> {
     })),
     marking: canonicalMarking(net),
   };
+  if (net.simulation) out.simulation = canonicalSimulation(net.simulation);
   if (net.annotations) {
     out.annotations = net.annotations.map((a) => ({
       id: a.id,
@@ -93,6 +98,26 @@ function canonical(net: PetriNet): Record<string, unknown> {
     }));
   }
   return out;
+}
+
+function canonicalTiming(timing: Timing): Timing {
+  switch (timing.kind) {
+    case 'fixed':
+      return { kind: 'fixed', value: timing.value };
+    case 'uniform':
+      return { kind: 'uniform', min: timing.min, max: timing.max };
+    case 'exponential':
+      return { kind: 'exponential', mean: timing.mean };
+  }
+}
+
+function canonicalSimulation(settings: SimulationSettings): SimulationSettings {
+  return {
+    ...(settings.seed !== undefined && { seed: settings.seed }),
+    ...(settings.warmup !== undefined && { warmup: settings.warmup }),
+    ...(settings.startTime !== undefined && { startTime: settings.startTime }),
+    ...(settings.caseIdPrefix !== undefined && { caseIdPrefix: settings.caseIdPrefix }),
+  };
 }
 
 /** Marking entries follow place order; entries for unknown places come last, sorted. */

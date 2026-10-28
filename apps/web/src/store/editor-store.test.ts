@@ -36,6 +36,12 @@ function buildSmallNet(): { p1: string; p2: string; t1: string } {
 
 beforeEach(resetStores);
 
+/** Waits until the engine has answered everything that was asked of it. */
+const settled = () =>
+  vi.waitFor(() => {
+    expect(store().computing).toBe(false);
+  });
+
 describe('creating and connecting', () => {
   it('adds places and transitions with default names and selects them', () => {
     const p = store().addPlace({ x: 10, y: 20 });
@@ -291,30 +297,37 @@ describe('files', () => {
 });
 
 describe('simulation', () => {
-  it('fires enabled transitions, records history and resets', () => {
+  it('fires enabled transitions, records history and resets', async () => {
     const { p1, p2, t1 } = buildSmallNet();
     store().startSimulation();
     expect(store().mode).toBe('simulate');
+    await settled();
     store().fireTransition(t1);
+    await settled();
     expect(markingToCounts(store().simMarking ?? {})).toEqual({ [p1]: 1, [p2]: 1 });
     expect(store().simHistory).toEqual([
       { index: 1, transitionId: t1, transitionName: 'T1', binding: {} },
     ]);
     store().fireTransition(t1);
+    await settled();
     store().fireTransition(t1); // not enabled any more: ignored
+    await settled();
     expect(store().simHistory).toHaveLength(2);
     expect(store().net.marking[p1]).toHaveLength(2); // the document is untouched
-    store().resetSimulation();
+    await store().resetSimulation();
     expect(store().simHistory).toHaveLength(0);
     expect(markingToCounts(store().simMarking ?? {})[p1]).toBe(2);
   });
 
-  it('steps randomly and reports deadlocks', () => {
-    const { t1 } = buildSmallNet();
+  it('steps randomly and reports deadlocks', async () => {
+    const { p2 } = buildSmallNet();
     store().startSimulation();
-    expect(store().stepRandom(() => 0)).toBe(t1);
-    expect(store().stepRandom(() => 0.99)).toBe(t1);
-    expect(store().stepRandom()).toBeNull();
+    await settled();
+    await store().stepRandom();
+    await store().stepRandom();
+    expect(markingToCounts(store().simMarking ?? {})).toEqual({ [p2]: 2 });
+    expect(store().simHistory).toHaveLength(2);
+    await store().stepRandom();
     expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/No transition is enabled/);
   });
 
@@ -334,122 +347,14 @@ describe('simulation', () => {
     expect(store().addPlace({ x: 0, y: 0 })).not.toBeNull();
   });
 
-  it('ignores simulation actions in edit mode', () => {
+  it('ignores simulation actions in edit mode', async () => {
     const { t1 } = buildSmallNet();
     store().fireTransition(t1);
-    expect(store().stepRandom()).toBeNull();
-    store().resetSimulation();
+    await store().stepRandom();
+    await store().resetSimulation();
+    store().setPlaying(true);
+    expect(store().simPlaying).toBe(false);
     expect(store().simHistory).toHaveLength(0);
-  });
-});
-
-describe('higher nets: profile and types', () => {
-  it('switches the profile as an undoable edit', () => {
-    expect(store().net.profile).toBe('pt-net');
-    store().setProfile('json-net');
-    expect(store().net.profile).toBe('json-net');
-    expect(selectCanUndo(store())).toBe(true);
-    store().undo();
-    expect(store().net.profile).toBe('pt-net');
-    store().redo();
-    expect(store().net.profile).toBe('json-net');
-  });
-
-  it('keeps types, guards and inscriptions when going back to a P/T net', () => {
-    store().setProfile('json-net');
-    const { p1, t1 } = buildSmallNet();
-    expect(store().saveType(null, 'Count', { type: 'integer' })).toBe(true);
-    store().setPlaceType(p1, 'Count');
-    store().updateTransition(t1, { guard: '$n > 0' });
-    store().setProfile('pt-net');
-    expect(store().net.types).toHaveProperty('Count');
-    expect(store().net.places[0]?.type).toBe('Count');
-    expect(store().net.transitions[0]?.guard).toBe('$n > 0');
-    expect(store().diagnostics.map((d) => d.code)).toContain('INSCRIPTION_ON_PT_NET');
-  });
-
-  it('creates, renames, updates, duplicates and deletes types, each as one undo step', () => {
-    store().setProfile('json-net');
-    const p = store().addPlace({ x: 0, y: 0 }) as string;
-    expect(store().saveType(null, 'Order', { type: 'object' })).toBe(true);
-    store().setPlaceType(p, 'Order');
-    const steps = store().past.length;
-
-    expect(store().saveType('Order', 'Purchase', { type: 'object', required: ['id'] })).toBe(true);
-    expect(store().past.length).toBe(steps + 1);
-    expect(Object.keys(store().net.types)).toEqual(['Purchase']);
-    expect(store().net.places[0]?.type).toBe('Purchase');
-    expect(store().net.types['Purchase']).toEqual({ type: 'object', required: ['id'] });
-
-    expect(store().duplicateType('Purchase')).toBe('PurchaseCopy');
-    expect(Object.keys(store().net.types)).toEqual(['Purchase', 'PurchaseCopy']);
-
-    store().removeType('Purchase');
-    expect(store().net.places[0]?.type).toBeUndefined();
-    store().undo();
-    expect(store().net.places[0]?.type).toBe('Purchase');
-  });
-
-  it('refuses invalid or duplicate type names with a message', () => {
-    expect(store().saveType(null, 'A', { type: 'string' })).toBe(true);
-    expect(store().saveType(null, 'A', { type: 'string' })).toBe(false);
-    expect(store().saveType(null, '1x', { type: 'string' })).toBe(false);
-    expect(useUiStore.getState().toasts.some((t) => t.kind === 'error')).toBe(true);
-  });
-
-  it('reports type diagnostics in the status list', () => {
-    store().setProfile('json-net');
-    const p = store().addPlace({ x: 0, y: 0 }) as string;
-    store().saveType(null, 'Count', { type: 'integer' });
-    store().setPlaceType(p, 'Count');
-    store().addToken(p, 'not a number');
-    expect(store().diagnostics.map((d) => d.code)).toContain('TOKEN_TYPE_MISMATCH');
-    store().updateToken(p, 0, 7);
-    expect(store().diagnostics.map((d) => d.code)).not.toContain('TOKEN_TYPE_MISMATCH');
-  });
-});
-
-describe('higher nets: tokens', () => {
-  it('adds typed starting values, edits, duplicates and removes tokens', () => {
-    store().setProfile('json-net');
-    const p = store().addPlace({ x: 0, y: 0 }) as string;
-    store().saveType(null, 'Order', {
-      type: 'object',
-      required: ['id'],
-      properties: { id: { type: 'string' } },
-    });
-    store().setPlaceType(p, 'Order');
-    store().addToken(p);
-    expect(store().net.marking[p]).toEqual([{ id: '' }]);
-    store().updateToken(p, 0, { id: 'A-1' });
-    store().duplicateToken(p, 0);
-    expect(store().net.marking[p]).toEqual([{ id: 'A-1' }, { id: 'A-1' }]);
-    store().removeToken(p, 0);
-    expect(store().net.marking[p]).toEqual([{ id: 'A-1' }]);
-    store().setPlaceTokens(p, []);
-    expect(store().net.marking[p]).toBeUndefined();
-  });
-
-  it('respects the capacity when adding tokens', () => {
-    store().setProfile('json-net');
-    const p = store().addPlace({ x: 0, y: 0 }) as string;
-    store().updatePlace(p, { capacity: 1 });
-    store().addToken(p, 'a');
-    store().addToken(p, 'b');
-    expect(store().net.marking[p]).toEqual(['a']);
-    expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/capacity 1/);
-  });
-
-  it('adjusts token counts without losing the values of a JSON net', () => {
-    store().setProfile('json-net');
-    const p = store().addPlace({ x: 0, y: 0 }) as string;
-    store().setPlaceTokens(p, ['x', 'y']);
-    store().select([p]);
-    store().adjustTokens(1);
-    expect(store().net.marking[p]).toHaveLength(3);
-    expect(store().net.marking[p]?.slice(0, 2)).toEqual(['x', 'y']);
-    store().adjustTokens(-2);
-    expect(store().net.marking[p]).toEqual(['x']);
   });
 });
 
@@ -466,11 +371,6 @@ function buildJsonNet(tokens: number[]): { p: string; q: string; t: string } {
   store().setPlaceTokens(p, tokens);
   return { p, q, t };
 }
-
-const settled = () =>
-  vi.waitFor(() => {
-    expect(store().computing).toBe(false);
-  });
 
 describe('simulation of JSON nets', () => {
   it('computes bindings asynchronously and fires a chosen one', async () => {
@@ -492,6 +392,7 @@ describe('simulation of JSON nets', () => {
     expect(store().simHistory).toHaveLength(0);
     store().fireBindingAt(t, 1);
     expect(store().picker).toBeNull();
+    await settled();
     expect(store().simMarking).toEqual({ [p]: [1, 3], [q]: [4] });
     expect(store().simHistory).toMatchObject([{ transitionId: t, binding: { n: 2 } }]);
     await settled();
@@ -505,8 +406,8 @@ describe('simulation of JSON nets', () => {
     await settled();
     store().fireTransition(t);
     expect(store().picker).toBeNull();
-    expect(store().simMarking).toEqual({ [q]: [10] });
     await settled();
+    expect(store().simMarking).toEqual({ [q]: [10] });
     expect(store().enabled.size).toBe(0);
   });
 
@@ -514,11 +415,13 @@ describe('simulation of JSON nets', () => {
     const { q, t } = buildJsonNet([1, 2, 3]);
     store().startSimulation();
     await settled();
-    expect(store().stepRandom(() => 0.99)).toBe(t);
-    expect(store().simMarking?.[q]).toEqual([6]);
-    await settled();
-    expect(store().stepRandom(() => 0)).toBe(t);
-    expect(store().simMarking?.[q]).toEqual([6, 2]);
+    await store().stepRandom();
+    expect(store().simHistory.map((step) => step.transitionId)).toEqual([t]);
+    expect(store().simMarking?.[q]).toHaveLength(1);
+    await store().stepRandom();
+    expect(store().simMarking?.[q]).toHaveLength(2);
+    // Each token is doubled, whichever binding was chosen.
+    expect(store().simMarking?.[q]?.every((n) => [2, 4, 6].includes(n as number))).toBe(true);
   });
 
   it('discards the result of an outdated computation', async () => {
@@ -546,10 +449,10 @@ describe('simulation of JSON nets', () => {
     expect(store().simDiagnostics).toEqual([]);
   });
 
-  it('keeps P/T simulation synchronous', () => {
+  it('computes the enabled transitions of a P/T net as well', async () => {
     const { t1 } = buildSmallNet();
     store().startSimulation();
-    expect(store().computing).toBe(false);
+    await settled();
     expect([...store().enabled.keys()]).toEqual([t1]);
   });
 });

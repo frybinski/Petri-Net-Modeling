@@ -11,3 +11,4 @@ export * from './token';
 export * from './types';
 export * from './format';
 export * from './semantics';
+export * from './roles';

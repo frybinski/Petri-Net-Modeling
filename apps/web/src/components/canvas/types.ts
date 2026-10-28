@@ -21,6 +21,10 @@ export interface PlaceNodeData extends Record<string, unknown> {
   errorText?: string;
   isArcSource: boolean;
   renaming: boolean;
+  /** The place is a queue that is filling up (timed simulation). */
+  bottleneck?: 'warn' | 'crit';
+  /** Pause when the place holds this many tokens. */
+  breakpoint?: number;
 }
 
 export interface TransitionNodeData extends Record<string, unknown> {
@@ -39,6 +43,13 @@ export interface TransitionNodeData extends Record<string, unknown> {
   errorText?: string;
   isArcSource: boolean;
   renaming: boolean;
+  /** Description of the duration; set when the transition takes time. */
+  timing?: string;
+  /** Firings that have started and not finished. */
+  running: number;
+  /** Progress of the firing that finishes first, 0 to 1. */
+  progress: number;
+  breakpoint: boolean;
 }
 
 export interface AnnotationNodeData extends Record<string, unknown> {

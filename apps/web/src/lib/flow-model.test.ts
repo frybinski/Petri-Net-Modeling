@@ -148,3 +148,42 @@ describe('chipSide', () => {
     expect(place?.type === 'place' && place.data.chipSide).toBe('below'); // transition 100 px to the right, nothing further left
   });
 });
+
+describe('buildFlowNodes for the timed simulation', () => {
+  it('adds the duration, the running firings, breakpoints and queue rings', () => {
+    const base = context();
+    const n = base.net;
+    n.transitions[0]!.timing = { kind: 'uniform', min: 5, max: 9 };
+    const nodes = buildFlowNodes({
+      ...base,
+      simulating: true,
+      running: new Map([['t', { count: 2, progress: 0.4 }]]),
+      breakpointTransitions: new Set(['t']),
+      breakpointPlaces: { p: 3 },
+      bottlenecks: new Map([['p', 'crit' as const]]),
+    });
+    const transition = nodes.find((x) => x.id === 't');
+    expect(transition?.data).toMatchObject({
+      timing: '5–9 s',
+      running: 2,
+      progress: 0.4,
+      breakpoint: true,
+    });
+    expect(nodes.find((x) => x.id === 'p')?.data).toMatchObject({
+      bottleneck: 'crit',
+      breakpoint: 3,
+    });
+  });
+
+  it('has no firing, breakpoint or ring without simulation', () => {
+    const nodes = buildFlowNodes(context());
+    expect(nodes.find((x) => x.id === 't')?.data).toMatchObject({
+      running: 0,
+      progress: 0,
+      breakpoint: false,
+    });
+    expect(nodes.find((x) => x.id === 't')?.data).not.toHaveProperty('timing');
+    expect(nodes.find((x) => x.id === 'p')?.data).not.toHaveProperty('bottleneck');
+    expect(nodes.find((x) => x.id === 'p')?.data).not.toHaveProperty('breakpoint');
+  });
+});

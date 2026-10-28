@@ -1,6 +1,7 @@
 import { parseInputInscription, referencedVariables, tryCompile } from '@pnm/expr';
 import type { Diagnostic } from './diagnostic';
-import type { Arc, Id, PetriNet, Place } from './model';
+import type { Arc, Id, PetriNet, Place, Timing } from './model';
+import { hasLoop, isSourceTransition } from './roles';
 import { formatIssues, netSchema } from './schema';
 import { tokenLabel } from './token';
 import { compileType, validateTypeName } from './types';
@@ -167,9 +168,110 @@ export function validate(net: PetriNet): Diagnostic[] {
     }
   }
 
+  validateTimed(net, push);
   validateHigher(net, push);
 
   return out;
+}
+
+/** Checks the fields of the timed simulation: durations, priorities, rates, roles, settings. */
+function validateTimed(net: PetriNet, push: (d: Diagnostic) => void): void {
+  const timed = net.transitions.some((t) => t.timing !== undefined || t.rate !== undefined);
+  const hasOutput = new Set(net.arcs.map((a) => a.source));
+  for (const transition of net.transitions) {
+    const { timing, priority, rate } = transition;
+    const quoted = identifier(transition.name);
+    if (timing !== undefined) {
+      const problem = timingProblem(timing);
+      if (problem) {
+        push({
+          severity: 'error',
+          code: 'TIMING_INVALID',
+          message: `Timing of ${quoted}: ${problem}`,
+          elementId: transition.id,
+        });
+      }
+    }
+    if (priority !== undefined && !(Number.isFinite(priority) && priority > 0)) {
+      push({
+        severity: 'error',
+        code: 'PRIORITY_INVALID',
+        message: `Priority of ${quoted} must be a number greater than 0 (found ${priority}).`,
+        elementId: transition.id,
+      });
+    }
+    if (rate !== undefined && !(Number.isFinite(rate) && rate >= 0)) {
+      push({
+        severity: 'error',
+        code: 'RATE_INVALID',
+        message: `Arrival rate of ${quoted} must be a number of at least 0 (found ${rate}).`,
+        elementId: transition.id,
+      });
+    }
+    const source = isSourceTransition(net, transition.id);
+    if (rate !== undefined && !source) {
+      push({
+        severity: 'warning',
+        code: 'RATE_ON_NON_SOURCE',
+        message: `${quoted} has an arrival rate, but it has input places; the rate is ignored.`,
+        elementId: transition.id,
+      });
+    }
+    if (timed && source && rate === undefined && hasOutput.has(transition.id)) {
+      push({
+        severity: 'warning',
+        code: 'SOURCE_WITHOUT_RATE',
+        message: `${quoted} has no input places and no arrival rate; the timed simulation never fires it by itself.`,
+        elementId: transition.id,
+      });
+    }
+  }
+  for (const place of net.places) {
+    if (place.role === 'resource' && !hasLoop(net, place.id)) {
+      push({
+        severity: 'warning',
+        code: 'ROLE_OVERRIDE_UNUSUAL',
+        message: `${identifier(place.name)} is marked as a resource, but no transition both takes from it and gives back to it.`,
+        elementId: place.id,
+      });
+    }
+  }
+  const settings = net.simulation;
+  if (settings) {
+    const bad = (message: string): void => {
+      push({ severity: 'error', code: 'SIMULATION_INVALID', message });
+    };
+    if (settings.seed !== undefined && !Number.isInteger(settings.seed)) {
+      bad(`The simulation seed must be an integer (found ${settings.seed}).`);
+    }
+    if (settings.warmup !== undefined && !(settings.warmup >= 0)) {
+      bad(`The warm-up time must be 0 or more seconds (found ${settings.warmup}).`);
+    }
+    if (settings.startTime !== undefined && Number.isNaN(Date.parse(settings.startTime))) {
+      bad(`The start time "${settings.startTime}" is not a valid ISO timestamp.`);
+    }
+  }
+}
+
+/** Describes what is wrong with a timing, or `undefined` if it is valid. */
+export function timingProblem(timing: Timing): string | undefined {
+  switch (timing.kind) {
+    case 'fixed':
+      return Number.isFinite(timing.value) && timing.value >= 0
+        ? undefined
+        : `a fixed duration must be 0 or more seconds (found ${timing.value}).`;
+    case 'uniform':
+      return Number.isFinite(timing.min) &&
+        Number.isFinite(timing.max) &&
+        timing.min >= 0 &&
+        timing.min <= timing.max
+        ? undefined
+        : `a uniform duration needs 0 <= min <= max (found ${timing.min} to ${timing.max}).`;
+    case 'exponential':
+      return Number.isFinite(timing.mean) && timing.mean > 0
+        ? undefined
+        : `an exponential duration needs a mean greater than 0 (found ${timing.mean}).`;
+  }
 }
 
 const identifier = (text: string): string => `"${text}"`;

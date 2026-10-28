@@ -16,6 +16,21 @@ const placeSchema = z.object({
   // Ranges (integer >= 1) are checked by `validate()` so that files with such
   // errors can still be opened and repaired in the editor.
   capacity: finite.optional(),
+  role: z.enum(['case', 'resource']).optional(),
+});
+
+// Ranges of the timing fields are checked by `validate()` as well.
+const timingSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('fixed'), value: finite }),
+  z.object({ kind: z.literal('uniform'), min: finite, max: finite }),
+  z.object({ kind: z.literal('exponential'), mean: finite }),
+]);
+
+const simulationSchema = z.object({
+  seed: finite.optional(),
+  warmup: finite.optional(),
+  startTime: z.string().optional(),
+  caseIdPrefix: z.string().optional(),
 });
 
 const transitionSchema = z.object({
@@ -23,6 +38,9 @@ const transitionSchema = z.object({
   name: z.string(),
   position: positionSchema,
   guard: z.string().optional(),
+  timing: timingSchema.optional(),
+  priority: finite.optional(),
+  rate: finite.optional(),
 });
 
 const arcSchema = z.object({
@@ -50,6 +68,7 @@ export const netSchema = z.object({
   arcs: z.array(arcSchema),
   marking: z.record(z.string(), z.array(tokenSchema)),
   annotations: z.array(annotationSchema).optional(),
+  simulation: simulationSchema.optional(),
 }) satisfies z.ZodType<PetriNet, unknown>;
 
 /** Renders a Zod issue path like `places[2].capacity`. */

@@ -2,6 +2,39 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0: Timed simulation with an event stream
+
+Milestone M3. The file format stays `1.0`: all new fields are optional, and nets without them behave as before.
+
+### Added
+
+- Model: `timing` (fixed, uniform or exponential duration), `priority` and `rate` on transitions, `role` on places and
+  `simulation` settings (seed, warm-up, start time, case id prefix) on the net, with schema, validation codes
+  (`TIMING_INVALID`, `PRIORITY_INVALID`, `RATE_INVALID`, `RATE_ON_NON_SOURCE`, `SOURCE_WITHOUT_RATE`,
+  `ROLE_OVERRIDE_UNUSUAL`, `SIMULATION_INVALID`), net operations (`setTiming`, `setPriority`, `setRate`, `setRole`,
+  `setSimulationSettings`) and the roles of places (`placeRole`, `isSourceTransition`) in `@pnm/core`.
+- `@pnm/sim`: a discrete-event simulation on top of the core firing rule. Two-phase firing, durations, conflict
+  resolution by priority, arrival rates, capacity reservation by running firings, case identity, seedable randomness,
+  breakpoints, step back, key figures and a typed event stream. It runs in a Web Worker (`createSimulationClient`) or in
+  the same thread (`createLocalClient`). A net without durations behaves exactly as the atomic firing rule.
+- `@pnm/io`: the event log as CSV (`case_id, activity, timestamp, lifecycle`) and XES 1.0.
+- Editor: fields for duration, priority, arrival rate, role and the simulation settings in the properties panel; a
+  clock icon on transitions with a duration, a progress bar and a badge for firings under way, queue rings (yellow from 6,
+  red from 10 tokens), breakpoint markers.
+- Simulation panel: play and pause, step, step back, reset, speeds 1x to 60x and max, simulated clock and cases in the
+  system, tabs for enabled transitions (with arrival sliders, resource buttons and breakpoints), the event trace with
+  filters and export, and key figures. Tokens animate along the arcs (not with reduced motion).
+- Shortcuts: `Space` play or pause, `.` step, `,` step back, `R` reset, `B` breakpoint on the selected transition.
+- Examples from the domain view mockup: parcel center, smart office, complaint handling.
+- Documentation: [docs/simulation.md](docs/simulation.md), ADR 0007, the new fields in [docs/format.md](docs/format.md).
+
+### Changed
+
+- The simulation runs in the engine instead of the editor store: clicks, random steps and resets are answered
+  asynchronously. "Step (random)" now uses the seed of the net. Untimed nets still fire on a click and play at one
+  firing per second.
+- The simulation panel is split into the controls and three tabs; the list of fired steps keeps the latest 200.
+
 ## 0.3.0: UI polish
 
 Interaction and appearance only: no change to the net semantics or the file format.

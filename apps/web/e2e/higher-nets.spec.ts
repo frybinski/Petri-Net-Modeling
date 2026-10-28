@@ -72,6 +72,8 @@ test('keyboard: the binding list opens, moves with the arrow keys and fires with
 }) => {
   await openExample(page, 'order-processing');
   await page.getByTestId('mode-simulate').click();
+  // The engine runs in a worker; the transitions can be fired once it has answered.
+  await expect(page.getByTestId('enabled-summary')).toContainText('3 enabled transitions');
   await page
     .locator('.react-flow__node-transition')
     .filter({ hasText: 'Approve' })

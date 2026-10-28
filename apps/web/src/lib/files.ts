@@ -1,6 +1,8 @@
 import { NetFormatError, parseNetText, serializeNet, validate, type PetriNet } from '@pnm/core';
+import { eventLogRows, toEventLogCsv, toXes } from '@pnm/io';
 import { en } from '../i18n/en';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
+import { eventLog } from '../store/sim-log';
 import { notify, useUiStore } from '../store/ui-store';
 import { netToSvg } from './svg-export';
 
@@ -56,6 +58,24 @@ export function exportSvg(): void {
   });
   downloadText(fileName, svg, 'image/svg+xml');
   notify('success', en.files.exported(fileName));
+}
+
+/**
+ * Downloads the events of the running simulation as an event log: CSV with the columns
+ * `case_id, activity, timestamp, lifecycle`, or XES.
+ */
+export function exportEventLog(format: 'csv' | 'xes'): void {
+  const { net } = useEditorStore.getState();
+  const events = eventLog.all();
+  const rows = eventLogRows(events, net).length;
+  if (rows === 0) {
+    notify('info', en.trace.exportEmpty);
+    return;
+  }
+  const fileName = `${fileStem(net.name)}-events.${format}`;
+  if (format === 'csv') downloadText(fileName, toEventLogCsv(events, net), 'text/csv');
+  else downloadText(fileName, toXes(events, net), 'application/xml');
+  notify('success', en.trace.exported(rows, fileName));
 }
 
 /** Runs `action` right away, or after the user confirms discarding unsaved changes. */

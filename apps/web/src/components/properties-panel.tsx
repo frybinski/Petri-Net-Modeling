@@ -22,7 +22,16 @@ import { TypesSection } from './types/types-section';
 import { useUiStore } from '../store/ui-store';
 import { InscriptionField } from './inscription-field';
 import { arcDirection, boundVariables } from '../lib/inscriptions';
-import type { AlignMode, DistributeAxis, Profile } from '@pnm/core';
+import {
+  computedPlaceRole,
+  isSourceTransition,
+  type AlignMode,
+  type DistributeAxis,
+  type PlaceRole,
+  type Profile,
+  type Timing,
+} from '@pnm/core';
+import { timingOfKind } from '../lib/sim-format';
 
 function Section({
   title,
@@ -56,8 +65,14 @@ export function PropertiesPanel() {
   else if (selection.length === 1 && selection[0] !== undefined) {
     const id = selection[0];
     if (net.places.some((p) => p.id === id)) body = <PlaceProperties id={id} />;
-    else if (net.transitions.some((t) => t.id === id)) body = <TransitionProperties id={id} />;
-    else if (net.arcs.some((a) => a.id === id)) body = <ArcProperties id={id} />;
+    else if (net.transitions.some((t) => t.id === id)) {
+      body = (
+        <>
+          <TransitionProperties id={id} />
+          <TimingSection id={id} />
+        </>
+      );
+    } else if (net.arcs.some((a) => a.id === id)) body = <ArcProperties id={id} />;
     else if (net.annotations?.some((a) => a.id === id)) body = <AnnotationProperties id={id} />;
     else body = <NetProperties />;
   } else body = <MultiProperties />;
@@ -93,10 +108,64 @@ function NetProperties() {
           <TypesSection />
         </Section>
       ) : null}
+      <SimulationSettingsSection />
       <Section title={en.properties.nothingSelected}>
         <p className="m-0 text-sm text-muted">{en.properties.nothingSelectedHint}</p>
       </Section>
     </>
+  );
+}
+
+/** Seed, warm-up, start time and case id prefix, stored with the net. */
+function SimulationSettingsSection() {
+  const settings = useEditorStore((s) => s.net.simulation);
+  const update = useEditorStore((s) => s.updateSimulationSettings);
+  return (
+    <Section title={en.timing.simulation}>
+      <NumberField
+        label={en.timing.seed}
+        value={settings?.seed}
+        min={0}
+        allowEmpty
+        placeholder="1"
+        hint={en.timing.seedHint}
+        onCommit={(seed) => {
+          update({ seed });
+        }}
+        data-testid="prop-seed"
+      />
+      <NumberField
+        label={en.timing.warmup}
+        value={settings?.warmup}
+        min={0}
+        decimals={1}
+        allowEmpty
+        placeholder="0"
+        hint={en.timing.warmupHint}
+        onCommit={(warmup) => {
+          update({ warmup });
+        }}
+        data-testid="prop-warmup"
+      />
+      <TextField
+        label={en.timing.startTime}
+        value={settings?.startTime ?? ''}
+        placeholder="2026-01-05T08:00:00Z"
+        onCommit={(startTime) => {
+          update({ startTime: startTime.trim() === '' ? undefined : startTime.trim() });
+        }}
+        data-testid="prop-start-time"
+      />
+      <TextField
+        label={en.timing.caseIdPrefix}
+        value={settings?.caseIdPrefix ?? ''}
+        placeholder="C-"
+        onCommit={(prefix) => {
+          update({ caseIdPrefix: prefix === '' ? undefined : prefix });
+        }}
+        data-testid="prop-case-prefix"
+      />
+    </Section>
   );
 }
 
@@ -221,8 +290,44 @@ function PlaceProperties({ id }: { id: string }) {
         }}
         data-testid="prop-capacity"
       />
+      <PlaceRoleField placeId={id} />
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
     </Section>
+  );
+}
+
+/** The role of a place in the timed simulation: computed from the arcs, resource or case can be forced. */
+function PlaceRoleField({ placeId }: { placeId: string }) {
+  const net = useEditorStore((s) => s.net);
+  const role = useEditorStore((s) => s.net.places.find((p) => p.id === placeId)?.role);
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const updatePlace = useEditorStore((s) => s.updatePlace);
+  const computed: PlaceRole = computedPlaceRole(net, placeId);
+  if (computed === 'source' || computed === 'sink') {
+    return (
+      <div className="flex flex-col gap-1" data-testid="prop-role-fixed">
+        <span className="text-xs font-medium text-muted">{en.timing.role}</span>
+        <span className="text-sm">{en.timing.roles[computed]}</span>
+        <p className="m-0 text-[11px] text-muted">{en.timing.roleFixed}</p>
+      </div>
+    );
+  }
+  return (
+    <SelectField
+      label={en.timing.role}
+      value={role ?? ''}
+      options={[
+        { value: '', label: en.timing.roleAuto(en.timing.roles[computed]) },
+        { value: 'resource', label: en.timing.roles.resource },
+        { value: 'case', label: en.timing.roles.case },
+      ]}
+      disabled={locked}
+      hint={en.timing.roleHint}
+      onChange={(value) => {
+        updatePlace(placeId, { role: value === '' ? undefined : (value as 'resource' | 'case') });
+      }}
+      data-testid="prop-role"
+    />
   );
 }
 
@@ -304,6 +409,124 @@ function TransitionProperties({ id }: { id: string }) {
         </>
       ) : null}
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
+    </Section>
+  );
+}
+
+const TIMING_KINDS: Array<{ value: Timing['kind'] | ''; label: string }> = [
+  { value: '', label: en.timing.none },
+  { value: 'fixed', label: en.timing.fixed },
+  { value: 'uniform', label: en.timing.uniform },
+  { value: 'exponential', label: en.timing.exponential },
+];
+
+/** Duration, priority and, for transitions without input places, the arrival rate. */
+function TimingSection({ id }: { id: string }) {
+  const transition = useEditorStore((s) => s.net.transitions.find((t) => t.id === id));
+  const source = useEditorStore((s) => isSourceTransition(s.net, id));
+  const locked = useEditorStore((s) => s.mode === 'simulate');
+  const updateTransition = useEditorStore((s) => s.updateTransition);
+  if (!transition) return null;
+  const timing = transition.timing;
+  const setTiming = (next: Timing | undefined): void => {
+    updateTransition(id, { timing: next });
+  };
+  return (
+    <Section title={en.timing.title}>
+      <SelectField
+        label={en.timing.duration}
+        value={timing?.kind ?? ''}
+        options={TIMING_KINDS}
+        disabled={locked}
+        hint={en.timing.durationHint}
+        onChange={(kind) => {
+          setTiming(kind === '' ? undefined : timingOfKind(kind as Timing['kind'], timing));
+        }}
+        data-testid="prop-timing-kind"
+      />
+      {timing?.kind === 'fixed' ? (
+        <NumberField
+          label={en.timing.fixedValue}
+          value={timing.value}
+          min={0}
+          decimals={2}
+          disabled={locked}
+          onCommit={(value) => {
+            setTiming({ kind: 'fixed', value: value ?? 0 });
+          }}
+          data-testid="prop-timing-value"
+        />
+      ) : null}
+      {timing?.kind === 'uniform' ? (
+        <>
+          <NumberField
+            label={en.timing.min}
+            value={timing.min}
+            min={0}
+            decimals={2}
+            disabled={locked}
+            onCommit={(min) => {
+              const low = min ?? 0;
+              setTiming({ kind: 'uniform', min: low, max: Math.max(low, timing.max) });
+            }}
+            data-testid="prop-timing-min"
+          />
+          <NumberField
+            label={en.timing.max}
+            value={timing.max}
+            min={0}
+            decimals={2}
+            disabled={locked}
+            onCommit={(max) => {
+              const high = max ?? 0;
+              setTiming({ kind: 'uniform', min: Math.min(timing.min, high), max: high });
+            }}
+            data-testid="prop-timing-max"
+          />
+        </>
+      ) : null}
+      {timing?.kind === 'exponential' ? (
+        <NumberField
+          label={en.timing.mean}
+          value={timing.mean}
+          min={0.01}
+          decimals={2}
+          disabled={locked}
+          onCommit={(mean) => {
+            setTiming({ kind: 'exponential', mean: mean ?? 1 });
+          }}
+          data-testid="prop-timing-mean"
+        />
+      ) : null}
+      <NumberField
+        label={en.timing.priority}
+        value={transition.priority}
+        min={0.01}
+        decimals={2}
+        allowEmpty
+        placeholder="1"
+        hint={en.timing.priorityHint}
+        disabled={locked}
+        onCommit={(priority) => {
+          updateTransition(id, { priority });
+        }}
+        data-testid="prop-priority"
+      />
+      {source ? (
+        <NumberField
+          label={en.timing.rate}
+          value={transition.rate}
+          min={0}
+          decimals={1}
+          allowEmpty
+          hint={en.timing.rateHint}
+          disabled={locked}
+          onCommit={(rate) => {
+            updateTransition(id, { rate });
+          }}
+          data-testid="prop-rate"
+        />
+      ) : null}
     </Section>
   );
 }

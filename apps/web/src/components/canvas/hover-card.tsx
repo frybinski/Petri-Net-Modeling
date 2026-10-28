@@ -111,6 +111,36 @@ export function HoverCard({ model, anchor }: { model: HoverCardModel; anchor: An
               </ul>
             </div>
           ) : null}
+          {model.timing || model.priority !== undefined || model.rate !== undefined ? (
+            <dl
+              className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5"
+              data-testid="hover-timing"
+            >
+              {model.timing ? (
+                <>
+                  <dt className="text-muted">{en.timing.durationLine}</dt>
+                  <dd className="m-0 font-medium text-fg">{model.timing}</dd>
+                </>
+              ) : null}
+              {model.priority !== undefined ? (
+                <>
+                  <dt className="text-muted">{en.timing.priorityLine}</dt>
+                  <dd className="m-0 font-medium text-fg">{model.priority}</dd>
+                </>
+              ) : null}
+              {model.rate !== undefined ? (
+                <>
+                  <dt className="text-muted">{en.timing.rate}</dt>
+                  <dd className="m-0 font-medium text-fg">{model.rate}</dd>
+                </>
+              ) : null}
+            </dl>
+          ) : null}
+          {model.running !== undefined ? (
+            <div className="text-muted" data-testid="hover-running">
+              {en.simulation.running(model.running)}
+            </div>
+          ) : null}
           {model.bindings !== undefined ? (
             <div className="text-muted" data-testid="hover-bindings">
               {model.bindings === 0

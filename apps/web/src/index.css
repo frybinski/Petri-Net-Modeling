@@ -28,6 +28,7 @@
   --danger-soft: #fee2e2;
   --warn: #b45309;
   --warn-soft: #fef3c7;
+  --ring-warn: #eab308;
   --node-fill: #ffffff;
   --node-stroke: #3f3f46;
   --edge: #52525b;
@@ -64,6 +65,7 @@
   --danger-soft: #3b1618;
   --warn: #fbbf24;
   --warn-soft: #3a2a0a;
+  --ring-warn: #fbbf24;
   --node-fill: #1c1c20;
   --node-stroke: #d4d4d8;
   --edge: #a1a1aa;
@@ -246,6 +248,49 @@ body {
   stroke: var(--pn-halo);
   stroke-width: 3;
   transition: stroke 120ms;
+}
+
+.pn-bottleneck {
+  fill: none;
+  stroke-width: 3;
+  opacity: 0.9;
+}
+
+.pn-bottleneck[data-level='warn'] {
+  stroke: var(--ring-warn);
+}
+
+.pn-bottleneck[data-level='crit'] {
+  stroke: var(--danger);
+}
+
+/* A transition with firings under way fills up with the progress of the first one to finish. */
+.pn-node[data-busy='true']:not([data-error='true']) {
+  --pn-stroke: var(--accent);
+}
+
+.pn-progress {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  transition: height 90ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-progress {
+    transition: none;
+  }
+}
+
+.pn-flight {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.pn-breakpoint {
+  fill: var(--danger);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  paint-order: stroke;
 }
 
 .pn-hover-ring {

@@ -15,6 +15,14 @@ export type DiagnosticCode =
   | 'DUPLICATE_NAME'
   | 'ISOLATED_NODE'
   | 'MULTIPLE_ARCS'
+  // Timed simulation
+  | 'TIMING_INVALID'
+  | 'PRIORITY_INVALID'
+  | 'RATE_INVALID'
+  | 'RATE_ON_NON_SOURCE'
+  | 'SOURCE_WITHOUT_RATE'
+  | 'ROLE_OVERRIDE_UNUSUAL'
+  | 'SIMULATION_INVALID'
   // Types, inscriptions and guards (JSON nets)
   | 'TYPE_UNKNOWN'
   | 'TYPE_SCHEMA_INVALID'

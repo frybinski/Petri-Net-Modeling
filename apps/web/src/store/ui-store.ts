@@ -3,6 +3,8 @@ import { create } from 'zustand';
 
 export type Theme = 'light' | 'dark';
 
+export type SimTab = 'enabled' | 'trace' | 'metrics';
+
 export type ToastKind = 'info' | 'success' | 'error';
 
 export interface Toast {
@@ -62,6 +64,11 @@ interface UiState {
   /** The mouse wheel zooms instead of panning (Ctrl or Cmd with the wheel always zooms). */
   scrollToZoom: boolean;
   menuTarget: MenuTarget | null;
+  /** Queue lengths at which a place gets a yellow or red ring while simulating. */
+  bottleneckWarn: number;
+  bottleneckCritical: number;
+  /** The tab of the simulation panel. */
+  simTab: SimTab;
   /** At most one toast is visible; a new one replaces the old one. */
   toasts: Toast[];
   confirm: ConfirmRequest | null;
@@ -72,6 +79,8 @@ interface UiState {
   toggleSnap(): void;
   toggleMinimap(): void;
   toggleScrollToZoom(): void;
+  setBottleneckThresholds(warn: number, critical: number): void;
+  setSimTab(tab: SimTab): void;
   setMenuTarget(target: MenuTarget | null): void;
   toggleInscriptions(): void;
   openTypeDialog(name: string | null): void;
@@ -91,6 +100,21 @@ const MINIMAP_KEY = 'pnm:minimap';
 const SCROLL_ZOOM_KEY = 'pnm:scroll-zoom';
 const THEME_KEY = 'pnm:theme';
 const INSCRIPTIONS_KEY = 'pnm:inscriptions';
+const BOTTLENECK_KEY = 'pnm:bottleneck';
+
+/** Queue lengths for the yellow and red ring on the canvas. */
+export const DEFAULT_BOTTLENECK = { warn: 6, critical: 10 };
+
+function readBottleneck(): { warn: number; critical: number } {
+  const raw = readStored(BOTTLENECK_KEY);
+  if (raw !== null) {
+    const [warn, critical] = raw.split(',').map(Number);
+    if (warn !== undefined && critical !== undefined && warn >= 1 && critical >= warn) {
+      return { warn, critical };
+    }
+  }
+  return DEFAULT_BOTTLENECK;
+}
 
 function readStored(key: string): string | null {
   try {
@@ -129,6 +153,9 @@ export const useUiStore = create<UiState>()((set, get) => ({
   showInscriptions: readStored(INSCRIPTIONS_KEY) !== 'off',
   scrollToZoom: readStored(SCROLL_ZOOM_KEY) === 'on',
   menuTarget: null,
+  bottleneckWarn: readBottleneck().warn,
+  bottleneckCritical: readBottleneck().critical,
+  simTab: 'enabled',
   typeDialog: null,
   tokenDialog: null,
   toasts: [],
@@ -158,6 +185,15 @@ export const useUiStore = create<UiState>()((set, get) => ({
     const next = !get().scrollToZoom;
     writeStored(SCROLL_ZOOM_KEY, next ? 'on' : 'off');
     set({ scrollToZoom: next });
+  },
+  setBottleneckThresholds(warn, critical) {
+    const low = Math.max(1, Math.round(warn));
+    const high = Math.max(low, Math.round(critical));
+    writeStored(BOTTLENECK_KEY, `${low},${high}`);
+    set({ bottleneckWarn: low, bottleneckCritical: high });
+  },
+  setSimTab(tab) {
+    set({ simTab: tab });
   },
   setMenuTarget(target) {
     set({ menuTarget: target });

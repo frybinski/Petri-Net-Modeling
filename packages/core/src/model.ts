@@ -18,7 +18,15 @@ export interface Place {
   type?: string;
   /** Optional capacity, an integer >= 1. `undefined` means unbounded. */
   capacity?: number;
+  /** Overrides the role computed from the net structure (timed simulation). */
+  role?: 'case' | 'resource';
 }
+
+/** How long a transition takes to complete once it has started (simulation seconds). */
+export type Timing =
+  | { kind: 'fixed'; value: number }
+  | { kind: 'uniform'; min: number; max: number }
+  | { kind: 'exponential'; mean: number };
 
 export interface Transition {
   id: Id;
@@ -26,6 +34,12 @@ export interface Transition {
   position: Position;
   /** Guard expression (higher nets, M2). Unused by P/T nets. */
   guard?: string;
+  /** Duration of a firing in the timed simulation. Missing means 0 (atomic firing). */
+  timing?: Timing;
+  /** Relative weight when the timed simulation resolves a conflict at random. Default 1, > 0. */
+  priority?: number;
+  /** Arrivals per hour; only meaningful for source transitions (no input arcs). */
+  rate?: number;
 }
 
 export interface Arc {
@@ -52,6 +66,18 @@ export interface Annotation {
 
 export type Profile = 'pt-net' | 'json-net';
 
+/** Settings of the timed simulation that are stored with the net. */
+export interface SimulationSettings {
+  /** Seed of the random number generator. Default 1. */
+  seed?: number;
+  /** Seconds at the start that are left out of the key figures. Default 0. */
+  warmup?: number;
+  /** ISO timestamp that simulation time 0 maps to in exports. */
+  startTime?: string;
+  /** Prefix of generated case ids. Default `C-`. */
+  caseIdPrefix?: string;
+}
+
 export interface PetriNet {
   version: '1.0';
   profile: Profile;
@@ -64,6 +90,8 @@ export interface PetriNet {
   /** Initial marking. */
   marking: Marking;
   annotations?: Annotation[];
+  /** Settings of the timed simulation. */
+  simulation?: SimulationSettings;
 }
 
 export type Node = Place | Transition;
