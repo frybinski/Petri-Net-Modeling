@@ -295,3 +295,70 @@ function assertCapacity(capacity: number | undefined): void {
     throw new NetOpError('Capacity must be an integer >= 1.');
   }
 }
+
+export type AlignMode = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+export type DistributeAxis = 'horizontal' | 'vertical';
+
+function positioned(net: PetriNet, ids: ReadonlySet<Id>): Array<{ id: Id; position: Position }> {
+  return [...net.places, ...net.transitions, ...(net.annotations ?? [])].filter((e) =>
+    ids.has(e.id),
+  );
+}
+
+/**
+ * Aligns the selected nodes and annotations by their reference points: `left`, `center`
+ * and `right` set a common x (minimum, mean, maximum), `top`, `middle` and `bottom` a
+ * common y. Needs at least two elements, otherwise the net is returned unchanged.
+ */
+export function alignNodes(net: PetriNet, ids: Iterable<Id>, mode: AlignMode): PetriNet {
+  const items = positioned(net, new Set(ids));
+  if (items.length < 2) return net;
+  const xs = items.map((i) => i.position.x);
+  const ys = items.map((i) => i.position.y);
+  const mean = (values: number[]): number => values.reduce((a, b) => a + b, 0) / values.length;
+  const moves: Record<Id, Position> = {};
+  for (const { id, position } of items) {
+    switch (mode) {
+      case 'left':
+        moves[id] = { x: Math.min(...xs), y: position.y };
+        break;
+      case 'center':
+        moves[id] = { x: Math.round(mean(xs)), y: position.y };
+        break;
+      case 'right':
+        moves[id] = { x: Math.max(...xs), y: position.y };
+        break;
+      case 'top':
+        moves[id] = { x: position.x, y: Math.min(...ys) };
+        break;
+      case 'middle':
+        moves[id] = { x: position.x, y: Math.round(mean(ys)) };
+        break;
+      case 'bottom':
+        moves[id] = { x: position.x, y: Math.max(...ys) };
+        break;
+    }
+  }
+  return moveNodes(net, moves);
+}
+
+/**
+ * Spaces the selected elements evenly along an axis between the two outermost ones.
+ * Needs at least three elements, otherwise the net is returned unchanged.
+ */
+export function distributeNodes(net: PetriNet, ids: Iterable<Id>, axis: DistributeAxis): PetriNet {
+  const items = positioned(net, new Set(ids));
+  if (items.length < 3) return net;
+  const key = axis === 'horizontal' ? 'x' : 'y';
+  const sorted = [...items].sort((a, b) => a.position[key] - b.position[key]);
+  const first = sorted[0]!.position[key];
+  const last = sorted[sorted.length - 1]!.position[key];
+  const step = (last - first) / (sorted.length - 1);
+  const moves: Record<Id, Position> = {};
+  sorted.forEach((item, index) => {
+    const value = Math.round(first + step * index);
+    moves[item.id] =
+      axis === 'horizontal' ? { x: value, y: item.position.y } : { x: item.position.x, y: value };
+  });
+  return moveNodes(net, moves);
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addAnnotation,
+  alignNodes,
+  distributeNodes,
   addArc,
   addPlace,
   addTransition,
@@ -244,5 +246,42 @@ describe('queries', () => {
   it('does not list a node twice for parallel arcs', () => {
     const net = addArc(sample(), 'p1', 't1');
     expect(preset(net, 't1')).toEqual(['p1']);
+  });
+});
+
+describe('alignment', () => {
+  const spread = (): PetriNet => {
+    let net = createEmptyNet('align');
+    net = addPlace(net, { id: 'a', position: { x: 0, y: 10 } });
+    net = addPlace(net, { id: 'b', position: { x: 100, y: 50 } });
+    net = addTransition(net, { id: 'c', position: { x: 400, y: 90 } });
+    return addAnnotation(net, { id: 'n', position: { x: 1000, y: 1000 } });
+  };
+  const pos = (net: PetriNet, id: string) => nodeById(net, id)?.position;
+
+  it('aligns to the extremes or the mean', () => {
+    const ids = ['a', 'b', 'c'];
+    expect(pos(alignNodes(spread(), ids, 'left'), 'c')).toEqual({ x: 0, y: 90 });
+    expect(pos(alignNodes(spread(), ids, 'right'), 'a')).toEqual({ x: 400, y: 10 });
+    expect(pos(alignNodes(spread(), ids, 'center'), 'a')).toEqual({ x: 167, y: 10 });
+    expect(pos(alignNodes(spread(), ids, 'top'), 'c')).toEqual({ x: 400, y: 10 });
+    expect(pos(alignNodes(spread(), ids, 'bottom'), 'a')).toEqual({ x: 0, y: 90 });
+    expect(pos(alignNodes(spread(), ids, 'middle'), 'b')).toEqual({ x: 100, y: 50 });
+  });
+
+  it('leaves unselected elements alone and ignores a single element', () => {
+    const net = spread();
+    expect(pos(alignNodes(net, ['a', 'b'], 'left'), 'c')).toEqual({ x: 400, y: 90 });
+    expect(alignNodes(net, ['a'], 'left')).toBe(net);
+  });
+
+  it('distributes evenly between the outermost elements', () => {
+    let net = spread();
+    net = moveNodes(net, { b: { x: 30, y: 50 } });
+    const h = distributeNodes(net, ['a', 'b', 'c'], 'horizontal');
+    expect(pos(h, 'b')).toEqual({ x: 200, y: 50 });
+    const v = distributeNodes(net, ['a', 'b', 'c'], 'vertical');
+    expect(pos(v, 'b')).toEqual({ x: 30, y: 50 });
+    expect(distributeNodes(net, ['a', 'b'], 'horizontal')).toBe(net);
   });
 });
