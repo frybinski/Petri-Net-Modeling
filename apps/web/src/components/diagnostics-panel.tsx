@@ -1,7 +1,9 @@
+import type { Diagnostic } from '@pnm/core';
 import { AlertCircle, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { en } from '../i18n/en';
 import { getViewApi } from '../lib/view-api';
+import { useDiagnostics } from '../lib/use-diagnostics';
 import { useEditorStore } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
@@ -10,7 +12,7 @@ import { IconButton } from './ui/button';
 export function DiagnosticsPanel() {
   const open = useUiStore((s) => s.diagnosticsOpen);
   const setOpen = useUiStore((s) => s.setDiagnosticsOpen);
-  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const diagnostics = useDiagnostics();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,9 +28,20 @@ export function DiagnosticsPanel() {
 
   if (!open) return null;
 
-  const jumpTo = (elementId: string | undefined): void => {
-    if (elementId === undefined) return;
+  const jumpTo = (diagnostic: Diagnostic): void => {
     const state = useEditorStore.getState();
+    const { elementId, typeName } = diagnostic;
+    if (elementId === undefined) {
+      // A problem of a type itself: open the type editor.
+      if (
+        typeName !== undefined &&
+        state.mode === 'edit' &&
+        Object.hasOwn(state.net.types, typeName)
+      ) {
+        useUiStore.getState().openTypeDialog(typeName);
+      }
+      return;
+    }
     const exists =
       state.net.places.some((p) => p.id === elementId) ||
       state.net.transitions.some((t) => t.id === elementId) ||
@@ -36,6 +49,12 @@ export function DiagnosticsPanel() {
     if (!exists) return;
     if (state.mode === 'edit') state.select([elementId]);
     getViewApi()?.focus([elementId]);
+    if (typeName !== undefined) {
+      // Type problems of a place: bring the type and token section of its panel into view.
+      requestAnimationFrame(() => {
+        document.getElementById('place-type-section')?.scrollIntoView({ block: 'nearest' });
+      });
+    }
   };
 
   return (
@@ -67,11 +86,11 @@ export function DiagnosticsPanel() {
       ) : (
         <ul className="m-0 max-h-52 list-none overflow-auto p-1">
           {diagnostics.map((d, index) => (
-            <li key={`${d.code}-${d.elementId ?? ''}-${index}`}>
+            <li key={`${d.code}-${d.elementId ?? d.typeName ?? ''}-${index}`}>
               <button
                 type="button"
                 onClick={() => {
-                  jumpTo(d.elementId);
+                  jumpTo(d);
                 }}
                 data-testid="diagnostic-item"
                 data-code={d.code}

@@ -220,7 +220,10 @@ export function FlowCanvas() {
   const onPaneClick = useCallback(
     (event: ReactMouseEvent) => {
       const store = useEditorStore.getState();
-      if (store.mode === 'simulate') return;
+      if (store.mode === 'simulate') {
+        store.setPicker(null);
+        return;
+      }
       const { tool: activeTool } = store;
       if (activeTool === 'arc') {
         store.setArcSource(null);

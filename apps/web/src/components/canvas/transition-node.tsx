@@ -3,12 +3,14 @@ import { memo } from 'react';
 import { TRANSITION_HEIGHT, TRANSITION_WIDTH } from '../../lib/geometry';
 import { GUARD_LABEL_LENGTH } from '../../lib/flow-model';
 import { truncate } from '../../lib/inscriptions';
+import { BindingPicker } from './binding-picker';
 import { NodeHandles } from './node-handles';
 import { NodeLabel } from './node-label';
 import type { TransitionFlowNode } from './types';
 
 function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode>) {
-  const { name, guard, bindings, enabled, simulating, hasError, isArcSource, renaming } = data;
+  const { name, guard, bindings, picking, enabled, simulating, hasError, isArcSource, renaming } =
+    data;
   let tone: string;
   if (hasError) tone = 'border-danger shadow-[0_0_0_3px_var(--danger-soft)]';
   else if (enabled)
@@ -43,6 +45,7 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
         </span>
       ) : null}
       <NodeLabel id={id} name={name} renaming={renaming} kind="transition" />
+      {picking ? <BindingPicker transitionId={id} /> : null}
       <NodeHandles />
     </div>
   );

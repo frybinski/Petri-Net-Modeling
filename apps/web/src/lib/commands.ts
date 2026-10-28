@@ -200,7 +200,8 @@ export const commands: Command[] = [
     keys: [{ key: 'Escape' }],
     run: () => {
       const state = editor();
-      if (state.arcSource !== null) state.setArcSource(null);
+      if (state.picker !== null) state.setPicker(null);
+      else if (state.arcSource !== null) state.setArcSource(null);
       else if (state.tool !== 'select') state.setTool('select');
       else state.clearSelection();
     },

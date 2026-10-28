@@ -1,12 +1,13 @@
 import { useStore } from '@xyflow/react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon } from 'lucide-react';
 import { en } from '../i18n/en';
+import { useDiagnostics } from '../lib/use-diagnostics';
 import { useEditorStore } from '../store/editor-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
 
 export function StatusBar() {
-  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const diagnostics = useDiagnostics();
   const selectionCount = useEditorStore((s) => s.selection.length);
   const mode = useEditorStore((s) => s.mode);
   const zoom = useStore((s) => s.transform[2]);
