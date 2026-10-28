@@ -1,0 +1,285 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Reklamation",
+  "types": {},
+  "places": [
+    {
+      "id": "i",
+      "name": "Eingang",
+      "position": {
+        "x": 150,
+        "y": 200
+      }
+    },
+    {
+      "id": "p1",
+      "name": "Ware offen",
+      "position": {
+        "x": 420,
+        "y": 100
+      }
+    },
+    {
+      "id": "p2",
+      "name": "Historie offen",
+      "position": {
+        "x": 420,
+        "y": 300
+      }
+    },
+    {
+      "id": "p3",
+      "name": "Ware geprüft",
+      "position": {
+        "x": 690,
+        "y": 100
+      }
+    },
+    {
+      "id": "p4",
+      "name": "Historie geprüft",
+      "position": {
+        "x": 690,
+        "y": 300
+      }
+    },
+    {
+      "id": "p5",
+      "name": "Entscheidbar",
+      "position": {
+        "x": 960,
+        "y": 200
+      }
+    },
+    {
+      "id": "p6",
+      "name": "Entschieden",
+      "position": {
+        "x": 1230,
+        "y": 200
+      }
+    },
+    {
+      "id": "o",
+      "name": "Erledigt",
+      "position": {
+        "x": 1500,
+        "y": 200
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t0",
+      "name": "Reklamation eingehend",
+      "rate": 300,
+      "position": {
+        "x": 20,
+        "y": 200
+      }
+    },
+    {
+      "id": "t1",
+      "name": "Reklamation erfassen",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 285,
+        "y": 200
+      }
+    },
+    {
+      "id": "t2",
+      "name": "Ware prüfen",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 555,
+        "y": 100
+      }
+    },
+    {
+      "id": "t3",
+      "name": "Historie prüfen",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 555,
+        "y": 300
+      }
+    },
+    {
+      "id": "t4",
+      "name": "Entscheiden",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 825,
+        "y": 200
+      }
+    },
+    {
+      "id": "t5",
+      "name": "Erstatten",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 1095,
+        "y": 120
+      }
+    },
+    {
+      "id": "t6",
+      "name": "Ablehnen",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 1095,
+        "y": 280
+      }
+    },
+    {
+      "id": "t7",
+      "name": "Kunde informieren",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 11
+      },
+      "position": {
+        "x": 1365,
+        "y": 200
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "t0",
+      "target": "i",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "i",
+      "target": "t1",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "t1",
+      "target": "p1",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "t1",
+      "target": "p2",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "p1",
+      "target": "t2",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "p2",
+      "target": "t3",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "t2",
+      "target": "p3",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "t3",
+      "target": "p4",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "p3",
+      "target": "t4",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "p4",
+      "target": "t4",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "t4",
+      "target": "p5",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "p5",
+      "target": "t5",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "p5",
+      "target": "t6",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "t5",
+      "target": "p6",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "t6",
+      "target": "p6",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "p6",
+      "target": "t7",
+      "weight": 1
+    },
+    {
+      "id": "a17",
+      "source": "t7",
+      "target": "o",
+      "weight": 1
+    }
+  ],
+  "marking": {},
+  "simulation": {
+    "seed": 1,
+    "warmup": 1200,
+    "startTime": "2026-01-05T08:00:00Z",
+    "caseIdPrefix": "R-"
+  }
+}

@@ -1,0 +1,392 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Smart Office",
+  "types": {},
+  "places": [
+    {
+      "id": "o_foyer",
+      "name": "Foyer",
+      "position": {
+        "x": 150,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_gateIn",
+      "name": "Drehkreuz ein",
+      "position": {
+        "x": 250,
+        "y": 190
+      }
+    },
+    {
+      "id": "o_flur",
+      "name": "Flur",
+      "position": {
+        "x": 360,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_qDesk",
+      "name": "Wartet auf Platz",
+      "position": {
+        "x": 560,
+        "y": 200
+      }
+    },
+    {
+      "id": "o_qRoom",
+      "name": "Wartet auf Raum",
+      "position": {
+        "x": 560,
+        "y": 470
+      }
+    },
+    {
+      "id": "o_desks",
+      "name": "Arbeitsplätze",
+      "position": {
+        "x": 680,
+        "y": 70
+      }
+    },
+    {
+      "id": "o_rooms",
+      "name": "Besprechungsräume",
+      "position": {
+        "x": 680,
+        "y": 600
+      }
+    },
+    {
+      "id": "o_qCoffee",
+      "name": "Kaffeeschlange",
+      "position": {
+        "x": 810,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_coffee",
+      "name": "Kaffeemaschine",
+      "position": {
+        "x": 920,
+        "y": 190
+      }
+    },
+    {
+      "id": "o_exit",
+      "name": "Zum Ausgang",
+      "position": {
+        "x": 1020,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_gateOut",
+      "name": "Drehkreuz aus",
+      "position": {
+        "x": 1120,
+        "y": 190
+      }
+    },
+    {
+      "id": "o_gone",
+      "name": "Gegangen",
+      "position": {
+        "x": 1220,
+        "y": 330
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "o_arr",
+      "name": "Ankunft",
+      "rate": 40,
+      "position": {
+        "x": 40,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_in",
+      "name": "Zutritt",
+      "timing": {
+        "kind": "uniform",
+        "min": 3,
+        "max": 6
+      },
+      "position": {
+        "x": 250,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_wD",
+      "name": "Weg Arbeitsplatz",
+      "timing": {
+        "kind": "uniform",
+        "min": 15,
+        "max": 25
+      },
+      "priority": 0.75,
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "id": "o_wM",
+      "name": "Weg Meeting",
+      "timing": {
+        "kind": "uniform",
+        "min": 20,
+        "max": 35
+      },
+      "priority": 0.25,
+      "position": {
+        "x": 460,
+        "y": 470
+      }
+    },
+    {
+      "id": "o_work",
+      "name": "Arbeiten",
+      "timing": {
+        "kind": "uniform",
+        "min": 480,
+        "max": 840
+      },
+      "position": {
+        "x": 680,
+        "y": 200
+      }
+    },
+    {
+      "id": "o_meet",
+      "name": "Meeting",
+      "timing": {
+        "kind": "uniform",
+        "min": 720,
+        "max": 1080
+      },
+      "position": {
+        "x": 680,
+        "y": 470
+      }
+    },
+    {
+      "id": "o_coffeeT",
+      "name": "Kaffee holen",
+      "timing": {
+        "kind": "uniform",
+        "min": 50,
+        "max": 90
+      },
+      "position": {
+        "x": 920,
+        "y": 330
+      }
+    },
+    {
+      "id": "o_out",
+      "name": "Verlassen",
+      "timing": {
+        "kind": "uniform",
+        "min": 3,
+        "max": 6
+      },
+      "position": {
+        "x": 1120,
+        "y": 330
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "o_arr",
+      "target": "o_foyer",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "o_foyer",
+      "target": "o_in",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "o_gateIn",
+      "target": "o_in",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "o_in",
+      "target": "o_gateIn",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "o_in",
+      "target": "o_flur",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "o_flur",
+      "target": "o_wD",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "o_flur",
+      "target": "o_wM",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "o_wD",
+      "target": "o_qDesk",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "o_wM",
+      "target": "o_qRoom",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "o_qDesk",
+      "target": "o_work",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "o_desks",
+      "target": "o_work",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "o_work",
+      "target": "o_desks",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "o_work",
+      "target": "o_qCoffee",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "o_qRoom",
+      "target": "o_meet",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "o_rooms",
+      "target": "o_meet",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "o_meet",
+      "target": "o_rooms",
+      "weight": 1
+    },
+    {
+      "id": "a17",
+      "source": "o_meet",
+      "target": "o_qCoffee",
+      "weight": 1
+    },
+    {
+      "id": "a18",
+      "source": "o_qCoffee",
+      "target": "o_coffeeT",
+      "weight": 1
+    },
+    {
+      "id": "a19",
+      "source": "o_coffee",
+      "target": "o_coffeeT",
+      "weight": 1
+    },
+    {
+      "id": "a20",
+      "source": "o_coffeeT",
+      "target": "o_coffee",
+      "weight": 1
+    },
+    {
+      "id": "a21",
+      "source": "o_coffeeT",
+      "target": "o_exit",
+      "weight": 1
+    },
+    {
+      "id": "a22",
+      "source": "o_exit",
+      "target": "o_out",
+      "weight": 1
+    },
+    {
+      "id": "a23",
+      "source": "o_gateOut",
+      "target": "o_out",
+      "weight": 1
+    },
+    {
+      "id": "a24",
+      "source": "o_out",
+      "target": "o_gateOut",
+      "weight": 1
+    },
+    {
+      "id": "a25",
+      "source": "o_out",
+      "target": "o_gone",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "o_gateIn": [
+      1
+    ],
+    "o_desks": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "o_rooms": [
+      1,
+      1,
+      1
+    ],
+    "o_coffee": [
+      1
+    ],
+    "o_gateOut": [
+      1
+    ]
+  },
+  "simulation": {
+    "seed": 1,
+    "warmup": 2700,
+    "startTime": "2026-01-05T08:00:00Z",
+    "caseIdPrefix": "M-"
+  }
+}

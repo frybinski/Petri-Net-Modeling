@@ -1,0 +1,410 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Paketzentrum",
+  "types": {},
+  "places": [
+    {
+      "id": "p_in",
+      "name": "Eingangspuffer",
+      "position": {
+        "x": 180,
+        "y": 330
+      }
+    },
+    {
+      "id": "p_scanner",
+      "name": "Scanner",
+      "position": {
+        "x": 300,
+        "y": 190
+      }
+    },
+    {
+      "id": "p_scanned",
+      "name": "Gescannt",
+      "position": {
+        "x": 440,
+        "y": 330
+      }
+    },
+    {
+      "id": "p_sorter",
+      "name": "Sorter",
+      "position": {
+        "x": 560,
+        "y": 190
+      }
+    },
+    {
+      "id": "p_sorted",
+      "name": "Sortiert",
+      "position": {
+        "x": 690,
+        "y": 330
+      }
+    },
+    {
+      "id": "p_A",
+      "name": "Zone A",
+      "position": {
+        "x": 940,
+        "y": 140
+      }
+    },
+    {
+      "id": "p_B",
+      "name": "Zone B",
+      "position": {
+        "x": 940,
+        "y": 330
+      }
+    },
+    {
+      "id": "p_E",
+      "name": "Zone Express",
+      "position": {
+        "x": 940,
+        "y": 520
+      }
+    },
+    {
+      "id": "p_dock1",
+      "name": "Team Tor 1",
+      "position": {
+        "x": 1070,
+        "y": 40
+      }
+    },
+    {
+      "id": "p_dock2",
+      "name": "Team Tor 2",
+      "position": {
+        "x": 1070,
+        "y": 240
+      }
+    },
+    {
+      "id": "p_dock3",
+      "name": "Team Express",
+      "position": {
+        "x": 1070,
+        "y": 620
+      }
+    },
+    {
+      "id": "p_done",
+      "name": "Verladen",
+      "position": {
+        "x": 1220,
+        "y": 330
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_arr",
+      "name": "Anlieferung",
+      "rate": 300,
+      "position": {
+        "x": 50,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_scan",
+      "name": "Scannen",
+      "timing": {
+        "kind": "uniform",
+        "min": 15,
+        "max": 25
+      },
+      "position": {
+        "x": 300,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_sort",
+      "name": "Sortieren",
+      "timing": {
+        "kind": "uniform",
+        "min": 5,
+        "max": 8
+      },
+      "position": {
+        "x": 560,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_rA",
+      "name": "Weiche A",
+      "timing": {
+        "kind": "uniform",
+        "min": 1.5,
+        "max": 2.5
+      },
+      "priority": 0.5,
+      "position": {
+        "x": 810,
+        "y": 140
+      }
+    },
+    {
+      "id": "t_rB",
+      "name": "Weiche B",
+      "timing": {
+        "kind": "uniform",
+        "min": 1.5,
+        "max": 2.5
+      },
+      "priority": 0.35,
+      "position": {
+        "x": 810,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_rE",
+      "name": "Weiche Express",
+      "timing": {
+        "kind": "uniform",
+        "min": 1.5,
+        "max": 2.5
+      },
+      "priority": 0.15,
+      "position": {
+        "x": 810,
+        "y": 520
+      }
+    },
+    {
+      "id": "t_loadA",
+      "name": "Verladen Tor 1",
+      "timing": {
+        "kind": "uniform",
+        "min": 19,
+        "max": 27
+      },
+      "position": {
+        "x": 1070,
+        "y": 140
+      }
+    },
+    {
+      "id": "t_loadB",
+      "name": "Verladen Tor 2",
+      "timing": {
+        "kind": "uniform",
+        "min": 15,
+        "max": 22
+      },
+      "position": {
+        "x": 1070,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_loadE",
+      "name": "Verladen Express",
+      "timing": {
+        "kind": "uniform",
+        "min": 10,
+        "max": 16
+      },
+      "position": {
+        "x": 1070,
+        "y": 520
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "t_arr",
+      "target": "p_in",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "p_in",
+      "target": "t_scan",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "p_scanner",
+      "target": "t_scan",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "t_scan",
+      "target": "p_scanner",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "t_scan",
+      "target": "p_scanned",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "p_scanned",
+      "target": "t_sort",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "p_sorter",
+      "target": "t_sort",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "t_sort",
+      "target": "p_sorter",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "t_sort",
+      "target": "p_sorted",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "p_sorted",
+      "target": "t_rA",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "p_sorted",
+      "target": "t_rB",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "p_sorted",
+      "target": "t_rE",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "t_rA",
+      "target": "p_A",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "t_rB",
+      "target": "p_B",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "t_rE",
+      "target": "p_E",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "p_A",
+      "target": "t_loadA",
+      "weight": 1
+    },
+    {
+      "id": "a17",
+      "source": "p_dock1",
+      "target": "t_loadA",
+      "weight": 1
+    },
+    {
+      "id": "a18",
+      "source": "t_loadA",
+      "target": "p_dock1",
+      "weight": 1
+    },
+    {
+      "id": "a19",
+      "source": "t_loadA",
+      "target": "p_done",
+      "weight": 1
+    },
+    {
+      "id": "a20",
+      "source": "p_B",
+      "target": "t_loadB",
+      "weight": 1
+    },
+    {
+      "id": "a21",
+      "source": "p_dock2",
+      "target": "t_loadB",
+      "weight": 1
+    },
+    {
+      "id": "a22",
+      "source": "t_loadB",
+      "target": "p_dock2",
+      "weight": 1
+    },
+    {
+      "id": "a23",
+      "source": "t_loadB",
+      "target": "p_done",
+      "weight": 1
+    },
+    {
+      "id": "a24",
+      "source": "p_E",
+      "target": "t_loadE",
+      "weight": 1
+    },
+    {
+      "id": "a25",
+      "source": "p_dock3",
+      "target": "t_loadE",
+      "weight": 1
+    },
+    {
+      "id": "a26",
+      "source": "t_loadE",
+      "target": "p_dock3",
+      "weight": 1
+    },
+    {
+      "id": "a27",
+      "source": "t_loadE",
+      "target": "p_done",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "p_scanner": [
+      1,
+      1
+    ],
+    "p_sorter": [
+      1
+    ],
+    "p_dock1": [
+      1
+    ],
+    "p_dock2": [
+      1
+    ],
+    "p_dock3": [
+      1
+    ]
+  },
+  "simulation": {
+    "seed": 1,
+    "warmup": 1200,
+    "startTime": "2026-01-05T06:00:00Z",
+    "caseIdPrefix": "P-"
+  }
+}
