@@ -1,6 +1,18 @@
 import { createId } from './id';
-import type { Annotation, Arc, Id, PetriNet, Place, Position, Transition } from './model';
+import type {
+  Annotation,
+  Arc,
+  Id,
+  PetriNet,
+  Place,
+  Position,
+  Profile,
+  Token,
+  Transition,
+} from './model';
 import { isPlace, isTransition, nodeById } from './queries';
+import { isToken } from './token';
+import { validateTypeName } from './types';
 
 /** Error raised by net operations when the requested change is not allowed. */
 export class NetOpError extends Error {
@@ -361,4 +373,145 @@ export function distributeNodes(net: PetriNet, ids: Iterable<Id>, axis: Distribu
       axis === 'horizontal' ? { x: value, y: item.position.y } : { x: item.position.x, y: value };
   });
   return moveNodes(net, moves);
+}
+
+// --- Higher nets: types, guards, inscriptions and tokens ---------------------------------
+
+function typeNameCheck(name: string): void {
+  if (!validateTypeName(name)) {
+    throw new NetOpError(
+      `Invalid type name "${name}": use a letter followed by letters, digits or _.`,
+    );
+  }
+}
+
+function assertTypeExists(net: PetriNet, name: string): void {
+  if (!Object.hasOwn(net.types, name)) throw new NetOpError(`Unknown type: ${name}`);
+}
+
+/** Adds a type. Throws if the name is invalid or already taken. */
+export function addType(net: PetriNet, name: string, schema: unknown): PetriNet {
+  typeNameCheck(name);
+  if (Object.hasOwn(net.types, name)) throw new NetOpError(`The type "${name}" already exists.`);
+  return { ...net, types: { ...net.types, [name]: schema } };
+}
+
+/** Renames a type and updates the places that use it. */
+export function renameType(net: PetriNet, from: string, to: string): PetriNet {
+  assertTypeExists(net, from);
+  if (from === to) return net;
+  typeNameCheck(to);
+  if (Object.hasOwn(net.types, to)) throw new NetOpError(`The type "${to}" already exists.`);
+  const types: Record<string, unknown> = {};
+  for (const [name, schema] of Object.entries(net.types)) types[name === from ? to : name] = schema;
+  return {
+    ...net,
+    types,
+    places: net.places.map((p) => (p.type === from ? { ...p, type: to } : p)),
+  };
+}
+
+/** Replaces the schema of a type. */
+export function updateType(net: PetriNet, name: string, schema: unknown): PetriNet {
+  assertTypeExists(net, name);
+  return { ...net, types: { ...net.types, [name]: schema } };
+}
+
+/** Removes a type; places that used it become untyped. */
+export function removeType(net: PetriNet, name: string): PetriNet {
+  if (!Object.hasOwn(net.types, name)) return net;
+  const types = { ...net.types };
+  delete types[name];
+  return {
+    ...net,
+    types,
+    places: net.places.map((p) => {
+      if (p.type !== name) return p;
+      const { type: _removed, ...rest } = p;
+      return rest;
+    }),
+  };
+}
+
+/** Assigns a type to a place, or removes it with `undefined`. */
+export function setPlaceType(net: PetriNet, placeId: Id, type: string | undefined): PetriNet {
+  if (!isPlace(net, placeId)) throw new NetOpError(`Unknown place: ${placeId}`);
+  if (type !== undefined) assertTypeExists(net, type);
+  return updateNode(net, placeId, { type });
+}
+
+/** Sets the guard of a transition. Blank text removes it. */
+export function setGuard(net: PetriNet, transitionId: Id, guard: string | undefined): PetriNet {
+  if (!isTransition(net, transitionId)) throw new NetOpError(`Unknown transition: ${transitionId}`);
+  return updateNode(net, transitionId, {
+    guard: guard === undefined || guard.trim() === '' ? undefined : guard,
+  });
+}
+
+/** Sets the inscription of an arc. Blank text removes it. */
+export function setInscription(
+  net: PetriNet,
+  arcId: Id,
+  inscription: string | undefined,
+): PetriNet {
+  return updateArc(net, arcId, {
+    inscription: inscription === undefined || inscription.trim() === '' ? undefined : inscription,
+  });
+}
+
+function assertToken(token: unknown): asserts token is Token {
+  if (!isToken(token)) throw new NetOpError('A token must be a JSON value other than null.');
+}
+
+function withTokens(net: PetriNet, placeId: Id, tokens: Token[]): PetriNet {
+  const marking = { ...net.marking };
+  if (tokens.length === 0) delete marking[placeId];
+  else marking[placeId] = tokens;
+  return { ...net, marking };
+}
+
+function assertPlace(net: PetriNet, placeId: Id): void {
+  if (!isPlace(net, placeId)) throw new NetOpError(`Unknown place: ${placeId}`);
+}
+
+/** Replaces the initial tokens of a place. */
+export function setTokens(net: PetriNet, placeId: Id, tokens: readonly Token[]): PetriNet {
+  assertPlace(net, placeId);
+  tokens.forEach(assertToken);
+  return withTokens(net, placeId, structuredClone([...tokens]));
+}
+
+/** Appends an initial token to a place. */
+export function addToken(net: PetriNet, placeId: Id, token: Token): PetriNet {
+  assertPlace(net, placeId);
+  assertToken(token);
+  return withTokens(net, placeId, [...(net.marking[placeId] ?? []), structuredClone(token)]);
+}
+
+/** Replaces the initial token at `index`. */
+export function updateToken(net: PetriNet, placeId: Id, index: number, token: Token): PetriNet {
+  assertPlace(net, placeId);
+  assertToken(token);
+  const tokens = [...(net.marking[placeId] ?? [])];
+  if (!Number.isInteger(index) || index < 0 || index >= tokens.length) {
+    throw new NetOpError(`No token at index ${index}.`);
+  }
+  tokens[index] = structuredClone(token);
+  return withTokens(net, placeId, tokens);
+}
+
+/** Removes the initial token at `index`. */
+export function removeToken(net: PetriNet, placeId: Id, index: number): PetriNet {
+  assertPlace(net, placeId);
+  const tokens = [...(net.marking[placeId] ?? [])];
+  if (!Number.isInteger(index) || index < 0 || index >= tokens.length) {
+    throw new NetOpError(`No token at index ${index}.`);
+  }
+  tokens.splice(index, 1);
+  return withTokens(net, placeId, tokens);
+}
+
+/** Switches the net class. Types, inscriptions and guards are kept; a P/T net ignores them. */
+export function setProfile(net: PetriNet, profile: Profile): PetriNet {
+  return net.profile === profile ? net : { ...net, profile };
 }

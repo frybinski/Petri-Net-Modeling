@@ -1,27 +1,9 @@
-import type { Id, PetriNet } from './model';
+import { parseInputInscription, referencedVariables, tryCompile } from '@pnm/expr';
+import type { Diagnostic } from './diagnostic';
+import type { Arc, Id, PetriNet, Place } from './model';
 import { formatIssues, netSchema } from './schema';
-
-export type Severity = 'error' | 'warning';
-
-export type DiagnosticCode =
-  | 'SCHEMA_INVALID'
-  | 'DUPLICATE_ID'
-  | 'ARC_DANGLING'
-  | 'ARC_NOT_BIPARTITE'
-  | 'ARC_WEIGHT_INVALID'
-  | 'CAPACITY_INVALID'
-  | 'MARKING_UNKNOWN_PLACE'
-  | 'MARKING_EXCEEDS_CAPACITY'
-  | 'DUPLICATE_NAME'
-  | 'ISOLATED_NODE'
-  | 'MULTIPLE_ARCS';
-
-export interface Diagnostic {
-  severity: Severity;
-  code: DiagnosticCode;
-  message: string;
-  elementId?: Id;
-}
+import { tokenLabel } from './token';
+import { compileType, validateTypeName } from './types';
 
 /**
  * Checks the structure of a net. Errors mean the net violates the model
@@ -185,9 +167,220 @@ export function validate(net: PetriNet): Diagnostic[] {
     }
   }
 
+  validateHigher(net, push);
+
   return out;
 }
 
-export function hasErrors(diagnostics: readonly Diagnostic[]): boolean {
-  return diagnostics.some((d) => d.severity === 'error');
+const identifier = (text: string): string => `"${text}"`;
+
+/** Describes where in an inscription a problem is, for messages. */
+function atPosition(message: string, position: number | undefined): string {
+  return position === undefined ? message : `${message} (at position ${position + 1})`;
+}
+
+/** Checks for types, inscriptions and guards. P/T nets only get a hint that these are ignored. */
+function validateHigher(net: PetriNet, push: (d: Diagnostic) => void): void {
+  if (net.profile === 'pt-net') {
+    const ignored = (what: string, name: string, id: Id): void => {
+      push({
+        severity: 'warning',
+        code: 'INSCRIPTION_ON_PT_NET',
+        message: `${what} of ${identifier(name)} is ignored because this is a place/transition net.`,
+        elementId: id,
+      });
+    };
+    for (const place of net.places) {
+      if (place.type !== undefined) ignored('The type', place.name, place.id);
+    }
+    for (const transition of net.transitions) {
+      if (!isBlank(transition.guard)) ignored('The guard', transition.name, transition.id);
+    }
+    const nodeName = new Map<Id, string>([
+      ...net.places.map((p): [Id, string] => [p.id, p.name]),
+      ...net.transitions.map((t): [Id, string] => [t.id, t.name]),
+    ]);
+    for (const arc of net.arcs) {
+      if (!isBlank(arc.inscription)) {
+        ignored(
+          'The inscription',
+          `the arc from ${nodeName.get(arc.source) ?? arc.source}`,
+          arc.id,
+        );
+      }
+    }
+    return;
+  }
+
+  // Types.
+  const usedTypes = new Set(net.places.flatMap((p) => (p.type === undefined ? [] : [p.type])));
+  for (const name of Object.keys(net.types)) {
+    if (!validateTypeName(name)) {
+      push({
+        severity: 'error',
+        code: 'TYPE_NAME_INVALID',
+        message: `The type name ${identifier(name)} must start with a letter and contain only letters, digits and _.`,
+        typeName: name,
+      });
+    }
+    const compiled = compileType(net.types[name]);
+    if (!compiled.ok) {
+      push({
+        severity: 'error',
+        code: 'TYPE_SCHEMA_INVALID',
+        message: `The schema of type ${identifier(name)} is invalid: ${compiled.error}`,
+        typeName: name,
+      });
+    }
+    if (!usedTypes.has(name)) {
+      push({
+        severity: 'warning',
+        code: 'TYPE_UNUSED',
+        message: `The type ${identifier(name)} is not used by any place.`,
+        typeName: name,
+      });
+    }
+  }
+  for (const place of net.places) {
+    if (place.type !== undefined && !Object.hasOwn(net.types, place.type)) {
+      push({
+        severity: 'error',
+        code: 'TYPE_UNKNOWN',
+        message: `${identifier(place.name)} has the type ${identifier(place.type)}, which does not exist.`,
+        elementId: place.id,
+        typeName: place.type,
+      });
+    }
+  }
+  for (const place of net.places) validateInitialTokens(net, place, push);
+
+  // Inscriptions and guards.
+  const placeIds = new Set(net.places.map((p) => p.id));
+  const transitionIds = new Set(net.transitions.map((t) => t.id));
+  const boundVariables = new Map<Id, Set<string>>();
+  const inputOf = (arc: Arc): boolean => placeIds.has(arc.source) && transitionIds.has(arc.target);
+  const outputOf = (arc: Arc): boolean => transitionIds.has(arc.source) && placeIds.has(arc.target);
+
+  for (const arc of net.arcs) {
+    if (isBlank(arc.inscription)) continue;
+    if (arc.weight > 1) {
+      push({
+        severity: 'warning',
+        code: 'WEIGHT_IGNORED',
+        message: `The weight ${arc.weight} is ignored because the arc has an inscription; the inscription decides how many tokens are moved.`,
+        elementId: arc.id,
+      });
+    }
+    if (inputOf(arc)) {
+      const parsed = parseInputInscription(arc.inscription!);
+      if (parsed.ok) {
+        const set = boundVariables.get(arc.target) ?? new Set<string>();
+        for (const name of parsed.variables) set.add(name);
+        boundVariables.set(arc.target, set);
+      } else {
+        push({
+          severity: 'error',
+          code: 'INSCRIPTION_SYNTAX',
+          message: atPosition(`Input inscription: ${parsed.error.message}`, parsed.error.position),
+          elementId: arc.id,
+        });
+      }
+    }
+  }
+
+  const unbound = (
+    names: readonly string[],
+    transitionId: Id,
+    transitionName: string,
+    elementId: Id,
+    where: string,
+  ): void => {
+    const bound = boundVariables.get(transitionId) ?? new Set<string>();
+    for (const name of names) {
+      if (bound.has(name)) continue;
+      push({
+        severity: 'error',
+        code: 'VARIABLE_UNBOUND',
+        message: `${where} uses $${name}, which no input arc of ${identifier(transitionName)} binds.`,
+        elementId,
+      });
+    }
+  };
+
+  for (const transition of net.transitions) {
+    if (isBlank(transition.guard)) continue;
+    const compiled = tryCompile(transition.guard!);
+    if (!compiled.ok) {
+      push({
+        severity: 'error',
+        code: 'GUARD_SYNTAX',
+        message: atPosition(
+          `Guard of ${identifier(transition.name)}: ${compiled.error.message}`,
+          compiled.error.position,
+        ),
+        elementId: transition.id,
+      });
+    } else {
+      unbound(
+        referencedVariables(compiled.expr),
+        transition.id,
+        transition.name,
+        transition.id,
+        'The guard',
+      );
+    }
+  }
+
+  for (const arc of net.arcs) {
+    if (isBlank(arc.inscription) || !outputOf(arc)) continue;
+    const compiled = tryCompile(arc.inscription!);
+    if (!compiled.ok) {
+      push({
+        severity: 'error',
+        code: 'INSCRIPTION_SYNTAX',
+        message: atPosition(
+          `Output inscription: ${compiled.error.message}`,
+          compiled.error.position,
+        ),
+        elementId: arc.id,
+      });
+    } else {
+      const transition = net.transitions.find((t) => t.id === arc.source)!;
+      unbound(
+        referencedVariables(compiled.expr),
+        transition.id,
+        transition.name,
+        arc.id,
+        'The output inscription',
+      );
+    }
+  }
+}
+
+function validateInitialTokens(net: PetriNet, place: Place, push: (d: Diagnostic) => void): void {
+  const tokens = net.marking[place.id];
+  if (place.type === undefined || !tokens || !Object.hasOwn(net.types, place.type)) return;
+  const compiled = compileType(net.types[place.type]);
+  if (!compiled.ok) return; // reported as TYPE_SCHEMA_INVALID
+  const failures: string[] = [];
+  tokens.forEach((token, index) => {
+    const verdict = compiled.check(token);
+    if (!verdict.ok) {
+      failures.push(`token ${index + 1} ${tokenLabel(token, 30)}: ${verdict.errors.join('; ')}`);
+    }
+  });
+  if (failures.length === 0) return;
+  const shown = failures.slice(0, 3).join(' | ');
+  const more = failures.length > 3 ? ` (and ${failures.length - 3} more)` : '';
+  push({
+    severity: 'error',
+    code: 'TOKEN_TYPE_MISMATCH',
+    message: `${failures.length} initial ${failures.length === 1 ? 'token' : 'tokens'} on ${identifier(place.name)} violate the type ${identifier(place.type)}: ${shown}${more}`,
+    elementId: place.id,
+    typeName: place.type,
+  });
+}
+
+function isBlank(text: string | undefined): boolean {
+  return text === undefined || text.trim() === '';
 }
