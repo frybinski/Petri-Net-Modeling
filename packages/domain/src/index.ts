@@ -11,3 +11,4 @@ export * from './token-layout';
 export * from './animation';
 export * from './status';
 export * from './dynamic';
+export * from './trail';
