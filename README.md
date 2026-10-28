@@ -4,7 +4,7 @@ A web-based tool for modeling Petri nets. The goal is a fluid, modern diagram ed
 core: a UI-independent TypeScript package holds the net model, the firing rule and the file format, so the same
 logic can later run in a command line tool, behind an API, or inside an LLM processing chain.
 
-> Screenshot placeholder: add `docs/images/editor.png` once the first deployment is live.
+![The editor in simulation mode, showing the traffic light example](docs/images/editor.png)
 
 **Status: 0.1.0 (milestones M0 and M1).** The editor handles place/transition nets (P/T nets). The file format and
 the model are already prepared for higher nets with typed tokens, guards and arc inscriptions; their semantics follow
