@@ -7,3 +7,4 @@ export * from './convert-legacy';
 export * from './palette';
 export * from './scene';
 export * from './paint';
+export * from './token-layout';
