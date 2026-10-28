@@ -7,14 +7,30 @@ import { NodeLabel } from './node-label';
 import type { PlaceFlowNode } from './types';
 
 function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
-  const { name, tokens, capacity, hasError, isArcSource, renaming } = data;
+  const {
+    name,
+    tokens,
+    json,
+    tokenLabels,
+    tooltip,
+    typeName,
+    capacity,
+    hasError,
+    isArcSource,
+    renaming,
+  } = data;
   const ring = hasError
     ? 'border-danger shadow-[0_0_0_3px_var(--danger-soft)]'
     : selected || isArcSource
       ? 'border-accent shadow-[0_0_0_4px_var(--accent-soft)]'
       : 'border-[var(--node-stroke)]';
   return (
-    <div className="relative" style={{ width: PLACE_SIZE, height: PLACE_SIZE }}>
+    <div
+      className="relative"
+      style={{ width: PLACE_SIZE, height: PLACE_SIZE }}
+      title={tooltip}
+      data-testid="place-node"
+    >
       <div
         className={`pn-shape absolute inset-0 rounded-full border-2 bg-[var(--node-fill)] transition-shadow ${ring}`}
         data-testid="place-shape"
@@ -24,12 +40,12 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
         viewBox={`${-PLACE_SIZE / 2} ${-PLACE_SIZE / 2} ${PLACE_SIZE} ${PLACE_SIZE}`}
         aria-hidden="true"
       >
-        {tokens > 0 && tokens <= MAX_TOKEN_DOTS
+        {!json && tokens > 0 && tokens <= MAX_TOKEN_DOTS
           ? tokenDotOffsets(tokens).map((o) => (
               <circle key={`${o.x},${o.y}`} cx={o.x} cy={o.y} r={3.4} fill="var(--token)" />
             ))
           : null}
-        {tokens > MAX_TOKEN_DOTS ? (
+        {(json ? tokens > 0 : tokens > MAX_TOKEN_DOTS) ? (
           <text
             x={0}
             y={5}
@@ -51,7 +67,24 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
           {en.elements.capacityShort(capacity)}
         </span>
       ) : null}
-      <NodeLabel id={id} name={name} renaming={renaming} kind="place" />
+      <NodeLabel id={id} name={name} renaming={renaming} kind="place">
+        {typeName ? (
+          <span
+            className="block text-center text-[10px] leading-3 whitespace-nowrap text-muted italic select-none"
+            data-testid="place-type"
+          >
+            {typeName}
+          </span>
+        ) : null}
+        {tokenLabels.length > 0 ? (
+          <span
+            className="mt-0.5 block text-center font-mono text-[10px] leading-3 whitespace-nowrap text-accent select-none"
+            data-testid="token-labels"
+          >
+            {tokenLabels.join('  ')}
+          </span>
+        ) : null}
+      </NodeLabel>
       <NodeHandles />
     </div>
   );

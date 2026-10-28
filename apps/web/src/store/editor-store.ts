@@ -11,11 +11,12 @@ import {
   createEmptyNet,
   createId,
   distributeNodes,
-  enabledTransitions,
   exampleToken,
   extractFragment,
   findArc,
-  fire,
+  findEnabled,
+  findEnabledPt,
+  fireBinding as coreFireBinding,
   insertFragment,
   isEmptyFragment,
   markingToCounts,
@@ -42,6 +43,8 @@ import {
   type AlignMode,
   type Annotation,
   type Arc,
+  type Binding,
+  type BindingResult,
   type Diagnostic,
   type DistributeAxis,
   type Id,
@@ -65,6 +68,8 @@ export interface SimStep {
   index: number;
   transitionId: Id;
   transitionName: string;
+  /** The binding that was fired; empty in P/T nets. */
+  binding: Binding;
 }
 
 /** Maximum number of undo steps kept in memory. */
@@ -96,6 +101,14 @@ export interface EditorState {
 
   simMarking: Marking | null;
   simHistory: SimStep[];
+  /** Enabled transitions with their bindings under `simMarking`. Empty while `computing`. */
+  enabled: Map<Id, BindingResult>;
+  /** True while the bindings of the current marking are being computed. */
+  computing: boolean;
+  /** Evaluation problems found while computing the bindings. */
+  simDiagnostics: Diagnostic[];
+  /** Transition whose list of bindings is open for the user to choose from. */
+  picker: Id | null;
 
   diagnostics: Diagnostic[];
   clipboard: NetFragment | null;
@@ -163,7 +176,10 @@ export interface EditorState {
   // Simulation
   startSimulation(): void;
   stopSimulation(): void;
+  /** Fires a transition: directly if it has one binding, otherwise opens the binding list. */
   fireTransition(id: Id): void;
+  fireBindingAt(id: Id, index: number): void;
+  setPicker(id: Id | null): void;
   stepRandom(random?: () => number): Id | null;
   resetSimulation(): void;
 }
@@ -200,6 +216,18 @@ function isNoop(target: object, patch: object): boolean {
 }
 
 const initialNet = freshNet();
+
+/** The marking a simulation starts from. P/T nets only count tokens, so theirs are normalised. */
+function initialSimMarking(net: PetriNet): Marking {
+  return net.profile === 'pt-net'
+    ? countsToMarking(markingToCounts(net.marking))
+    : structuredClone(net.marking);
+}
+
+const NO_ENABLED = (): Map<Id, BindingResult> => new Map();
+
+/** Sequence number of the latest binding computation; older results are discarded. */
+let computationSeq = 0;
 
 export const useEditorStore = create<EditorState>()((set, get) => {
   /** Replaces the document by `next` and records an undo step. */
@@ -250,7 +278,40 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       dragPositions: null,
       simMarking: null,
       simHistory: [],
+      enabled: NO_ENABLED(),
+      computing: false,
+      simDiagnostics: [],
+      picker: null,
     });
+  };
+
+  /**
+   * Computes the enabled transitions of the simulated marking. P/T nets are computed at once; JSON
+   * nets evaluate expressions asynchronously, and a result that arrives after the marking has
+   * changed again is dropped.
+   */
+  const recompute = (): void => {
+    computationSeq += 1;
+    const seq = computationSeq;
+    const { net, simMarking, mode } = get();
+    if (mode !== 'simulate' || simMarking === null) return;
+    if (net.profile === 'pt-net') {
+      const result = findEnabledPt(net, simMarking);
+      set({ enabled: result.enabled, computing: false, simDiagnostics: [] });
+      return;
+    }
+    set({ enabled: NO_ENABLED(), computing: true, simDiagnostics: [] });
+    findEnabled(net, simMarking).then(
+      (result) => {
+        if (seq !== computationSeq || get().mode !== 'simulate') return;
+        set({ enabled: result.enabled, computing: false, simDiagnostics: result.diagnostics });
+      },
+      (error: unknown) => {
+        if (seq !== computationSeq || get().mode !== 'simulate') return;
+        set({ enabled: NO_ENABLED(), computing: false });
+        notify('error', error instanceof Error ? error.message : String(error));
+      },
+    );
   };
 
   return {
@@ -270,6 +331,10 @@ export const useEditorStore = create<EditorState>()((set, get) => {
 
     simMarking: null,
     simHistory: [],
+    enabled: NO_ENABLED(),
+    computing: false,
+    simDiagnostics: [],
+    picker: null,
 
     diagnostics: validate(initialNet),
     clipboard: null,
@@ -567,49 +632,88 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         arcSource: null,
         renamingId: null,
         dragPositions: null,
-        simMarking: countsToMarking(markingToCounts(net.marking)),
+        simMarking: initialSimMarking(net),
         simHistory: [],
+        picker: null,
       });
+      recompute();
     },
     stopSimulation() {
-      set({ mode: 'edit', simMarking: null, simHistory: [] });
+      computationSeq += 1; // drops a computation that is still running
+      set({
+        mode: 'edit',
+        simMarking: null,
+        simHistory: [],
+        enabled: NO_ENABLED(),
+        computing: false,
+        simDiagnostics: [],
+        picker: null,
+      });
     },
     fireTransition(id) {
-      const { mode, net, simMarking, simHistory } = get();
-      if (mode !== 'simulate' || simMarking === null) return;
-      if (!enabledTransitions(net, simMarking).includes(id)) return;
+      const { mode, enabled, computing } = get();
+      if (mode !== 'simulate' || computing) return;
+      const result = enabled.get(id);
+      if (!result || result.bindings.length === 0) return;
+      if (result.bindings.length === 1) get().fireBindingAt(id, 0);
+      else set({ picker: get().picker === id ? null : id });
+    },
+    fireBindingAt(id, index) {
+      const { mode, net, simMarking, simHistory, enabled, computing } = get();
+      if (mode !== 'simulate' || simMarking === null || computing) return;
+      const chosen = enabled.get(id)?.bindings[index];
+      if (!chosen) return;
       const transition = net.transitions.find((t) => t.id === id);
+      let next: Marking;
+      try {
+        next = coreFireBinding(net, simMarking, chosen);
+      } catch (error) {
+        notify('error', error instanceof Error ? error.message : String(error));
+        recompute();
+        return;
+      }
       set({
-        simMarking: fire(net, simMarking, id),
+        simMarking: next,
         simHistory: [
           ...simHistory,
           {
             index: simHistory.length + 1,
             transitionId: id,
             transitionName: transition?.name ?? id,
+            binding: chosen.binding,
           },
         ],
+        picker: null,
       });
+      recompute();
+    },
+    setPicker(id) {
+      if (get().mode !== 'simulate') return;
+      set({ picker: id });
     },
     stepRandom(random = Math.random) {
-      const { mode, net, simMarking } = get();
-      if (mode !== 'simulate' || simMarking === null) return null;
-      const enabled = enabledTransitions(net, simMarking);
-      if (enabled.length === 0) {
+      const { mode, simMarking, enabled, computing } = get();
+      if (mode !== 'simulate' || simMarking === null || computing) return null;
+      const ids = [...enabled.keys()];
+      if (ids.length === 0) {
         notify('info', en.messages.noEnabled);
         return null;
       }
-      const picked = enabled[Math.min(enabled.length - 1, Math.floor(random() * enabled.length))];
-      if (picked === undefined) return null;
-      get().fireTransition(picked);
-      return picked;
+      const pick = (length: number): number => Math.min(length - 1, Math.floor(random() * length));
+      const id = ids[pick(ids.length)];
+      if (id === undefined) return null;
+      const count = enabled.get(id)?.bindings.length ?? 0;
+      get().fireBindingAt(id, pick(count));
+      return id;
     },
     resetSimulation() {
       if (get().mode !== 'simulate') return;
       set({
-        simMarking: countsToMarking(markingToCounts(get().net.marking)),
+        simMarking: initialSimMarking(get().net),
         simHistory: [],
+        picker: null,
       });
+      recompute();
     },
   };
 });

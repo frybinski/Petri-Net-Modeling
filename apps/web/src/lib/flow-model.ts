@@ -1,4 +1,12 @@
-import type { Diagnostic, Id, Marking, PetriNet, Position } from '@pnm/core';
+import {
+  tokenLabel,
+  type Diagnostic,
+  type Id,
+  type Marking,
+  type PetriNet,
+  type Position,
+  type Token,
+} from '@pnm/core';
 import type { ArcFlowEdge, FlowNode } from '../components/canvas/types';
 import {
   PARALLEL_ARC_BEND,
@@ -11,12 +19,33 @@ import {
 
 export const ANNOTATION_WIDTH = 180;
 
+/** Up to this many tokens are written out below a place of a JSON net. */
+export const MAX_LABELLED_TOKENS = 3;
+/** Up to this many tokens are listed in the hover text. */
+export const MAX_TOOLTIP_TOKENS = 10;
+
+/** One token per line, for the hover text of a place. */
+export function tokenTooltip(tokens: readonly Token[]): string {
+  const lines = tokens.slice(0, MAX_TOOLTIP_TOKENS).map((t) => tokenLabel(t, 60));
+  if (tokens.length > MAX_TOOLTIP_TOKENS) {
+    lines.push(`… and ${tokens.length - MAX_TOOLTIP_TOKENS} more`);
+  }
+  return lines.join('\n');
+}
+
+export const INSCRIPTION_LABEL_LENGTH = 24;
+export const GUARD_LABEL_LENGTH = 34;
+
 export interface FlowContext {
   net: PetriNet;
   marking: Marking;
   selection: readonly Id[];
-  /** Ids of enabled transitions (simulation only). */
-  enabled: ReadonlySet<Id>;
+  /** Ids of enabled transitions (simulation only) and their number of bindings. */
+  enabled: ReadonlyMap<Id, number>;
+  /** Transition whose binding list is open. */
+  picking: Id | null;
+  /** Show guards, inscriptions and types. */
+  showInscriptions: boolean;
   simulating: boolean;
   diagnostics: readonly Diagnostic[];
   dragPositions: Readonly<Record<Id, Position>> | null;
@@ -61,8 +90,10 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
     });
   }
 
+  const json = ctx.net.profile === 'json-net';
   for (const place of ctx.net.places) {
-    const tokens = ctx.marking[place.id]?.length ?? 0;
+    const tokenList = ctx.marking[place.id] ?? [];
+    const tokens = tokenList.length;
     nodes.push({
       id: place.id,
       type: 'place',
@@ -75,6 +106,11 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
       data: {
         name: place.name,
         tokens,
+        json,
+        tokenLabels:
+          json && tokens <= MAX_LABELLED_TOKENS ? tokenList.map((t) => tokenLabel(t, 18)) : [],
+        ...(json && tokens > 0 && { tooltip: tokenTooltip(tokenList) }),
+        ...(json && ctx.showInscriptions && place.type !== undefined && { typeName: place.type }),
         ...(place.capacity !== undefined && { capacity: place.capacity }),
         hasError: errors.has(place.id),
         isArcSource: ctx.arcSource === place.id,
@@ -85,6 +121,7 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
 
   for (const transition of ctx.net.transitions) {
     const enabled = ctx.enabled.has(transition.id);
+    const guard = transition.guard?.trim();
     nodes.push({
       id: transition.id,
       type: 'transition',
@@ -96,6 +133,9 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
       ariaLabel: `Transition ${transition.name}${ctx.simulating ? (enabled ? ', enabled' : ', not enabled') : ''}`,
       data: {
         name: transition.name,
+        ...(json && ctx.showInscriptions && guard ? { guard } : {}),
+        bindings: ctx.enabled.get(transition.id) ?? 0,
+        picking: ctx.picking === transition.id,
         enabled,
         simulating: ctx.simulating,
         hasError: errors.has(transition.id),
@@ -123,6 +163,7 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
     });
   }
   const directions = new Set(ctx.net.arcs.map((a) => `${a.source}>${a.target}`));
+  const json = ctx.net.profile === 'json-net';
 
   const edges: ArcFlowEdge[] = [];
   for (const arc of ctx.net.arcs) {
@@ -144,12 +185,19 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       selected: selected.has(arc.id),
       selectable: true,
       focusable: true,
-      ariaLabel: `Arc from ${nameOf(ctx.net, arc.source)} to ${nameOf(ctx.net, arc.target)}, weight ${arc.weight}`,
+      ariaLabel: `Arc from ${nameOf(ctx.net, arc.source)} to ${nameOf(ctx.net, arc.target)}, ${
+        json && (arc.inscription ?? '').trim() !== ''
+          ? `inscription ${arc.inscription!.trim()}`
+          : `weight ${arc.weight}`
+      }`,
       data: {
         path: geometry.path,
         arrow: arrowHeadPoints(geometry.tip, geometry.angle),
         label: geometry.label,
         weight: arc.weight,
+        ...(json && ctx.showInscriptions && (arc.inscription ?? '').trim() !== ''
+          ? { inscription: arc.inscription!.trim() }
+          : {}),
         hasError: errors.has(arc.id),
         arcId: arc.id,
       },

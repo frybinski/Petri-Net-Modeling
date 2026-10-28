@@ -22,8 +22,11 @@ export {
   type EnabledResult,
 } from './json-net';
 
-/** The enabled bindings of a P/T net: one binding without variables per enabled transition. */
-function enabledPtBindings(net: PetriNet, marking: Marking): EnabledResult {
+/**
+ * The enabled bindings of a P/T net: one binding without variables per enabled transition.
+ * Synchronous, unlike `findEnabled`, which defers to it for P/T nets.
+ */
+export function findEnabledPt(net: PetriNet, marking: Marking): EnabledResult {
   const enabled = new Map<Id, BindingResult>();
   const placeIds = new Set(net.places.map((p) => p.id));
   for (const transitionId of enabledPt(net, marking)) {
@@ -58,6 +61,6 @@ export async function findEnabled(
   marking: Marking,
   opts?: BindingOptions,
 ): Promise<EnabledResult> {
-  if (net.profile === 'pt-net') return enabledPtBindings(net, marking);
+  if (net.profile === 'pt-net') return findEnabledPt(net, marking);
   return enabledTransitionsHigher(net, marking, opts);
 }

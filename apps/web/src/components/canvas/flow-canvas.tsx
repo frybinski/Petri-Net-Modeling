@@ -1,4 +1,4 @@
-import { canConnect, enabledTransitions, type Id, type Position } from '@pnm/core';
+import { canConnect, type Id, type Position } from '@pnm/core';
 import {
   Background,
   BackgroundVariant,
@@ -68,10 +68,16 @@ export function FlowCanvas() {
 
   const simulating = mode === 'simulate';
   const marking = currentMarking({ net, mode, simMarking });
-  const enabled = useMemo(
-    () => (simulating && simMarking ? new Set(enabledTransitions(net, simMarking)) : new Set<Id>()),
-    [simulating, simMarking, net],
-  );
+  const enabledResults = useEditorStore((s) => s.enabled);
+  const picking = useEditorStore((s) => s.picker);
+  const showInscriptions = useUiStore((s) => s.showInscriptions);
+  const enabled = useMemo(() => {
+    const counts = new Map<Id, number>();
+    if (simulating) {
+      for (const [id, result] of enabledResults) counts.set(id, result.bindings.length);
+    }
+    return counts;
+  }, [simulating, enabledResults]);
 
   const context = useMemo(
     () => ({
@@ -79,6 +85,8 @@ export function FlowCanvas() {
       marking,
       selection,
       enabled,
+      picking,
+      showInscriptions,
       simulating,
       diagnostics,
       dragPositions,
@@ -93,6 +101,8 @@ export function FlowCanvas() {
       marking,
       selection,
       enabled,
+      picking,
+      showInscriptions,
       simulating,
       diagnostics,
       dragPositions,

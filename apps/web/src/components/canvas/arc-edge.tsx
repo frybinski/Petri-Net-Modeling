@@ -1,5 +1,7 @@
 import type { EdgeProps } from '@xyflow/react';
 import { memo } from 'react';
+import { INSCRIPTION_LABEL_LENGTH } from '../../lib/flow-model';
+import { truncate } from '../../lib/inscriptions';
 import type { ArcFlowEdge } from './types';
 
 function ArcEdgeView({ data, selected }: EdgeProps<ArcFlowEdge>) {
@@ -17,7 +19,23 @@ function ArcEdgeView({ data, selected }: EdgeProps<ArcFlowEdge>) {
         strokeWidth={selected ? 2.4 : 1.6}
       />
       <polygon points={data.arrow} fill={color} />
-      {data.weight !== 1 ? (
+      {data.inscription !== undefined ? (
+        <text
+          x={data.label.x}
+          y={data.label.y - 7}
+          textAnchor="middle"
+          fontSize={11}
+          fontFamily="ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+          fill="var(--text)"
+          stroke="var(--canvas)"
+          strokeWidth={4}
+          paintOrder="stroke"
+          data-testid="arc-inscription"
+        >
+          <title>{data.inscription}</title>
+          {truncate(data.inscription, INSCRIPTION_LABEL_LENGTH)}
+        </text>
+      ) : data.weight !== 1 ? (
         <text
           x={data.label.x}
           y={data.label.y - 7}

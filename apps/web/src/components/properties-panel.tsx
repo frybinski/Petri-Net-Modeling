@@ -18,6 +18,8 @@ import { Button, IconButton } from './ui/button';
 import { NumberField, SelectField, TextField } from './ui/fields';
 import { TypesSection } from './types/types-section';
 import { useUiStore } from '../store/ui-store';
+import { InscriptionField } from './inscription-field';
+import { arcDirection, boundVariables } from '../lib/inscriptions';
 import type { AlignMode, DistributeAxis, Profile } from '@pnm/core';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -245,9 +247,12 @@ function PlaceTypeField({ placeId }: { placeId: string }) {
 
 function TransitionProperties({ id }: { id: string }) {
   const transition = useEditorStore((s) => s.net.transitions.find((t) => t.id === id));
+  const net = useEditorStore((s) => s.net);
   const locked = useEditorStore((s) => s.mode === 'simulate');
   const updateTransition = useEditorStore((s) => s.updateTransition);
   if (!transition) return null;
+  const higher = net.profile === 'json-net';
+  const bound = higher ? boundVariables(net, id) : [];
   return (
     <Section title={en.elements.transition}>
       <TextField
@@ -259,9 +264,51 @@ function TransitionProperties({ id }: { id: string }) {
         disabled={locked}
         data-testid="prop-name"
       />
+      {higher ? (
+        <>
+          <InscriptionField
+            label={en.inscriptions.guard}
+            kind="guard"
+            value={transition.guard ?? ''}
+            bound={bound.map((v) => v.name)}
+            placeholder={en.inscriptions.guardPlaceholder}
+            hint={en.inscriptions.guardHint}
+            disabled={locked}
+            onCommit={(guard) => {
+              updateTransition(id, { guard: guard.trim() === '' ? undefined : guard });
+            }}
+            data-testid="prop-guard"
+          />
+          <BoundVariables variables={bound} />
+        </>
+      ) : null}
       {locked ? <p className="m-0 text-xs text-muted">{en.properties.lockedHint}</p> : null}
       <DeleteButton />
     </Section>
+  );
+}
+
+function BoundVariables({ variables }: { variables: ReturnType<typeof boundVariables> }) {
+  return (
+    <div className="flex flex-col gap-1" data-testid="bound-variables">
+      <span className="text-xs font-medium text-muted">{en.inscriptions.boundVariables}</span>
+      {variables.length === 0 ? (
+        <p className="m-0 text-[11px] text-muted">{en.inscriptions.noBoundVariables}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+          {variables.map((v) => (
+            <li key={v.name} className="flex items-baseline gap-2 text-xs">
+              <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono font-semibold text-accent">
+                ${v.name}
+              </code>
+              <span className="truncate text-muted" title={v.placeName}>
+                {v.placeName}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -272,6 +319,10 @@ function ArcProperties({ id }: { id: string }) {
   const updateArc = useEditorStore((s) => s.updateArc);
   const reverseArc = useEditorStore((s) => s.reverseArc);
   if (!arc) return null;
+  const direction = net.profile === 'json-net' ? arcDirection(net, id) : null;
+  const hasInscription = (arc.inscription ?? '').trim() !== '';
+  const transitionId = direction === 'input' ? arc.target : arc.source;
+  const bound = direction === 'output' ? boundVariables(net, transitionId).map((v) => v.name) : [];
   return (
     <Section title={en.elements.arc}>
       <div className="flex items-center gap-2 text-sm">
@@ -294,11 +345,30 @@ function ArcProperties({ id }: { id: string }) {
           <div className="truncate">{nameOf(net, arc.target)}</div>
         </div>
       </div>
+      {direction ? (
+        <InscriptionField
+          label={en.inscriptions.inscription}
+          kind={direction}
+          value={arc.inscription ?? ''}
+          bound={bound}
+          placeholder={
+            direction === 'input'
+              ? en.inscriptions.inputPlaceholder
+              : en.inscriptions.outputPlaceholder
+          }
+          hint={direction === 'input' ? en.inscriptions.inputHint : en.inscriptions.outputHint}
+          disabled={locked}
+          onCommit={(inscription) => {
+            updateArc(id, { inscription: inscription.trim() === '' ? undefined : inscription });
+          }}
+          data-testid="prop-inscription"
+        />
+      ) : null}
       <NumberField
         label={en.properties.weight}
         value={arc.weight}
         min={1}
-        hint={en.properties.weightHint}
+        hint={hasInscription ? en.inscriptions.weightIgnored : en.properties.weightHint}
         disabled={locked}
         onCommit={(weight) => {
           if (weight !== undefined) updateArc(id, { weight });

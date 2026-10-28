@@ -2,11 +2,13 @@ import {
   addArc,
   addAnnotation,
   addPlace,
+  addToken,
   addTransition,
   createEmptyNet,
   setInitialTokens,
   setWeight,
   updateNode,
+  type PetriNet,
 } from '@pnm/core';
 import { describe, expect, it } from 'vitest';
 import { escapeXml, netToSvg, wrapNoteText } from './svg-export';
@@ -75,5 +77,42 @@ describe('text helpers', () => {
     ).toBeGreaterThan(2);
     expect(wrapNoteText('a\nb')).toEqual(['a', 'b']);
     expect(wrapNoteText('')).toEqual(['']);
+  });
+});
+
+describe('netToSvg for JSON nets', () => {
+  const json = (): PetriNet => {
+    let net = createEmptyNet('json', 'json-net');
+    net = addPlace(net, { id: 'p', name: 'Orders', position: { x: 0, y: 0 }, type: 'Order' });
+    net = addPlace(net, { id: 'q', name: 'Out', position: { x: 300, y: 0 } });
+    net = addTransition(net, {
+      id: 't',
+      name: 'Approve',
+      position: { x: 150, y: 0 },
+      guard: '$o.amount > 0',
+    });
+    net = addArc(net, 'p', 't', { id: 'a1', inscription: '$o' });
+    net = addArc(net, 't', 'q', { id: 'a2', inscription: '{ "id": $o.id }' });
+    return addToken(net, 'p', { id: 'A-1' });
+  };
+
+  it('draws guards, inscriptions, types and token labels', () => {
+    const svg = netToSvg(json());
+    expect(svg).toContain('[ $o.amount &gt; 0 ]');
+    expect(svg).toContain('{ &quot;id&quot;: $o.id }');
+    expect(svg).toContain('>$o<');
+    expect(svg).toContain('>Order<');
+    expect(svg).toContain('{id:&quot;A-1&quot;}');
+  });
+
+  it('can leave the inscriptions out', () => {
+    const svg = netToSvg(json(), { inscriptions: false });
+    expect(svg).not.toContain('$o.amount');
+    expect(svg).not.toContain('Order<');
+  });
+
+  it('is well-formed XML', () => {
+    const doc = new DOMParser().parseFromString(netToSvg(json()), 'image/svg+xml');
+    expect(doc.querySelector('parsererror')).toBeNull();
   });
 });

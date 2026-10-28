@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
+
+const MENU_ITEM = '[role="menuitem"]:not(:disabled), [role="menuitemcheckbox"]:not(:disabled)';
 
 export interface MenuItem {
   id: string;
@@ -7,6 +9,8 @@ export interface MenuItem {
   icon?: ReactNode;
   shortcut?: string;
   disabled?: boolean;
+  /** Makes the item a checkbox that shows whether the option is on. */
+  checked?: boolean;
   onSelect: () => void;
 }
 
@@ -52,8 +56,7 @@ export function Menu({
   }, [open]);
 
   useEffect(() => {
-    if (open)
-      listRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
+    if (open) listRef.current?.querySelector<HTMLElement>(MENU_ITEM)?.focus();
   }, [open]);
 
   const close = (returnFocus: boolean): void => {
@@ -62,9 +65,7 @@ export function Menu({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const items = [
-      ...(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []),
-    ];
+    const items = [...(listRef.current?.querySelectorAll<HTMLElement>(MENU_ITEM) ?? [])];
     const index = items.indexOf(document.activeElement as HTMLElement);
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -133,7 +134,8 @@ export function Menu({
                 <button
                   key={item.id}
                   type="button"
-                  role="menuitem"
+                  role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                  aria-checked={item.checked}
                   disabled={item.disabled}
                   data-testid={`menu-item-${item.id}`}
                   onClick={() => {
@@ -142,7 +144,9 @@ export function Menu({
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-surface-hover focus-visible:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <span className="flex w-4 shrink-0 justify-center text-muted">{item.icon}</span>
+                  <span className="flex w-4 shrink-0 justify-center text-muted">
+                    {item.checked ? <Check size={14} aria-hidden="true" /> : item.icon}
+                  </span>
                   <span className="flex-1">{item.label}</span>
                   {item.shortcut ? (
                     <span className="text-xs text-muted">{item.shortcut}</span>

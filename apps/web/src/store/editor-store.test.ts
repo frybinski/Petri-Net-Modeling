@@ -5,7 +5,7 @@ import {
   serializeNet,
   type PetriNet,
 } from '@pnm/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HISTORY_LIMIT,
   selectCanRedo,
@@ -297,7 +297,9 @@ describe('simulation', () => {
     expect(store().mode).toBe('simulate');
     store().fireTransition(t1);
     expect(markingToCounts(store().simMarking ?? {})).toEqual({ [p1]: 1, [p2]: 1 });
-    expect(store().simHistory).toEqual([{ index: 1, transitionId: t1, transitionName: 'T1' }]);
+    expect(store().simHistory).toEqual([
+      { index: 1, transitionId: t1, transitionName: 'T1', binding: {} },
+    ]);
     store().fireTransition(t1);
     store().fireTransition(t1); // not enabled any more: ignored
     expect(store().simHistory).toHaveLength(2);
@@ -448,5 +450,106 @@ describe('higher nets: tokens', () => {
     expect(store().net.marking[p]?.slice(0, 2)).toEqual(['x', 'y']);
     store().adjustTokens(-2);
     expect(store().net.marking[p]).toEqual(['x']);
+  });
+});
+
+/** A JSON net with one input place holding `tokens` and a doubling transition. */
+function buildJsonNet(tokens: number[]): { p: string; q: string; t: string } {
+  store().setProfile('json-net');
+  const p = store().addPlace({ x: 0, y: 0 }) as string;
+  const t = store().addTransition({ x: 100, y: 0 }) as string;
+  const q = store().addPlace({ x: 200, y: 0 }) as string;
+  const a1 = store().addArc(p, t) as string;
+  const a2 = store().addArc(t, q) as string;
+  store().updateArc(a1, { inscription: '$n' });
+  store().updateArc(a2, { inscription: '$n * 2' });
+  store().setPlaceTokens(p, tokens);
+  return { p, q, t };
+}
+
+const settled = () =>
+  vi.waitFor(() => {
+    expect(store().computing).toBe(false);
+  });
+
+describe('simulation of JSON nets', () => {
+  it('computes bindings asynchronously and fires a chosen one', async () => {
+    const { p, q, t } = buildJsonNet([1, 2, 3]);
+    store().startSimulation();
+    expect(store().computing).toBe(true);
+    expect(store().enabled.size).toBe(0);
+    store().fireTransition(t); // ignored while computing
+    expect(store().simHistory).toHaveLength(0);
+    await settled();
+    expect(
+      store()
+        .enabled.get(t)
+        ?.bindings.map((b) => b.binding),
+    ).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
+
+    store().fireTransition(t); // several bindings: opens the list instead of firing
+    expect(store().picker).toBe(t);
+    expect(store().simHistory).toHaveLength(0);
+    store().fireBindingAt(t, 1);
+    expect(store().picker).toBeNull();
+    expect(store().simMarking).toEqual({ [p]: [1, 3], [q]: [4] });
+    expect(store().simHistory).toMatchObject([{ transitionId: t, binding: { n: 2 } }]);
+    await settled();
+    expect(store().enabled.get(t)?.bindings).toHaveLength(2);
+    expect(store().net.marking[p]).toEqual([1, 2, 3]); // the document is untouched
+  });
+
+  it('fires directly when there is exactly one binding', async () => {
+    const { q, t } = buildJsonNet([5]);
+    store().startSimulation();
+    await settled();
+    store().fireTransition(t);
+    expect(store().picker).toBeNull();
+    expect(store().simMarking).toEqual({ [q]: [10] });
+    await settled();
+    expect(store().enabled.size).toBe(0);
+  });
+
+  it('steps randomly through transitions and bindings', async () => {
+    const { q, t } = buildJsonNet([1, 2, 3]);
+    store().startSimulation();
+    await settled();
+    expect(store().stepRandom(() => 0.99)).toBe(t);
+    expect(store().simMarking?.[q]).toEqual([6]);
+    await settled();
+    expect(store().stepRandom(() => 0)).toBe(t);
+    expect(store().simMarking?.[q]).toEqual([6, 2]);
+  });
+
+  it('discards the result of an outdated computation', async () => {
+    const { p, t } = buildJsonNet([1, 2, 3]);
+    store().startSimulation();
+    store().stopSimulation();
+    store().setPlaceTokens(p, [7]);
+    store().startSimulation();
+    await settled();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(
+      store()
+        .enabled.get(t)
+        ?.bindings.map((b) => b.binding),
+    ).toEqual([{ n: 7 }]);
+  });
+
+  it('collects evaluation problems for the status bar and clears them on exit', async () => {
+    const { t } = buildJsonNet([1]);
+    store().updateTransition(t, { guard: '$n.missing.deep' });
+    store().startSimulation();
+    await settled();
+    expect(store().simDiagnostics.map((d) => d.code)).toEqual(['GUARD_ERROR']);
+    store().stopSimulation();
+    expect(store().simDiagnostics).toEqual([]);
+  });
+
+  it('keeps P/T simulation synchronous', () => {
+    const { t1 } = buildSmallNet();
+    store().startSimulation();
+    expect(store().computing).toBe(false);
+    expect([...store().enabled.keys()]).toEqual([t1]);
   });
 });

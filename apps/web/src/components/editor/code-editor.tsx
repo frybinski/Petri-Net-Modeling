@@ -36,6 +36,8 @@ export interface CodeEditorProps {
   diagnostics?: readonly EditorDiagnostic[];
   /** Variable names (without `$`) offered by completion in JSONata mode. */
   variables?: readonly string[];
+  /** Offer completion (default true). */
+  completion?: boolean;
   readOnly?: boolean;
   ariaLabel: string;
   /** CSS min-height of the editing area, for example `4.5rem`. */
@@ -116,11 +118,17 @@ export default function CodeEditor(props: CodeEditorProps) {
       }),
       editable.current.of([EditorView.editable.of(!readOnly), EditorState.readOnly.of(readOnly)]),
       language === 'json' ? json() : jsonataLanguage,
-      autocompletion({
-        activateOnTyping: true,
-        override:
-          language === 'jsonata' ? [jsonataCompletions(() => latest.current.variables ?? [])] : [],
-      }),
+      ...(props.completion === false
+        ? []
+        : [
+            autocompletion({
+              activateOnTyping: true,
+              override:
+                language === 'jsonata'
+                  ? [jsonataCompletions(() => latest.current.variables ?? [])]
+                  : [],
+            }),
+          ]),
       keymap.of([
         {
           key: 'Mod-Enter',
