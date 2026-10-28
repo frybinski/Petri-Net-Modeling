@@ -1,0 +1,217 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Design tokens. Neutral grays, one accent, green for enabled, red for errors. */
+:root {
+  color-scheme: light;
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --surface-hover: #ececee;
+  --canvas: #fafafa;
+  --grid: #d4d4d8;
+  --border: #e4e4e7;
+  --border-strong: #c4c4cc;
+  --text: #18181b;
+  --text-muted: #62626c;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-contrast: #ffffff;
+  --accent-soft: #eef2ff;
+  --ok: #16a34a;
+  --ok-soft: #dcfce7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --node-fill: #ffffff;
+  --node-stroke: #3f3f46;
+  --edge: #52525b;
+  --token: #18181b;
+  --note-bg: #fef9c3;
+  --note-border: #eab308;
+  --note-text: #422006;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.08);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0b0d;
+  --surface: #18181b;
+  --surface-2: #202024;
+  --surface-hover: #2a2a30;
+  --canvas: #111114;
+  --grid: #35353c;
+  --border: #2c2c32;
+  --border-strong: #44444c;
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-contrast: #0b0b0d;
+  --accent-soft: #23234a;
+  --ok: #4ade80;
+  --ok-soft: #14301f;
+  --danger: #f87171;
+  --danger-soft: #3b1618;
+  --warn: #fbbf24;
+  --warn-soft: #3a2a0a;
+  --node-fill: #1c1c20;
+  --node-stroke: #d4d4d8;
+  --edge: #a1a1aa;
+  --token: #f4f4f5;
+  --note-bg: #3b3512;
+  --note-border: #a16207;
+  --note-text: #fef9c3;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-canvas: var(--canvas);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --shadow-panel: var(--shadow);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Consistent keyboard focus ring for everything interactive. */
+:where(button, [role='menuitem'], [role='tab'], a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* React Flow adjustments. */
+.react-flow {
+  --xy-background-color: var(--canvas);
+  --xy-background-pattern-color-props: var(--grid);
+  --xy-edge-stroke-default: var(--edge);
+  --xy-selection-background-color-default: color-mix(in srgb, var(--accent) 10%, transparent);
+  --xy-selection-border-default: 1px dashed var(--accent);
+  --xy-minimap-background-color-default: var(--surface);
+  --xy-minimap-mask-background-color-default: color-mix(in srgb, var(--bg) 70%, transparent);
+  --xy-controls-button-background-color-default: var(--surface);
+  --xy-controls-button-background-color-hover-default: var(--surface-hover);
+  --xy-controls-button-color-default: var(--text);
+  --xy-controls-button-color-hover-default: var(--text);
+  --xy-controls-button-border-color-default: var(--border);
+  --xy-controls-box-shadow-default: var(--shadow);
+  --xy-handle-background-color-default: var(--accent);
+  --xy-handle-border-color-default: var(--surface);
+  --xy-attribution-background-color-default: transparent;
+}
+
+.react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.react-flow__attribution {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.react-flow__node:focus-visible {
+  outline: none;
+}
+
+.react-flow__node:focus-visible .pn-shape {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.react-flow__edge:focus-visible {
+  outline: none;
+}
+
+.react-flow__edge:focus-visible .arc-line {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.react-flow__node:hover .react-flow__handle,
+.react-flow.connecting .react-flow__handle {
+  opacity: 1;
+}
+
+.react-flow.tool-arc .react-flow__handle {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.react-flow.tool-place .react-flow__pane,
+.react-flow.tool-transition .react-flow__pane,
+.react-flow.tool-annotation .react-flow__pane {
+  cursor: crosshair;
+}
+
+.react-flow.tool-arc .react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow.mode-simulate .react-flow__handle {
+  display: none;
+}
