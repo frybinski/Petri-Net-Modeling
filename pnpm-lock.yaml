@@ -80,6 +80,9 @@ importers:
       '@pnm/layout':
         specifier: workspace:*
         version: link:../../packages/layout
+      '@pnm/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@pnm/sim':
         specifier: workspace:*
         version: link:../../packages/sim

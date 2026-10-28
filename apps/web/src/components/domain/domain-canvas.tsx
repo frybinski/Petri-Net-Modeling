@@ -10,7 +10,7 @@ import {
   visitedTransitions,
   type SpriteSample,
 } from '@pnm/domain';
-import { Factory, Maximize, Minus, Plus } from 'lucide-react';
+import { Bot, Factory, Maximize, Minus, Plus } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -25,6 +25,7 @@ import { DomainAnimator } from '../../lib/domain-animator';
 import { buildDomainCard } from '../../lib/domain-hover';
 import { currentSimState } from '../../lib/domain-state';
 import { paletteFor } from '../../lib/domain-theme';
+import { openGenerateDialog } from '../../lib/domain-generation';
 import { analyseDomainView, generateGenericView } from '../../lib/domain-view';
 import { registerDomainViewApi } from '../../lib/domain-view-api';
 import { StaticLayer } from '../../lib/static-layer';
@@ -715,6 +716,15 @@ export function DomainCanvas() {
               data-testid="domain-generate"
             >
               {en.domain.generate}
+            </Button>
+            <Button
+              icon={<Bot size={14} aria-hidden="true" />}
+              onClick={openGenerateDialog}
+              disabled={simulating}
+              title={simulating ? en.llm.lockedTip : en.llm.generateTip}
+              data-testid="domain-generate-llm-empty"
+            >
+              {en.llm.generateAction}
             </Button>
           </div>
         </div>

@@ -181,7 +181,6 @@ export async function generateDomainView(
     }
     if (model === '') model = answer.model;
 
-    progress(round, 'validating');
     const merged = mergeAnswer(candidate, answer.json, kind === 'generate');
     let error: string | undefined;
     if (merged.usable) {
@@ -196,6 +195,7 @@ export async function generateDomainView(
     diagnostics = isEmpty(candidate)
       ? [{ rule: 'V1', severity: 'error', path: '(root)', message: error ?? 'The answer is empty' }]
       : inspection.diagnostics;
+    progress(round, 'validating', diagnostics);
     rounds.push({
       round,
       kind,

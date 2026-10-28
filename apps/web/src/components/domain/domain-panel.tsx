@@ -1,6 +1,16 @@
 import type { Id } from '@pnm/core';
+import { parseGeneration } from '@pnm/llm/record';
 import { SPRITES, type DomainDiagnostic, type DomainView } from '@pnm/domain';
-import { AlertCircle, AlertTriangle, CheckCircle2, Sparkles, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  ScrollText,
+  Settings,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { en } from '../../i18n/en';
 import {
@@ -18,8 +28,11 @@ import {
 } from '../../lib/domain-view';
 import { formatOrigin } from '../../lib/domain-hover';
 import { locateJsonPath, splitPath } from '../../lib/json-path';
+import { openGenerateDialog } from '../../lib/domain-generation';
 import { getViewApi } from '../../lib/view-api';
 import { useEditorStore } from '../../store/editor-store';
+import { useGenerationStore } from '../../store/generation-store';
+import { useLlmStore } from '../../store/llm-store';
 import { Button } from '../ui/button';
 import { NumberField, SelectField, TextField } from '../ui/fields';
 import { LazyCodeEditor, type EditorDiagnostic } from '../editor/lazy-code-editor';
@@ -243,7 +256,17 @@ function EntrySection({ view }: { view: DomainView }) {
           </pre>
           {origin ? (
             <p className="m-0 text-[11px] text-muted" data-testid="domain-entry-origin">
-              {en.domain.origin1}: {formatOrigin(origin)}
+              {en.domain.origin1}:{' '}
+              {origin.source === 'llm' ? (
+                <span
+                  className="rounded bg-accent-soft px-1 py-px font-medium text-accent"
+                  data-testid="domain-entry-badge"
+                >
+                  {formatOrigin(origin)}
+                </span>
+              ) : (
+                formatOrigin(origin)
+              )}
             </p>
           ) : null}
         </>
@@ -272,6 +295,10 @@ export function DomainPanel() {
   const canUpdateHash = stale && errors === 0 && !locked;
   const canFill = view !== null && !locked;
   const origins = view ? originCounts(view) : null;
+  const storedGeneration = net.domainViewGeneration;
+  const generation = useMemo(() => parseGeneration(storedGeneration), [storedGeneration]);
+  const setLogOpen = useGenerationStore((s) => s.setLogOpen);
+  const openLlmSettings = useLlmStore((s) => s.openSettings);
 
   return (
     <aside
@@ -326,6 +353,28 @@ export function DomainPanel() {
                 </dd>
               </dl>
             ) : null}
+            {generation ? (
+              <p
+                className="m-0 flex items-start gap-1.5 text-xs text-muted"
+                data-testid="domain-generated-by"
+              >
+                <Bot size={14} aria-hidden="true" className="mt-px shrink-0 text-accent" />
+                <span className="min-w-0 flex-1 break-words">
+                  {en.llm.generatedBy(generation.model, generation.startedAt.slice(0, 10))}
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center gap-1 rounded text-accent hover:underline"
+                  onClick={() => {
+                    setLogOpen(true);
+                  }}
+                  data-testid="domain-show-log"
+                >
+                  <ScrollText size={12} aria-hidden="true" />
+                  {en.llm.showLog}
+                </button>
+              </p>
+            ) : null}
           </>
         )}
         {diagnostics.length > 0 ? (
@@ -351,6 +400,23 @@ export function DomainPanel() {
             data-testid="domain-generate-action"
           >
             {en.domain.generate}
+          </Button>
+          <Button
+            icon={<Bot size={14} aria-hidden="true" />}
+            onClick={openGenerateDialog}
+            disabled={locked}
+            title={locked ? en.llm.lockedTip : en.llm.generateTip}
+            data-testid="domain-generate-llm"
+          >
+            {en.llm.generateAction}
+          </Button>
+          <Button
+            icon={<Settings size={14} aria-hidden="true" />}
+            onClick={openLlmSettings}
+            title={en.llm.settingsTip}
+            data-testid="domain-llm-settings"
+          >
+            {en.llm.settingsAction}
           </Button>
           <Button
             onClick={fillMissingEntries}

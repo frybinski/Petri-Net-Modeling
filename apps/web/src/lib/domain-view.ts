@@ -136,7 +136,8 @@ async function generate(): Promise<void> {
   const state = useEditorStore.getState();
   try {
     const view = await genericDomainViewWithLayout(state.net);
-    useEditorStore.getState().setDomainView(normalizeDomainView(view));
+    // A generic view is not the result of a generation: the record of an earlier one goes.
+    useEditorStore.getState().replaceDomainView(normalizeDomainView(view), undefined);
     notify('success', en.domain.generated);
   } catch (error) {
     notify('error', error instanceof Error ? error.message : String(error));

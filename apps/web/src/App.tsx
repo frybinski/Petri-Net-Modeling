@@ -3,6 +3,9 @@ import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { Header } from './components/header';
+import { GenerateDialog } from './components/llm/generate-dialog';
+import { GenerationLogDialog } from './components/llm/generation-log-dialog';
+import { LlmSettingsDialog } from './components/llm/llm-settings-dialog';
 import { RightPanel } from './components/right-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
 import { TokenDialog } from './components/tokens/token-dialog';
@@ -130,6 +133,9 @@ export function App() {
         <Toaster />
         <ConfirmDialog />
         <ShortcutsDialog />
+        <GenerateDialog />
+        <GenerationLogDialog />
+        <LlmSettingsDialog />
         {tokenDialog ? (
           <TokenDialog
             key={`${tokenDialog.placeId}:${tokenDialog.index ?? 'new'}`}

@@ -8,6 +8,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./record": "./src/record.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {
