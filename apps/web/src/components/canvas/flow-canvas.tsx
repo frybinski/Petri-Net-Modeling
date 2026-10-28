@@ -7,6 +7,7 @@ import {
   ReactFlow,
   useReactFlow,
   useStore,
+  useStoreApi,
   type Connection,
   type EdgeChange,
   type NodeChange,
@@ -79,6 +80,7 @@ export function FlowCanvas() {
     setViewport,
     zoomTo,
   } = useReactFlow();
+  const rfStore = useStoreApi();
   const wrapper = useRef<HTMLDivElement>(null);
   /** The user zoomed since the view was last fitted: a resize of the window keeps the zoom. */
   const userZoomed = useRef(false);
@@ -280,6 +282,23 @@ export function FlowCanvas() {
       observer.disconnect();
     };
   }, [fit]);
+
+  // The zoom as a CSS variable: names keep a readable size on screen while zoomed out. Set directly
+  // on the element, so that zooming does not re-render the canvas.
+  useEffect(() => {
+    const host = wrapper.current;
+    if (!host) return;
+    let last = 0;
+    const apply = (zoom: number): void => {
+      if (zoom === last) return;
+      last = zoom;
+      host.style.setProperty('--zoom', String(Math.round(zoom * 1000) / 1000));
+    };
+    apply(rfStore.getState().transform[2]);
+    return rfStore.subscribe((state) => {
+      apply(state.transform[2]);
+    });
+  }, [rfStore]);
 
   // Holding Alt turns every node into a source for arcs.
   useEffect(() => {
@@ -610,7 +629,7 @@ export function FlowCanvas() {
               ariaLabel={en.canvas.minimap}
               nodeColor="var(--border-strong)"
               nodeStrokeColor="var(--node-stroke)"
-              style={{ marginBottom: 26 }}
+              style={{ width: 160, height: 100, marginBottom: 26 }}
             />
           ) : null}
           <ArcPreview cursor={cursor} hoverId={hoverId} />

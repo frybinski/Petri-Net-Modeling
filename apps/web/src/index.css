@@ -159,7 +159,7 @@ body {
   --xy-edge-stroke-default: var(--edge);
   --xy-selection-background-color-default: color-mix(in srgb, var(--accent) 10%, transparent);
   --xy-selection-border-default: 1px dashed var(--accent);
-  --xy-minimap-background-color-default: var(--surface);
+  --xy-minimap-background-color-default: color-mix(in srgb, var(--surface) 82%, transparent);
   --xy-minimap-mask-background-color-default: color-mix(in srgb, var(--bg) 70%, transparent);
   --xy-controls-button-background-color-default: var(--surface);
   --xy-controls-button-background-color-hover-default: var(--surface-hover);
@@ -386,6 +386,15 @@ body {
   --arc-width: 1.6px;
 }
 
+/* Thin lines would vanish when zoomed far out: draw them a little heavier there. */
+.zoom-mid .pn-arc {
+  --arc-width: 2px;
+}
+
+.zoom-far .pn-arc {
+  --arc-width: 3px;
+}
+
 .pn-arc[data-hover='true'] {
   --arc-color: var(--accent);
   --arc-width: 2.5px;
@@ -426,6 +435,25 @@ body {
 .react-flow__edge:focus-visible .pn-arc {
   --arc-color: var(--accent);
   --arc-width: 2.5px;
+}
+
+/* Names keep a readable size on screen while zoomed out (--zoom is set by the canvas), and a halo
+   in the canvas colour keeps them legible where an arc runs underneath. */
+.pn-name {
+  font-size: clamp(13px, calc(8.6px / var(--zoom, 1)), 17px);
+  text-shadow:
+    0 0 2px var(--canvas),
+    0 0 2px var(--canvas),
+    0 0 3px var(--canvas);
+}
+
+/* The same for node outlines. */
+.zoom-mid .pn-body {
+  stroke-width: 2.2px;
+}
+
+.zoom-far .pn-body {
+  stroke-width: 3.4px;
 }
 
 /* Semantic zoom: details fade out when the net is zoomed out. */

@@ -391,6 +391,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function handleShortcut(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) return false;
   if (isTypingTarget(event.target)) return false;
+  // While a node waits for its name, typed characters belong to the rename field, which may not
+  // have the focus yet. Commands with Ctrl or Cmd keep working.
+  if (editor().renamingId !== null && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+    return false;
+  }
   if (event.target instanceof HTMLElement && event.target.closest('dialog[open], [role="menu"]')) {
     return false;
   }
@@ -399,6 +404,8 @@ export function handleShortcut(event: KeyboardEvent): boolean {
     if (simulating && !command.inSimulation) continue;
     if (command.keys.some((spec) => matchesKey(event, spec)) && (command.when?.(event) ?? true)) {
       event.preventDefault();
+      // React Flow selects a focused node on Escape; the canvas has already handled the key.
+      if (command.id === 'escape') event.stopPropagation();
       command.run();
       return true;
     }

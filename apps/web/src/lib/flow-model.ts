@@ -9,7 +9,10 @@ import {
 } from '@pnm/core';
 import type { ArcFlowEdge, FlowNode } from '../components/canvas/types';
 import {
+  PLACE_SIZE,
   PLACE_SHAPE,
+  TRANSITION_HEIGHT,
+  TRANSITION_WIDTH,
   TRANSITION_SHAPE,
   arcGeometry,
   arrowHeadPoints,
@@ -109,6 +112,9 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
       id: place.id,
       type: 'place',
       position: positionOf(place.id, place.position),
+      // The size is known up front, so that a new node is visible (and can take the focus) at once.
+      initialWidth: PLACE_SIZE,
+      initialHeight: PLACE_SIZE,
       ...(ctx.measured.get(place.id) && { measured: ctx.measured.get(place.id) }),
       selected: selected.has(place.id),
       draggable: ctx.editable,
@@ -137,6 +143,8 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
       id: transition.id,
       type: 'transition',
       position: positionOf(transition.id, transition.position),
+      initialWidth: TRANSITION_WIDTH,
+      initialHeight: TRANSITION_HEIGHT,
       ...(ctx.measured.get(transition.id) && { measured: ctx.measured.get(transition.id) }),
       selected: selected.has(transition.id),
       draggable: ctx.editable,

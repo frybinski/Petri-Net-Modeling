@@ -217,6 +217,11 @@ function allIds(net: PetriNet): Id[] {
   ];
 }
 
+/** The id of the element being renamed, or null when it no longer exists in `net`. */
+function renamingExists(id: Id | null, net: PetriNet): Id | null {
+  return id !== null && allIds(net).includes(id) ? id : null;
+}
+
 function prune(selection: Id[], net: PetriNet): Id[] {
   const existing = new Set(allIds(net));
   const kept = selection.filter((id) => existing.has(id));
@@ -261,6 +266,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       diagnostics: validate(next),
       selection: prune(selection ?? get().selection, next),
       amendId: null,
+      // The element that is being renamed may have been removed.
+      renamingId: renamingExists(get().renamingId, next),
     });
   };
 
