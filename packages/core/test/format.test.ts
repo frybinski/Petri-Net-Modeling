@@ -13,6 +13,7 @@ import {
 import { makeNet } from './helpers';
 
 const examplesDir = join(import.meta.dirname, '..', '..', '..', 'examples');
+const higher = new Set(['order-processing.pn.json', 'token-ring.pn.json']);
 const exampleFiles = readdirSync(examplesDir).filter((f) => f.endsWith('.pn.json'));
 
 describe('format', () => {
@@ -133,6 +134,9 @@ describe('format', () => {
         'traffic-light',
         'dining-philosophers-3',
         'mutual-exclusion',
+        'order-processing',
+        'token-ring',
+        'dining-philosophers-json',
       ]) {
         expect(exampleFiles).toContain(`${required}.pn.json`);
       }
@@ -142,7 +146,9 @@ describe('format', () => {
       it(`${file} parses, is valid without errors or warnings, and is canonical`, () => {
         const text = readFileSync(join(examplesDir, file), 'utf8');
         const net: PetriNet = parseNetText(text);
-        expect(net.profile).toBe('pt-net');
+        expect(net.profile).toBe(
+          file.includes('-json') || higher.has(file) ? 'json-net' : 'pt-net',
+        );
         expect(validate(net)).toEqual([]);
         expect(serializeNet(net)).toBe(text);
       });
