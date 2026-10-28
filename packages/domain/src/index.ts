@@ -9,3 +9,5 @@ export * from './scene';
 export * from './paint';
 export * from './token-layout';
 export * from './animation';
+export * from './status';
+export * from './dynamic';

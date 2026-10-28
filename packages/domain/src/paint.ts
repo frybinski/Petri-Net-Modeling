@@ -6,6 +6,7 @@ import {
   type CellStyle,
   type DrawCommand,
   type Glyph,
+  type Layer,
   type Scene,
 } from './scene';
 import type { Point, Sprite } from './schema';
@@ -59,8 +60,19 @@ export function paintScene(
 ): void {
   const scale = options.scale ?? 1;
   paintSheet(ctx, scene, palette, scale);
+  paintLayers(ctx, scene.layers, palette, options);
+}
+
+/** Draws the layers of a scene without the sheet, for layers on top of another one. */
+export function paintLayers(
+  ctx: Ctx,
+  layers: Record<Layer, readonly DrawCommand[]>,
+  palette: ScenePalette,
+  options: PaintOptions = {},
+): void {
+  const scale = options.scale ?? 1;
   for (const layer of LAYERS) {
-    for (const command of scene.layers[layer]) paintCommand(ctx, command, palette, scale);
+    for (const command of layers[layer]) paintCommand(ctx, command, palette, scale);
   }
 }
 
@@ -856,8 +868,34 @@ function paintCommand(ctx: Ctx, command: DrawCommand, palette: ScenePalette, sca
           command.h,
           command.h / 2,
         );
-        ctx.fillStyle = palette.ok;
+        ctx.fillStyle = palette[command.tone ?? 'ok'];
         ctx.fill();
+      }
+      break;
+    }
+    case 'ring': {
+      const base = ctx.globalAlpha;
+      ctx.lineWidth = command.lineWidth ?? 2.5;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([]);
+      ctx.globalAlpha = base * 0.4;
+      ctx.strokeStyle = palette.line;
+      ctx.beginPath();
+      ctx.arc(command.x, command.y, command.r, 0, Math.PI * 2);
+      ctx.stroke();
+      if (command.value > 0) {
+        ctx.globalAlpha = base;
+        ctx.strokeStyle = palette[command.tone];
+        ctx.beginPath();
+        const start = -Math.PI / 2;
+        ctx.arc(
+          command.x,
+          command.y,
+          command.r,
+          start,
+          start + Math.PI * 2 * Math.min(1, command.value),
+        );
+        ctx.stroke();
       }
       break;
     }

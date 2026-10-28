@@ -1,0 +1,102 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseNetText } from '@pnm/core';
+import { describe, expect, it } from 'vitest';
+import {
+  DEFAULT_THRESHOLDS,
+  layoutTokens,
+  queueLevel,
+  stationInfos,
+  stationStatus,
+  type DomainView,
+} from '../src';
+import { smallNet, smallView } from './helpers';
+
+describe('stationStatus', () => {
+  it('is blocked only when every slot is in use and cases are waiting', () => {
+    expect(stationStatus(2, 2, 1)).toBe('blocked');
+    expect(stationStatus(2, 2, 0)).toBe('busy');
+    expect(stationStatus(1, 2, 5)).toBe('busy');
+    expect(stationStatus(3, 2, 1)).toBe('blocked');
+    // A station without slots in the view is never blocked.
+    expect(stationStatus(1, 0, 5)).toBe('busy');
+  });
+
+  it('tells a station without work from one that is about to start', () => {
+    expect(stationStatus(0, 2, 0)).toBe('starved');
+    expect(stationStatus(0, 2, 3)).toBe('free');
+  });
+});
+
+describe('queueLevel', () => {
+  it('turns yellow from 6 and red from 10 by default', () => {
+    expect(DEFAULT_THRESHOLDS).toEqual({ warn: 6, critical: 10 });
+    expect([0, 5, 6, 9, 10, 40].map((n) => queueLevel(n))).toEqual([
+      'ok',
+      'ok',
+      'warn',
+      'warn',
+      'crit',
+      'crit',
+    ]);
+  });
+
+  it('uses thresholds of the key figure settings', () => {
+    const thresholds = { warn: 2, critical: 3 };
+    expect([1, 2, 3].map((n) => queueLevel(n, thresholds))).toEqual(['ok', 'warn', 'crit']);
+  });
+});
+
+describe('stationInfos', () => {
+  const net = smallNet();
+  const view = smallView(net);
+  const firing = {
+    firingId: 1,
+    transitionId: 'work',
+    start: 0,
+    end: 10,
+    slot: 0,
+    caseIds: ['C-1'],
+  };
+
+  it('counts the waiting cases and the firings under way', () => {
+    const layout = layoutTokens(net, view, {
+      time: 0,
+      marking: { q: [1, 1, 1], res: [] },
+      running: [firing],
+    });
+    const info = stationInfos(net, view, layout.counts, layout.running).get('work')!;
+    expect(info).toMatchObject({ busy: 1, capacity: 1, waiting: 3, status: 'blocked' });
+  });
+
+  it('has no entry for arrivals and for stations without a card', () => {
+    const layout = layoutTokens(net, view, { time: 0, marking: {}, running: [] });
+    const infos = stationInfos(net, view, layout.counts, layout.running);
+    expect([...infos.keys()]).toEqual(['work']);
+    expect(infos.get('work')!.status).toBe('starved');
+  });
+
+  it('does not count resources as waiting cases', () => {
+    const layout = layoutTokens(net, view, { time: 0, marking: { res: [1] }, running: [] });
+    expect(stationInfos(net, view, layout.counts, layout.running).get('work')!.waiting).toBe(0);
+  });
+
+  it('works for the example nets', () => {
+    const parcel = parseNetText(
+      readFileSync(
+        join(import.meta.dirname, '..', '..', '..', 'examples', 'parcel-center.pn.json'),
+        'utf8',
+      ),
+    );
+    const parcelView = parcel.domainView as DomainView;
+    const layout = layoutTokens(parcel, parcelView, {
+      time: 0,
+      marking: parcel.marking,
+      running: [],
+    });
+    const infos = stationInfos(parcel, parcelView, layout.counts, layout.running);
+    expect(infos.has('t_scan')).toBe(true);
+    expect(infos.has('t_rA')).toBe(false);
+    expect(infos.has('t_arr')).toBe(false);
+  });
+});
