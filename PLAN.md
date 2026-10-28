@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-28 · Status: in Umsetzung (M0–M3 fertig, nächster Schritt D1) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-28 · Status: in Umsetzung (M0–M3 und D1 fertig, nächster Schritt D2) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -167,7 +167,7 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   lifecycle`) und XES, aus demselben Ereignisstrom.
 
 ### D1–D4 · Domänenansicht (siehe `docs/plan/Domaenenansicht_Einordnung.md`)
-- D1 Abbildung ohne Simulation: Schema `DomainView`, Prüfung V1–V8, generische
+- D1 Abbildung ohne Simulation (fertig, 0.5.0; siehe `docs/domain-view.md`): Schema `DomainView`, Prüfung V1–V8, generische
   Abbildung, statische Canvas-Ansicht, Speicherung unter `domainView`.
 - D2 Animation: Ansicht hört auf den Ereignisstrom, Steuerung, Kennzahlen,
   Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus.

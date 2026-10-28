@@ -28,6 +28,7 @@ Two net classes are supported, selected by the `profile` field:
 | `marking`     | object                     | yes      | Initial marking: place id to an array of tokens.                             |
 | `annotations` | array of annotation        | no       | Free-text notes on the canvas.                                               |
 | `simulation`  | object                     | no       | Settings of the timed simulation. See [Timed simulation](#timed-simulation). |
+| `domainView`  | object                     | no       | How the net is drawn in the domain view. See [Domain view](#domain-view).    |
 
 Unknown keys are ignored when reading and dropped when writing.
 
@@ -135,6 +136,16 @@ else is a `case` place. The `role` field overrides the choice between `resource`
   "position": { "x": 300, "y": 40 }
 }
 ```
+
+## Domain view
+
+`domainView` is an optional mapping that says how the net is drawn as a hall, a floor plan or a generic process picture:
+where each place and transition is, as what it is drawn, and some scenery. It contains no behaviour (no durations,
+weights, rates or conditions). `@pnm/core` reads, keeps and writes the value without looking at it (`setDomainView`
+changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V8) and draws it. The
+file format version stays `1.0`; files without the field are valid.
+
+The full description, the schema, the rules and the generic mapping are in [domain-view.md](domain-view.md).
 
 ## Reading and validation
 
@@ -330,7 +341,7 @@ tokens, guards that join two places, and array results:
 ## Serialization
 
 `serializeNet` writes keys in a fixed order (`version`, `profile`, `name`,
-`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `annotations`), uses two
+`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `domainView`, `annotations`), uses two
 spaces of indentation and ends with a newline, so that files diff cleanly in
 version control. Marking entries follow the order of the places; empty entries
 are omitted.

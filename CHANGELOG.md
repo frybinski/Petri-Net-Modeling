@@ -2,6 +2,39 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.0: Domain view without simulation
+
+Milestone D1. The file format stays `1.0`: `domainView` is an optional field, and nets without it behave as before.
+
+### Added
+
+- `@pnm/domain`: the schema of a domain view (places as conveyors, queues, buffers, resource slots, pools, sources and
+  sinks; transitions as stations, machines, gates, areas, rooms, doors, docks and waypoints; scenery; provenance per
+  entry; a JSON Schema export), the validation rules V1 to V8 with paths and elements, the net hash (`netHash`, FNV-1a
+  64 bit), the generic mapping for any net (`genericDomainView`, `fillMissing`), a converter for the mapping format of the
+  mockup, and the renderer: a pure scene builder (`buildScene`, `hitTest`, `withHighlight`) and a Canvas 2D painter
+  (`paintScene`) with sprites for parcels, people, vehicles, documents and dots, belts, cards, desks, tables, doors and
+  docks, in a light and a dark palette.
+- `@pnm/core`: `PetriNet.domainView` (passed through as `unknown`, written after `simulation`) and `setDomainView`.
+- Web app: a switch _Net | Domain | Both_ in the header (keys `1`, `2`, `3`) with a draggable divider in the split view.
+  The domain view fits itself into the area, pans, zooms (wheel, `Ctrl`/`Cmd` + wheel, pinch, buttons), handles the
+  device pixel ratio and follows the theme. Hovering an element shows a card and lights up its counterpart in the net,
+  and the other way round; a click selects. In the simulation it shows the current marking and the firings under way.
+  A net without a view offers _Generate generic view_.
+- Domain panel (tab in the right panel): status with the rule results V1 to V8 (click selects the element), the origin
+  of the entries (generic, user, LLM), the state of the hash, _Generate generic view_, _Fill missing entries_,
+  _Update hash_, _Remove domain view_, theme, view name, entity and canvas size, the entry of the selected element and
+  the whole mapping as JSON with live checks and markers in the text; _Apply_ replaces the view in one undo step and
+  marks changed entries as user work.
+- Examples: the parcel center is drawn as a hall and the smart office as a floor plan, both without diagnostics; the
+  complaint handling has no view of its own (the generic one applies).
+- Documentation: [docs/domain-view.md](docs/domain-view.md), ADR 0008, the field in [docs/format.md](docs/format.md).
+
+### Changed
+
+- The workspace and the right panel are components of their own; the net editor stays mounted while hidden, so its view
+  and selection survive switching.
+
 ## 0.4.0: Timed simulation with an event stream
 
 Milestone M3. The file format stays `1.0`: all new fields are optional, and nets without them behave as before.
