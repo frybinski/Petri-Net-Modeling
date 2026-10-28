@@ -16,6 +16,7 @@ import {
   TRANSITION_SHAPE,
   arcGeometry,
   arrowHeadPoints,
+  obstaclesFor,
   type Endpoint,
 } from './geometry';
 
@@ -182,6 +183,7 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       shape: TRANSITION_SHAPE,
     });
   }
+  const everyone = [...endpoints.entries()];
   const directions = new Set(ctx.net.arcs.map((a) => `${a.source}>${a.target}`));
   const json = ctx.net.profile === 'json-net';
 
@@ -196,9 +198,7 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       target,
       points: arc.points,
       parallel: hasReverse,
-      obstacles: [...endpoints.entries()]
-        .filter(([id]) => id !== arc.source && id !== arc.target)
-        .map(([, endpoint]) => endpoint),
+      obstacles: obstaclesFor(everyone, [arc.source, arc.target], source.center, target.center),
     });
     edges.push({
       id: arc.id,

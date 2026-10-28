@@ -95,7 +95,7 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
       {hasError ? <ErrorMarker text={errorText} corner={typeName ? 'left' : 'right'} /> : null}
       {json && chips.length > 0 ? (
         <div
-          className="pn-chips pn-detail pointer-events-none absolute top-1/2 left-full ml-3 flex -translate-y-1/2 flex-col items-start gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-panel"
+          className="pn-chips pn-detail pointer-events-none absolute top-1/2 left-full ml-9 flex -translate-y-1/2 flex-col items-start gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-panel"
           data-testid="token-chips"
         >
           {chips.map((chip, i) => (

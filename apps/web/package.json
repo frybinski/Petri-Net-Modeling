@@ -1,6 +1,6 @@
 {
   "name": "@pnm/web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Web editor for Petri nets",
   "license": "MIT",
@@ -28,7 +28,6 @@
     "@pnm/expr": "workspace:*",
     "@pnm/layout": "workspace:*",
     "@radix-ui/react-context-menu": "^2.4.1",
-    "@radix-ui/react-popover": "^1.3.1",
     "@radix-ui/react-tooltip": "^1.4.1",
     "@xyflow/react": "^12.12.0",
     "idb-keyval": "^6.3.0",

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ARC_CLEARANCE,
   MAX_ARC_SAG,
+  MAX_AVOID_LENGTH,
   MAX_AVOID_SAG,
   MIN_PARALLEL_SAG,
   PLACE_SHAPE,
@@ -11,6 +12,7 @@ import {
   arrowHeadPoints,
   boundaryPoint,
   distanceToNode,
+  obstaclesFor,
   shapeSize,
   snap,
   snapDragged,
@@ -197,5 +199,30 @@ describe('arcs around other nodes', () => {
     const forward = arcGeometry({ source: a, target: b, parallel: true, obstacles: [blocker] });
     const back = arcGeometry({ source: b, target: a, parallel: true, obstacles: [blocker] });
     expect(Math.sign(forward.label.y)).toBe(-Math.sign(back.label.y));
+  });
+});
+
+describe('obstaclesFor', () => {
+  const node = (x: number, y: number) => ({ center: { x, y }, shape: PLACE_SHAPE });
+  const all: Array<readonly [string, ReturnType<typeof node>]> = [
+    ['a', node(0, 0)],
+    ['b', node(300, 0)],
+    ['near', node(150, 40)],
+    ['far', node(150, 600)],
+  ];
+
+  it('returns the nodes close to the arc and leaves out its two ends and distant nodes', () => {
+    const found = obstaclesFor(all, ['a', 'b'], { x: 0, y: 0 }, { x: 300, y: 0 });
+    expect(found).toHaveLength(1);
+    expect(found[0]?.center).toEqual({ x: 150, y: 40 });
+  });
+
+  it('leaves very long arcs alone', () => {
+    const a = { center: { x: 0, y: 0 }, shape: PLACE_SHAPE };
+    const b = { center: { x: MAX_AVOID_LENGTH + 100, y: 0 }, shape: PLACE_SHAPE };
+    const blocker = node(MAX_AVOID_LENGTH / 2 + 50, 0);
+    const g = arcGeometry({ source: a, target: b, obstacles: [blocker] });
+    const free = arcGeometry({ source: a, target: b });
+    expect(g.path).toBe(free.path);
   });
 });

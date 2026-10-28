@@ -11,6 +11,7 @@ import {
   TRANSITION_WIDTH,
   arcGeometry,
   arrowHeadPoints,
+  obstaclesFor,
   tokenDotOffsets,
   type Endpoint,
 } from './geometry';
@@ -184,6 +185,7 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
   };
   const body: string[] = [];
 
+  const everyone = [...endpoints.entries()];
   const direction = new Set(net.arcs.map((a) => `${a.source}>${a.target}`));
 
   // Arcs, drawn first so that the nodes sit on top of their ends.
@@ -197,9 +199,7 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
       target,
       points: arc.points,
       parallel: direction.has(`${arc.target}>${arc.source}`),
-      obstacles: [...endpoints.entries()]
-        .filter(([id]) => id !== arc.source && id !== arc.target)
-        .map(([, endpoint]) => endpoint),
+      obstacles: obstaclesFor(everyone, [arc.source, arc.target], source.center, target.center),
     });
     body.push(
       `<g><path d="${geometry.path}" fill="none" stroke="${palette.stroke}" stroke-width="1.6" stroke-linecap="round"/>` +

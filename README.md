@@ -4,26 +4,40 @@ A web-based tool for modeling Petri nets. The goal is a fluid, modern diagram ed
 core: a UI-independent TypeScript package holds the net model, the firing rule and the file format, so the same
 logic can later run in a command line tool, behind an API, or inside an LLM processing chain.
 
-![The editor in simulation mode, showing the traffic light example](docs/images/editor.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/editor-dark.png">
+  <img alt="The editor in simulation mode, showing the traffic light example" src="docs/images/editor-light.png">
+</picture>
 
-![A JSON net: order processing with typed tokens, guards, inscriptions and a binding list](docs/images/json-net.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/json-net-dark.png">
+  <img alt="A JSON net: order processing with typed tokens, guards, inscriptions and a binding list" src="docs/images/json-net-light.png">
+</picture>
 
-**Status: 0.2.0 (milestones M0 to M2).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+**Status: 0.3.0 (milestones M0 to M2 and the UI polish step).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
 tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
 inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
-[`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md) and
-[`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md) for the plans of the increments (in German).
+[`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md),
+[`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md) and
+[`docs/plan/UI-Polish_Umsetzungsplan.md`](docs/plan/UI-Polish_Umsetzungsplan.md) for the plans of the increments
+(in German).
 
 ## Features
 
 - Draw places, transitions and arcs; rename, move, delete; weights, initial tokens and capacities.
-- Rubber-band and multi-selection, align and distribute, grid snapping, pan, zoom, minimap.
+- Fast to use: drag from the ring around a node to draw an arc (or `Alt` + drag from anywhere on it), double click to
+  rename in place (also the weight or inscription of an arc), right click for a context menu, double click a tool to
+  keep it active, `Tab` adds the next node and connects it, so a net can be built from the keyboard alone.
+  Tooltips show the shortcuts.
+- Rubber-band and multi-selection, align and distribute, grid snapping, pan, zoom, minimap. The wheel pans,
+  `Ctrl`/`Cmd` + wheel or pinch zooms, details fade out when zoomed out and a hover card shows everything about a node.
 - Undo/redo, copy/paste/duplicate, keyboard shortcuts (press `?` in the app).
 - Automatic layout with ELK (left to right or top to bottom), undoable.
 - Save and open `.pn.json` files (also by drag and drop), export SVG, autosave to IndexedDB with restore on start.
 - Live validation: bipartiteness, dangling arcs, duplicate names, capacity violations and more, with click-to-select.
 - Simulation mode: enabled transitions are highlighted green, click to fire, random step, reset, firing history.
-- Light and dark theme, accessible components with visible focus rings and ARIA labels.
+- Light and dark theme, Inter and JetBrains Mono bundled with the app, accessible components with visible focus
+  rings and ARIA labels, reduced motion respected.
 - Bundled examples: producer/consumer, traffic light, dining philosophers, mutual exclusion.
 
 JSON nets (switch the net class in the properties panel):
@@ -93,7 +107,7 @@ operations such as `addPlace`, `addArc` or `setInscription`, which return new ne
   the P/T firing rule.
 - [Expressions](docs/expressions.md): a short guide to guards and inscriptions for modelers.
 - [Architecture decision records](docs/adr): monorepo and TypeScript, React Flow canvas, JSON net profile, document
-  history, JSONata expressions.
+  history, JSONata expressions, Radix primitives and self-hosted fonts.
 - [Changelog](CHANGELOG.md)
 
 ## Deployment

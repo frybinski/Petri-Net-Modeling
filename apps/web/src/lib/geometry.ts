@@ -84,6 +84,32 @@ export interface ArcGeometryInput {
 /** Space the curve keeps from other nodes, and the largest bulge it takes to get around them. */
 export const ARC_CLEARANCE = 10;
 export const MAX_AVOID_SAG = 64;
+/** Arcs longer than this keep their usual bulge: routing them around nodes would not help the reader. */
+export const MAX_AVOID_LENGTH = 520;
+
+/**
+ * The nodes that can matter for an arc between `a` and `b`: those within reach of the largest bulge
+ * around the straight line, except the two nodes the arc connects.
+ */
+export function obstaclesFor(
+  all: ReadonlyArray<readonly [string, Endpoint]>,
+  skip: readonly [string, string],
+  a: Position,
+  b: Position,
+): Endpoint[] {
+  const reach = MAX_AVOID_SAG + 48;
+  const left = Math.min(a.x, b.x) - reach;
+  const right = Math.max(a.x, b.x) + reach;
+  const top = Math.min(a.y, b.y) - reach;
+  const bottom = Math.max(a.y, b.y) + reach;
+  const found: Endpoint[] = [];
+  for (const [id, node] of all) {
+    if (id === skip[0] || id === skip[1]) continue;
+    const { x, y } = node.center;
+    if (x >= left && x <= right && y >= top && y <= bottom) found.push(node);
+  }
+  return found;
+}
 
 /** Distance of a point from the outline of a node, negative inside the node. */
 export function distanceToNode(point: Position, node: Endpoint): number {
@@ -138,10 +164,8 @@ export function avoidingSag(
   base: number,
   obstacles: readonly Endpoint[],
 ): number {
-  const near = obstacles.filter(
-    (node) => distanceToNode(midpointOf(a, b), node) < Math.hypot(b.x - a.x, b.y - a.y) / 2 + 80,
-  );
-  if (near.length === 0) return base;
+  if (obstacles.length === 0) return base;
+  const near = obstacles;
   const start = Math.max(base, 8);
   let best = base;
   let bestRoom = clearance(a, controlPoint(a, b, base), b, near);
@@ -159,10 +183,6 @@ export function avoidingSag(
     }
   }
   return best;
-}
-
-function midpointOf(a: Position, b: Position): Position {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
 /**
@@ -202,7 +222,7 @@ export function arcGeometry({
   const length = Math.hypot(dx, dy) || 1;
   let sag = arcSag(length, parallel);
   // Arcs between neighbours are short and straight; longer ones go around nodes in their way.
-  if (!parallel && length > 90 && obstacles.length > 0) {
+  if (!parallel && length > 90 && length <= MAX_AVOID_LENGTH && obstacles.length > 0) {
     sag = avoidingSag(source.center, target.center, sag, obstacles);
   }
 
