@@ -87,10 +87,24 @@ test('a click on a case follows it and shows its steps', async ({ page }) => {
   await expect(card).toBeVisible();
   await expect(page.getByTestId('domain-case-title')).toHaveText(`Case ${id}`);
   await expect(page.getByTestId('domain-case-step').first()).toBeVisible();
-  // The card does not cover the picture: it sits below the sheet.
-  const cardBox = await card.boundingBox();
-  const sheetBox = await canvas.boundingBox();
-  expect(cardBox && sheetBox && cardBox.x >= sheetBox.x).toBe(true);
+  // The card does not cover the picture: the sheet makes room for it.
+  await expect
+    .poll(
+      async () => {
+        const cardBox = await card.boundingBox();
+        const [left, top] = await sheetToScreen(canvas, 0, 0);
+        const [right, bottom] = await sheetToScreen(canvas, 1200, 640);
+        if (!cardBox) return false;
+        return (
+          cardBox.x >= right ||
+          cardBox.x + cardBox.width <= left ||
+          cardBox.y >= bottom ||
+          cardBox.y + cardBox.height <= top
+        );
+      },
+      { timeout: 5000 },
+    )
+    .toBe(true);
 
   // The followed case moves with the run: its steps grow.
   const steps = await page.getByTestId('domain-case-step').count();

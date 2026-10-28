@@ -23,7 +23,8 @@ export function DomainCaseCard({
   const arrival = trail.find((entry) => entry.type === 'spawn');
   return (
     <section
-      className="absolute bottom-3 left-14 z-10 flex max-h-[min(14rem,45%)] w-60 flex-col rounded-lg border border-border bg-surface shadow-panel"
+      className="absolute bottom-3 left-14 z-10 flex h-[min(9rem,45%)] w-56 flex-col rounded-lg border border-border bg-surface shadow-panel"
+      data-domain-overlay="bottom"
       aria-label={en.domain.followCases}
       data-testid="domain-case-card"
       data-case={caseId}

@@ -21,22 +21,23 @@ logic can later run in a command line tool, behind an API, or inside an LLM proc
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/domain-hall-dark.png">
-  <img alt="The domain view of the parcel center as a hall: belts with parcels, scanner, sorter, loading gates and trucks, while the simulation runs" src="docs/images/domain-hall-light.png">
+  <img alt="The running domain view of the parcel center: parcels on the belts, the scanner and a gate blocked and a queue turning red, the control bar, key figures and the card of a followed parcel" src="docs/images/domain-hall-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/domain-office-dark.png">
-  <img alt="The domain view of the smart office as a floor plan: rooms, desks, meeting tables, turnstiles and people, while the simulation runs" src="docs/images/domain-office-light.png">
+  <img alt="The running domain view of the smart office as a floor plan: people at desks and in meeting rooms, turnstiles, the coffee machine, the control bar and the card of a followed person" src="docs/images/domain-office-light.png">
 </picture>
 
-**Status: 0.5.0 (milestones M0 to M3, the UI polish step and D1, the domain view without animation).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+**Status: 0.6.0 (milestones M0 to M3, the UI polish step, D1 and D2: the domain view, now animated).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
 tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
 inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
 [`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md),
 [`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md),
 [`docs/plan/UI-Polish_Umsetzungsplan.md`](docs/plan/UI-Polish_Umsetzungsplan.md) and
 [`docs/plan/M3_Umsetzungsplan.md`](docs/plan/M3_Umsetzungsplan.md) and
-[`docs/plan/D1_Umsetzungsplan.md`](docs/plan/D1_Umsetzungsplan.md) for the plans of the increments (in German).
+[`docs/plan/D1_Umsetzungsplan.md`](docs/plan/D1_Umsetzungsplan.md) and
+[`docs/plan/D2_Umsetzungsplan.md`](docs/plan/D2_Umsetzungsplan.md) for the plans of the increments (in German).
 
 ## Features
 
@@ -88,7 +89,21 @@ Domain view (0.5.0, see [docs/domain-view.md](docs/domain-view.md)):
   shows the current marking and the firings under way. Pan, zoom (wheel, pinch, buttons) and fit work as in the editor.
 - The _Domain view_ tab shows the problems with click-to-select, repairs a view after the net has changed (_Fill
   missing entries_, _Update hash_) and edits the mapping as JSON with live checks.
-- Not yet: animation of cases, generation by a language model and editing by dragging in the picture (steps D2 to D4).
+- Not yet: generation by a language model and editing by dragging in the picture (steps D3 and D4).
+
+Animation (0.6.0, see the section _Animation_ in [docs/domain-view.md](docs/domain-view.md)):
+
+- The domain view runs the simulation: every event of the stream becomes a movement or a visible change. Cases move
+  along belts and connectors, stations show whether they are free, busy or blocked, slots show a progress ring, queues
+  turn yellow and red when they grow (with the limits of the key figure settings), counters count up when a case
+  arrives. The simulator never waits for the picture; speed _max_ and `prefers-reduced-motion` make cases jump.
+- A bar in the view starts and controls the simulation (play, step, back, reset, speed, clock) and a strip shows
+  throughput, cycle time and cases in the system. Hover cards tell how a station or queue is doing.
+- A click on a case follows it (a ring, a card with its steps and times); a click on an enabled station fires its
+  transition.
+- The picture is rendered in two layers (the static one offscreen) and the loop rests when nothing moves; 200 cases
+  take about a millisecond per frame. A test compares a log of what the picture did with the event stream, and the
+  same seed still gives the same events and the same exports with the view running.
 
 JSON nets (switch the net class in the properties panel):
 

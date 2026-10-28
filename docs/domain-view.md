@@ -186,7 +186,8 @@ selection without rebuilding the scene.
 Marking: tokens of places with a path are drawn as sprites along it, `pool`, `source` and `sink` show a number, resource
 cells show free (a green dot), busy (a green frame with the case) or not available (crossed). In the editor the view
 shows the initial marking; while simulating it shows the current marking and the firings under way as busy cells, and
-the card of a transition with a firing gets a green frame. There is no animation yet.
+the card of a transition with a firing gets a green frame. `buildScene` shows one state, as a picture. The running view
+uses the animation below instead.
 
 ## In the app
 
@@ -202,9 +203,85 @@ the card of a transition with a firing gets a green frame. There is no animation
   (theme, name, entity, canvas size), the entry of the selected element and the whole mapping as JSON with live checks.
   Applying the JSON replaces the view in one undo step.
 
+## Animation
+
+While a simulation runs, the view shows every event of the stream as a movement or a visible change, and the
+simulator never waits for it. The pieces are pure functions in `@pnm/domain`; the app only feeds them and draws.
+
+| Function                                        | What it does                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `layoutTokens(net, view, state)`                | Where every token stands: on a belt, a lane or a buffer, on the slot of a firing, or on a route.                     |
+| `applyEvents(prev, events, before, after, ...)` | Turns a bundle of events into motions, flashes and counters, from the layout before and after the bundle.            |
+| `sampleSprites(layout, anim, now, simTime)`     | The sprites at one moment: resting ones at their place, moving ones on their route (`sampleTokens` gives positions). |
+| `buildStaticScene` and `buildDynamicScene`      | The part of the picture that depends on net and view only, and the part that changes every frame.                    |
+| `stationStatus`, `queueLevel`, `stationInfos`   | Free, busy, blocked or starved stations, and the yellow and red of queues.                                           |
+| `caseTrail`, `caseActivities`                   | The steps of one case in the stream, for following a case.                                                           |
+
+**Tokens and their identity.** A token on a place is known by its `TokenMeta.id` from the simulation state (the view of
+the simulation carries the metadata of all tokens next to the marking). While a firing runs, its cases are not on a
+place: they stand on the slot of the firing under the key `f<firing>:<case>`. Resource tokens have no sprite; they are
+the cells of the slots.
+
+**Placement.** On a belt, lane or buffer the tokens stand from the head backwards, 16 px apart, the oldest at the head.
+What does not fit is stacked at the start behind a counter `+n`. A firing puts the cases it holds on its slot (several
+cases slightly apart). On a waypoint that only lets cases pass (`pass: true`) the case travels along the route from the
+belt before, over the connectors and the waypoint, to the belt behind, in proportion to the simulation time of the
+firing. Pools, sources and sinks are numbers.
+
+**From event to picture.** The motion of a token is the difference between the layout before and after a bundle,
+linked through the events:
+
+| Event                          | What is shown                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                    |
+| `start`                        | The case moves from its place along the connector to the slot of the station. The slot turns busy and a progress ring fills. |
+| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                    |
+| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                |
+| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                       |
+| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                              |
+
+Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
+of the chain; the others light up their station. A move follows the connector of the view (`arcs`, key
+`<source>><target>`), else a straight line, and lasts 300 ms of wall-clock time with ease-in-out, whatever the speed
+of the simulation. At most 60 tokens move at a time; further ones jump. A token that is moved again while it is under
+way continues from where it is. Speed _max_ and `prefers-reduced-motion` make every duration 0: tokens jump and nothing
+flashes, but counters, colors and cells follow the events all the same.
+
+**Log of handled events.** `AnimationState.handled` lists what the renderer did with every event that concerns a visible
+element: `motion`, `flash`, `counter` or `hidden`. Every motion, flash and counter carries the id of the event that
+caused it. The tests compare this log with the event stream (acceptance A2): over 30 simulated minutes of the parcel
+center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event.
+
+**States and colors.** A station is _busy_ when a slot is in use (green frame), _blocked_ when all slots are in use and
+cases wait in front of it (red frame and tint, red bar), _starved_ when nothing is in use and nothing waits (neutral) and
+_free_ otherwise. A queue, belt or buffer that holds cases turns yellow from 6 and red from 10 tokens; the limits are
+those of the key figure settings (_Queue highlighting_). A room of a `rooms` transition lights up while one of its slots
+is in use. Firings show a ring around the slot (or a bar under a desk or table) that fills with the simulation time.
+
+**Drawing.** The static part (sheet, scenery, belts, cards, labels) is rendered once into an offscreen canvas and redrawn
+80 ms after the last change of the zoom (scaled in between), the dynamic part is drawn every frame on top. Sprites come
+from a cache of pre-rendered images. The loop of `requestAnimationFrame` only runs while the simulation plays or
+something moves, otherwise the view rests. With 200 tokens, layout, animation and the dynamic scene take about 1 ms per
+bundle and the frame callback about 1 ms (measured in Node and in Chromium, see ADR 0009).
+
+## In the app (simulation)
+
+- A floating bar at the top of the view starts the simulation (_Simulate_) and, while it runs, offers play and pause,
+  step, back, reset, the speed (1x to 60x, max), the clock, the cases in the system and _Edit_. It uses the same actions
+  and shortcuts as the simulation panel. A small button hides it together with the key figures.
+- The strip at the bottom right shows throughput per hour, mean cycle time and cases in the system (with a note during
+  the warm-up). The picture is fitted so that the bar, the strip, the zoom buttons and the case card do not cover it.
+- The hover card of a belt shows the waiting cases, the mean wait and whether it is getting long; the card of a station
+  its state, the slots in use, the waiting cases and the use of its resource; the card of a resource the free tokens.
+- A click on a case follows it: its sprite gets a ring, the stations it has been at a light frame, and a card at the
+  bottom left lists its steps with the times. _Stop following_, a second click on the case or `Esc` let go.
+- A click on a station, door or other transition selects it and, if it is enabled, fires it (with several bindings a
+  list opens next to it). While simulating the net cannot be edited, so `Del` deletes nothing.
+
 ## Limits
 
-This is the first step (D1): the view is static. Missing so far are the animation of firings and cases (D2), the
-generation of a mapping by a language model (D3) and editing by dragging in the view (D4). Cases are not tracked
-individually in the picture, tokens of JSON nets show as plain cases, and a transition's `slots` have no order
-beyond their index.
+The generation of a mapping by a language model (D3) and editing by dragging in the view (D4) are still missing. Tokens
+of JSON nets show as plain cases, a transition's `slots` have no order beyond their index, and a firing that holds no
+case (work on resources only) is shown as a busy slot without a sprite. Stepping back or resetting snaps the picture to
+the state instead of playing backwards. The motion of a token that is taken again within one bundle is attributed to the
+last event of the chain.
