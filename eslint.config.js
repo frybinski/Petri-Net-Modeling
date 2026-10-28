@@ -38,6 +38,11 @@ export default tseslint.config(
     },
   },
   {
+    // The command line scripts report on the console.
+    files: ['packages/llm/scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['packages/**/*.ts', '**/*.config.{js,ts}', 'apps/web/e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
