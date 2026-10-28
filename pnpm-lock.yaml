@@ -71,9 +71,15 @@ importers:
       '@pnm/expr':
         specifier: workspace:*
         version: link:../../packages/expr
+      '@pnm/io':
+        specifier: workspace:*
+        version: link:../../packages/io
       '@pnm/layout':
         specifier: workspace:*
         version: link:../../packages/layout
+      '@pnm/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
       '@radix-ui/react-context-menu':
         specifier: ^2.4.1
         version: 2.4.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

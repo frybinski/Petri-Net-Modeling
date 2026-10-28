@@ -9,6 +9,8 @@ export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
   server: { port: 5173, strictPort: false },
+  // The simulation engine runs in a module worker (see @pnm/sim/worker-client).
+  worker: { format: 'es' },
   build: {
     // The layout engine (ELK, ~1.4 MB) is loaded on demand in its own chunk.
     chunkSizeWarningLimit: 1600,
