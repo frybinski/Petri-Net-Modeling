@@ -18,10 +18,10 @@ export function ShortcutsDialog() {
       open={open}
       title={en.shortcuts.title}
       onClose={close}
-      width="max-w-xl"
+      width="max-w-4xl"
       footer={<Button onClick={close}>{en.shortcuts.close}</Button>}
     >
-      <div className="grid gap-5 sm:grid-cols-2" data-testid="shortcuts-list">
+      <div className="grid gap-5 md:grid-cols-3" data-testid="shortcuts-list">
         {GROUPS.map((group) => (
           <section key={group}>
             <h3 className="mt-0 mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">
