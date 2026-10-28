@@ -447,6 +447,15 @@ body {
     0 0 3px var(--canvas);
 }
 
+/* Arrow heads stay visible when zoomed out. */
+.zoom-mid .pn-arc .arc-arrow {
+  stroke-width: 1.6px;
+}
+
+.zoom-far .pn-arc .arc-arrow {
+  stroke-width: 3.6px;
+}
+
 /* The same for node outlines. */
 .zoom-mid .pn-body {
   stroke-width: 2.2px;
