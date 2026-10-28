@@ -24,7 +24,10 @@ describe('App', () => {
     const user = userEvent.setup();
     render(<App />);
     const input = screen.getByTestId('open-file-input');
-    await user.upload(input, new File(['{ not json'], 'broken.pn.json', { type: 'application/json' }));
+    await user.upload(
+      input,
+      new File(['{ not json'], 'broken.pn.json', { type: 'application/json' }),
+    );
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Could not open broken.pn.json');
     expect(alert).toHaveTextContent(/not valid JSON/);

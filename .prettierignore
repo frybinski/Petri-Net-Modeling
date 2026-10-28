@@ -5,3 +5,5 @@ test-results
 playwright-report
 pnpm-lock.yaml
 *.pn.json
+PLAN.md
+docs/plan

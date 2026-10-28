@@ -9,6 +9,10 @@ export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
   server: { port: 5173, strictPort: false },
+  build: {
+    // The layout engine (ELK, ~1.4 MB) is loaded on demand in its own chunk.
+    chunkSizeWarningLimit: 1600,
+  },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
