@@ -267,6 +267,8 @@ export const en = {
     more: (n: number) => `+${n} more`,
     marking: 'Current marking',
     markingEmpty: 'No tokens',
+    finished: 'Nothing left to simulate: no firing is running and no arrival is scheduled.',
+    breakpointHit: (name: string) => `Paused at ${name}.`,
   },
   status: {
     ready: 'Ready',

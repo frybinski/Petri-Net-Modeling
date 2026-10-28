@@ -7,19 +7,14 @@ import {
   addType as coreAddType,
   alignNodes,
   canConnect,
-  countsToMarking,
   createEmptyNet,
   createId,
   distributeNodes,
   exampleToken,
   extractFragment,
   findArc,
-  findEnabled,
-  findEnabledPt,
-  fireBinding as coreFireBinding,
   insertFragment,
   isEmptyFragment,
-  markingToCounts,
   moveNodes as coreMoveNodes,
   NetOpError,
   removeElements,
@@ -57,14 +52,45 @@ import {
   type Token,
   type Transition,
 } from '@pnm/core';
+import {
+  initialMarking,
+  isTimedNet,
+  type Breakpoints,
+  type MetricsSnapshot,
+  type RunningView,
+  type SimResult,
+  type SimulationClient,
+} from '@pnm/sim';
 import { create } from 'zustand';
 import { en } from '../i18n/en';
 import { chainPosition } from '../lib/placement';
+import { createSimulationClientForEditor } from '../lib/sim-client';
 import { getViewApi } from '../lib/view-api';
+import { eventLog, publishSimEvents } from './sim-log';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
 export type Mode = 'edit' | 'simulate';
+
+export type SimSpeed = 1 | 2 | 5 | 10 | 30 | 60 | 'max';
+
+/** The speeds offered by the simulation controls. */
+export const SIM_SPEEDS: readonly SimSpeed[] = [1, 2, 5, 10, 30, 60, 'max'];
+
+/** At most this many fired steps are listed in the panel. */
+export const SIM_HISTORY_LIMIT = 200;
+
+/** Events per round trip to the engine at maximum speed. */
+export const MAX_SPEED_BUNDLE = 200;
+
+/** Firings per round trip at maximum speed in nets without time. */
+const MAX_SPEED_STEPS = 25;
+
+/** Wall-clock time between two steps of the clock while playing (milliseconds). */
+export const PLAY_TICK_MS = 40;
+
+/** The clock advances by at most this many seconds (times the speed) per tick. */
+export const MAX_TICK_SECONDS = 0.1;
 
 export interface SimStep {
   index: number;
@@ -109,6 +135,7 @@ export interface EditorState {
   dragPositions: Record<Id, Position> | null;
 
   simMarking: Marking | null;
+  /** The latest fired steps (the start of a firing), oldest first. */
   simHistory: SimStep[];
   /** Enabled transitions with their bindings under `simMarking`. Empty while `computing`. */
   enabled: Map<Id, BindingResult>;
@@ -118,6 +145,26 @@ export interface EditorState {
   simDiagnostics: Diagnostic[];
   /** Transition whose list of bindings is open for the user to choose from. */
   picker: Id | null;
+  /** Simulation seconds since the start. */
+  simTime: number;
+  /** Firings that have started and not yet completed. */
+  simRunning: RunningView[];
+  simMetrics: MetricsSnapshot | null;
+  simPlaying: boolean;
+  simSpeed: SimSpeed;
+  /** The net uses durations or arrival rates (the engine runs on a clock). */
+  simTimed: boolean;
+  simNextEvent: number | null;
+  simCanBack: boolean;
+  /** Current arrival rates per hour of the source transitions. */
+  simRates: Record<Id, number | null>;
+  simBreakpoints: Breakpoints;
+  /** Increases whenever the event log changes; the log itself lives in `eventLog`. */
+  simLogVersion: number;
+  /** The last command left nothing to do. */
+  simIdle: boolean;
+  /** The last warning of the engine, for the status bar. */
+  simNotice: string | null;
 
   diagnostics: Diagnostic[];
   clipboard: NetFragment | null;
@@ -200,8 +247,23 @@ export interface EditorState {
   fireTransition(id: Id): void;
   fireBindingAt(id: Id, index: number): void;
   setPicker(id: Id | null): void;
-  stepRandom(random?: () => number): Id | null;
-  resetSimulation(): void;
+  /** Starts one randomly chosen enabled transition (weighted by priority). */
+  stepRandom(): Promise<void>;
+  /** Processes the next instant of a timed simulation. */
+  stepNext(): Promise<void>;
+  /** Goes back to the state before the last step or intervention. */
+  stepBack(): Promise<void>;
+  resetSimulation(): Promise<void>;
+  setPlaying(playing: boolean): void;
+  togglePlaying(): void;
+  setSimSpeed(speed: SimSpeed): void;
+  /** Changes the arrival rate (per hour) of a source transition while running. */
+  setArrivalRate(transitionId: Id, perHour: number): void;
+  /** Adds (+1) or withdraws (-1) a token of a place while running. */
+  adjustPlaceTokens(placeId: Id, delta: number): void;
+  toggleTransitionBreakpoint(transitionId: Id): void;
+  /** Pauses when the place holds `count` tokens or more; `null` removes the breakpoint. */
+  setPlaceBreakpoint(placeId: Id, count: number | null): void;
 }
 
 function freshNet(name: string = en.app.untitled): PetriNet {
@@ -242,17 +304,86 @@ function isNoop(target: object, patch: object): boolean {
 
 const initialNet = freshNet();
 
-/** The marking a simulation starts from. P/T nets only count tokens, so theirs are normalised. */
-function initialSimMarking(net: PetriNet): Marking {
-  return net.profile === 'pt-net'
-    ? countsToMarking(markingToCounts(net.marking))
-    : structuredClone(net.marking);
-}
-
 const NO_ENABLED = (): Map<Id, BindingResult> => new Map();
 
-/** Sequence number of the latest binding computation; older results are discarded. */
-let computationSeq = 0;
+const NO_BREAKPOINTS = (): Breakpoints => ({ transitions: [], places: {} });
+
+/** The simulation fields while no simulation runs. */
+function idleSimulation() {
+  return {
+    simMarking: null as Marking | null,
+    simHistory: [] as SimStep[],
+    enabled: NO_ENABLED(),
+    computing: false,
+    simDiagnostics: [] as Diagnostic[],
+    picker: null as Id | null,
+    simTime: 0,
+    simRunning: [] as RunningView[],
+    simMetrics: null as MetricsSnapshot | null,
+    simPlaying: false,
+    simSpeed: 1 as SimSpeed,
+    simTimed: false,
+    simNextEvent: null as number | null,
+    simCanBack: false,
+    simRates: {} as Record<Id, number | null>,
+    simLogVersion: 0,
+    simIdle: false,
+    simNotice: null as string | null,
+  };
+}
+
+function nameOfElement(net: PetriNet, id: Id): string {
+  return (
+    net.places.find((p) => p.id === id)?.name ??
+    net.transitions.find((t) => t.id === id)?.name ??
+    id
+  );
+}
+
+/** The part of the simulation that lives outside the React state. */
+const runtime: {
+  client: SimulationClient | null;
+  /** Incremented whenever a simulation starts or stops; answers of an older one are dropped. */
+  session: number;
+  /** Commands the user triggered that have not been answered yet. */
+  pending: number;
+  timer: ReturnType<typeof setTimeout> | undefined;
+  lastTick: number;
+  lastEnabledAt: number;
+  ticking: boolean;
+} = {
+  client: null,
+  session: 0,
+  pending: 0,
+  timer: undefined,
+  lastTick: 0,
+  lastEnabledAt: 0,
+  ticking: false,
+};
+
+function clearPlayTimer(): void {
+  if (runtime.timer !== undefined) clearTimeout(runtime.timer);
+  runtime.timer = undefined;
+}
+
+/** Stops the engine and everything that belongs to it. */
+function disposeRuntime(): void {
+  runtime.session += 1;
+  clearPlayTimer();
+  runtime.pending = 0;
+  runtime.ticking = false;
+  runtime.client?.dispose();
+  runtime.client = null;
+}
+
+function toEnabledMap(entries: NonNullable<SimResult['view']['enabled']>): Map<Id, BindingResult> {
+  return new Map(
+    entries.map((entry) => [
+      entry.transitionId,
+      { bindings: entry.bindings, truncated: entry.truncated, diagnostics: [] },
+    ]),
+  );
+}
 
 export const useEditorStore = create<EditorState>()((set, get) => {
   /** Replaces the document by `next` and records an undo step. */
@@ -290,6 +421,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
   };
 
   const replaceDocument = (net: PetriNet, fileName: string | null): void => {
+    disposeRuntime();
+    eventLog.clear();
     set({
       net,
       savedNet: net,
@@ -306,44 +439,149 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       renamingId: null,
       amendId: null,
       dragPositions: null,
-      simMarking: null,
-      simHistory: [],
-      enabled: NO_ENABLED(),
-      computing: false,
-      simDiagnostics: [],
-      picker: null,
+      ...idleSimulation(),
+      simBreakpoints: NO_BREAKPOINTS(),
     });
   };
 
-  /**
-   * Computes the enabled transitions of the simulated marking. P/T nets are computed at once; JSON
-   * nets evaluate expressions asynchronously, and a result that arrives after the marking has
-   * changed again is dropped.
-   */
-  const recompute = (extra: Partial<EditorState> = {}): void => {
-    computationSeq += 1;
-    const seq = computationSeq;
-    const { net, simMarking, mode } = { ...get(), ...extra };
-    if (mode !== 'simulate' || simMarking === null) return;
-    if (net.profile === 'pt-net') {
-      const result = findEnabledPt(net, simMarking);
-      set({ ...extra, enabled: result.enabled, computing: false, simDiagnostics: [] });
-      return;
+  /** Applies the answer of the engine to the state, the event log and the listeners. */
+  const apply = (
+    result: SimResult,
+    options: { truncate?: boolean; reset?: boolean } = {},
+  ): void => {
+    const { events, view } = result;
+    if (options.reset) eventLog.clear();
+    else if (options.truncate) eventLog.truncateAfter(view.eventCount);
+    eventLog.push(events);
+
+    const state = get();
+    let history = options.reset
+      ? []
+      : options.truncate
+        ? state.simHistory.filter((step) => step.index <= view.firingCount)
+        : state.simHistory;
+    const names = new Map(state.net.transitions.map((t) => [t.id, t.name]));
+    const fired: SimStep[] = [];
+    for (const event of events) {
+      if (event.type === 'start') {
+        fired.push({
+          index: event.firingId,
+          transitionId: event.transitionId,
+          transitionName: names.get(event.transitionId) ?? event.transitionId,
+          binding: event.binding,
+        });
+      }
     }
-    // The marking and the "nothing is enabled yet" state change together, so a stale
-    // enabled set is never drawn next to the new marking.
-    set({ ...extra, enabled: NO_ENABLED(), computing: true, simDiagnostics: [] });
-    findEnabled(net, simMarking).then(
+    if (fired.length > 0) history = [...history, ...fired].slice(-SIM_HISTORY_LIMIT);
+
+    const idle = events.some((e) => e.type === 'idle');
+    const warning = [...events].reverse().find((e) => e.type === 'warning');
+    if (view.enabled) runtime.lastEnabledAt = performance.now();
+    set({
+      simMarking: view.marking,
+      ...(view.enabled && {
+        enabled: toEnabledMap(view.enabled),
+        simDiagnostics: view.diagnostics,
+      }),
+      simHistory: history,
+      simTime: view.time,
+      simRunning: view.running,
+      simMetrics: view.metrics,
+      simNextEvent: view.nextEventTime,
+      simCanBack: view.canStepBack,
+      simRates: view.rates,
+      simLogVersion: state.simLogVersion + 1,
+      simIdle: idle ? true : events.length > 0 ? false : state.simIdle,
+      ...(warning?.type === 'warning' && { simNotice: warning.message }),
+    });
+    if (!options.truncate) publishSimEvents(events);
+
+    const stop = events.find((e) => e.type === 'breakpoint');
+    if (stop?.type === 'breakpoint') {
+      get().setPlaying(false);
+      set({ selection: [stop.elementId] });
+      notify('info', en.simulation.breakpointHit(nameOfElement(get().net, stop.elementId)));
+    } else if (idle && get().simPlaying) {
+      get().setPlaying(false);
+      notify('info', get().simTimed ? en.simulation.finished : en.messages.noEnabled);
+    }
+  };
+
+  /**
+   * Sends a command the user triggered. While it is under way `computing` is true and clicks on
+   * transitions are ignored; an answer of a simulation that has been stopped meanwhile is dropped.
+   */
+  const command = (
+    send: (client: SimulationClient) => Promise<SimResult>,
+    options: { truncate?: boolean; reset?: boolean } = {},
+  ): Promise<void> => {
+    const client = runtime.client;
+    if (!client) return Promise.resolve();
+    const session = runtime.session;
+    runtime.pending += 1;
+    set({ computing: true });
+    return send(client).then(
       (result) => {
-        if (seq !== computationSeq || get().mode !== 'simulate') return;
-        set({ enabled: result.enabled, computing: false, simDiagnostics: result.diagnostics });
+        if (session !== runtime.session) return;
+        runtime.pending -= 1;
+        apply(result, options);
+        if (runtime.pending === 0) set({ computing: false });
       },
       (error: unknown) => {
-        if (seq !== computationSeq || get().mode !== 'simulate') return;
-        set({ enabled: NO_ENABLED(), computing: false });
+        if (session !== runtime.session) return;
+        runtime.pending -= 1;
+        if (runtime.pending === 0) set({ computing: false });
         notify('error', error instanceof Error ? error.message : String(error));
       },
     );
+  };
+
+  /** One step of the clock while playing. */
+  const tick = async (): Promise<void> => {
+    runtime.timer = undefined;
+    const client = runtime.client;
+    const session = runtime.session;
+    if (!client || !get().simPlaying || runtime.ticking) return;
+    runtime.ticking = true;
+    const started = performance.now();
+    const wall = Math.min(Math.max((started - runtime.lastTick) / 1000, 0), MAX_TICK_SECONDS);
+    runtime.lastTick = started;
+    const { net, simSpeed, simTimed } = get();
+    // The bindings of JSON nets are costly to compute; while playing they are refreshed now and then.
+    const enabled = net.profile === 'pt-net' || started - runtime.lastEnabledAt > 400;
+    let delay = PLAY_TICK_MS;
+    try {
+      let result: SimResult;
+      if (simTimed) {
+        result =
+          simSpeed === 'max'
+            ? await client.advance(Infinity, MAX_SPEED_BUNDLE, { enabled })
+            : await client.advance(wall * simSpeed, undefined, { enabled });
+      } else if (simSpeed === 'max') {
+        result = await client.stepRandom(MAX_SPEED_STEPS, { enabled });
+        delay = 0;
+      } else {
+        result = await client.stepRandom(1, { enabled });
+        delay = 1000 / simSpeed;
+      }
+      if (session !== runtime.session) return;
+      apply(result);
+    } catch (error) {
+      if (session !== runtime.session) return;
+      get().setPlaying(false);
+      notify('error', error instanceof Error ? error.message : String(error));
+      return;
+    } finally {
+      if (session === runtime.session) runtime.ticking = false;
+    }
+    if (session === runtime.session && get().simPlaying) {
+      runtime.timer = setTimeout(
+        () => {
+          void tick();
+        },
+        Math.max(0, delay - (performance.now() - started)),
+      );
+    }
   };
 
   return {
@@ -363,12 +601,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     amendId: null,
     dragPositions: null,
 
-    simMarking: null,
-    simHistory: [],
-    enabled: NO_ENABLED(),
-    computing: false,
-    simDiagnostics: [],
-    picker: null,
+    ...idleSimulation(),
+    simBreakpoints: NO_BREAKPOINTS(),
 
     diagnostics: validate(initialNet),
     clipboard: null,
@@ -726,30 +960,63 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
 
     startSimulation() {
-      const { net } = get();
-      recompute({
+      const { net, simBreakpoints } = get();
+      disposeRuntime();
+      eventLog.clear();
+      const client = createSimulationClientForEditor();
+      runtime.client = client;
+      const timed = isTimedNet(net);
+      // Breakpoints on elements that no longer exist are dropped.
+      const known = new Set([...net.places, ...net.transitions].map((n) => n.id));
+      const breakpoints: Breakpoints = {
+        transitions: simBreakpoints.transitions.filter((id) => known.has(id)),
+        places: Object.fromEntries(
+          Object.entries(simBreakpoints.places).filter(([id]) => known.has(id)),
+        ),
+      };
+      set({
+        ...idleSimulation(),
         mode: 'simulate',
         tool: 'select',
         toolSticky: false,
         arcSource: null,
         renamingId: null,
         dragPositions: null,
-        simMarking: initialSimMarking(net),
-        simHistory: [],
-        picker: null,
+        simMarking: initialMarking(net),
+        simTimed: timed,
+        simSpeed: timed ? 10 : 1,
+        simBreakpoints: breakpoints,
+        computing: true,
       });
+      runtime.pending = 1;
+      const session = runtime.session;
+      const hasBreakpoints =
+        breakpoints.transitions.length > 0 || Object.keys(breakpoints.places).length > 0;
+      void client
+        .init(net, undefined)
+        .then(async (result) => {
+          if (hasBreakpoints) await client.setBreakpoints(breakpoints, { enabled: false });
+          return result;
+        })
+        .then(
+          (result) => {
+            if (session !== runtime.session) return;
+            runtime.pending -= 1;
+            apply(result, { reset: true });
+            if (runtime.pending === 0) set({ computing: false });
+          },
+          (error: unknown) => {
+            if (session !== runtime.session) return;
+            runtime.pending -= 1;
+            set({ computing: false });
+            notify('error', error instanceof Error ? error.message : String(error));
+          },
+        );
     },
     stopSimulation() {
-      computationSeq += 1; // drops a computation that is still running
-      set({
-        mode: 'edit',
-        simMarking: null,
-        simHistory: [],
-        enabled: NO_ENABLED(),
-        computing: false,
-        simDiagnostics: [],
-        picker: null,
-      });
+      disposeRuntime();
+      eventLog.clear();
+      set({ mode: 'edit', ...idleSimulation() });
     },
     fireTransition(id) {
       const { mode, enabled, computing } = get();
@@ -760,59 +1027,107 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       else set({ picker: get().picker === id ? null : id });
     },
     fireBindingAt(id, index) {
-      const { mode, net, simMarking, simHistory, enabled, computing } = get();
-      if (mode !== 'simulate' || simMarking === null || computing) return;
+      const { mode, enabled, computing } = get();
+      if (mode !== 'simulate' || computing) return;
       const chosen = enabled.get(id)?.bindings[index];
       if (!chosen) return;
-      const transition = net.transitions.find((t) => t.id === id);
-      let next: Marking;
-      try {
-        next = coreFireBinding(net, simMarking, chosen);
-      } catch (error) {
-        notify('error', error instanceof Error ? error.message : String(error));
-        recompute();
-        return;
-      }
-      recompute({
-        simMarking: next,
-        simHistory: [
-          ...simHistory,
-          {
-            index: simHistory.length + 1,
-            transitionId: id,
-            transitionName: transition?.name ?? id,
-            binding: chosen.binding,
-          },
-        ],
-        picker: null,
-      });
+      set({ picker: null });
+      void command((client) => client.fire(id, chosen));
     },
     setPicker(id) {
       if (get().mode !== 'simulate') return;
       set({ picker: id });
     },
-    stepRandom(random = Math.random) {
-      const { mode, simMarking, enabled, computing } = get();
-      if (mode !== 'simulate' || simMarking === null || computing) return null;
-      const ids = [...enabled.keys()];
-      if (ids.length === 0) {
-        notify('info', en.messages.noEnabled);
-        return null;
-      }
-      const pick = (length: number): number => Math.min(length - 1, Math.floor(random() * length));
-      const id = ids[pick(ids.length)];
-      if (id === undefined) return null;
-      const count = enabled.get(id)?.bindings.length ?? 0;
-      get().fireBindingAt(id, pick(count));
-      return id;
+    async stepRandom() {
+      if (get().mode !== 'simulate' || get().computing) return;
+      await command((client) => client.stepRandom(1));
+      if (get().simIdle) notify('info', en.messages.noEnabled);
     },
-    resetSimulation() {
+    async stepNext() {
+      if (get().mode !== 'simulate' || get().computing) return;
+      get().setPlaying(false);
+      await command((client) => client.step());
+      if (get().simIdle) notify('info', en.simulation.finished);
+    },
+    async stepBack() {
+      const { mode, simCanBack, computing } = get();
+      if (mode !== 'simulate' || !simCanBack || computing) return;
+      get().setPlaying(false);
+      set({ picker: null });
+      await command((client) => client.back(), { truncate: true });
+    },
+    async resetSimulation() {
       if (get().mode !== 'simulate') return;
-      recompute({
-        simMarking: initialSimMarking(get().net),
-        simHistory: [],
-        picker: null,
-      });
+      get().setPlaying(false);
+      set({ picker: null });
+      await command((client) => client.reset(), { reset: true });
+    },
+    setPlaying(playing) {
+      const { mode, simPlaying } = get();
+      if (playing === simPlaying) return;
+      if (playing && (mode !== 'simulate' || runtime.client === null)) return;
+      set(playing ? { simPlaying: true, simIdle: false } : { simPlaying: false });
+      clearPlayTimer();
+      if (playing) {
+        runtime.lastTick = performance.now();
+        runtime.timer = setTimeout(() => {
+          void tick();
+        }, PLAY_TICK_MS);
+      }
+    },
+    togglePlaying() {
+      get().setPlaying(!get().simPlaying);
+    },
+    setSimSpeed(speed) {
+      set({ simSpeed: speed });
+    },
+    setArrivalRate(transitionId, perHour) {
+      if (get().mode !== 'simulate') return;
+      void command((client) => client.setRate(transitionId, perHour, { enabled: false }));
+    },
+    adjustPlaceTokens(placeId, delta) {
+      const { mode, net, simMarking } = get();
+      if (mode !== 'simulate' || simMarking === null) return;
+      const place = net.places.find((p) => p.id === placeId);
+      if (!place) return;
+      const tokens = [...(simMarking[placeId] ?? [])];
+      if (delta > 0) {
+        if (place.capacity !== undefined && tokens.length >= place.capacity) {
+          notify('info', en.messages.capacityReached(place.capacity));
+          return;
+        }
+        const sample =
+          net.profile === 'json-net'
+            ? (tokens[tokens.length - 1] ??
+              exampleToken(place.type === undefined ? undefined : net.types[place.type]))
+            : 1;
+        tokens.push(structuredClone(sample));
+      } else {
+        if (tokens.length === 0) return;
+        tokens.pop();
+      }
+      void command((client) => client.edit(placeId, tokens));
+    },
+    toggleTransitionBreakpoint(transitionId) {
+      const { simBreakpoints } = get();
+      const has = simBreakpoints.transitions.includes(transitionId);
+      const next: Breakpoints = {
+        ...simBreakpoints,
+        transitions: has
+          ? simBreakpoints.transitions.filter((id) => id !== transitionId)
+          : [...simBreakpoints.transitions, transitionId],
+      };
+      set({ simBreakpoints: next });
+      void runtime.client?.setBreakpoints(next, { enabled: false }).catch(() => undefined);
+    },
+    setPlaceBreakpoint(placeId, count) {
+      const { simBreakpoints } = get();
+      const places = { ...simBreakpoints.places };
+      if (count === null || count < 1) delete places[placeId];
+      else places[placeId] = Math.round(count);
+      const next: Breakpoints = { ...simBreakpoints, places };
+      set({ simBreakpoints: next });
+      void runtime.client?.setBreakpoints(next, { enabled: false }).catch(() => undefined);
     },
   };
 });
