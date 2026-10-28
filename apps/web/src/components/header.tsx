@@ -13,6 +13,7 @@ import {
   Undo2,
   Workflow,
   Pencil,
+  Settings,
   ArrowRight,
   ArrowDown,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ import { chooseFile, exportSvg, newNetGuarded, openExampleGuarded, saveNet } fro
 import { listExamples } from '../lib/examples';
 import { runAutoLayout } from '../lib/layout-action';
 import { selectCanRedo, selectCanUndo, selectIsDirty, useEditorStore } from '../store/editor-store';
+import { useLlmStore } from '../store/llm-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
 import { ViewSwitch } from './domain/view-switch';
@@ -64,6 +66,7 @@ export function Header() {
   const diagnosticsOpen = useUiStore((s) => s.diagnosticsOpen);
   const setDiagnosticsOpen = useUiStore((s) => s.setDiagnosticsOpen);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const openLlmSettings = useLlmStore((s) => s.openSettings);
   const simulating = mode === 'simulate';
 
   const fileSections: MenuSection[] = [
@@ -284,6 +287,14 @@ export function Header() {
           ) : (
             <Moon size={17} aria-hidden="true" />
           )}
+        </IconButton>
+        <IconButton
+          label={en.llm.settingsHeader}
+          tooltip={en.llm.settingsTip}
+          onClick={openLlmSettings}
+          data-testid="llm-settings-open"
+        >
+          <Settings size={17} aria-hidden="true" />
         </IconButton>
         <IconButton
           label={en.menu.shortcuts}

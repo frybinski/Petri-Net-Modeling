@@ -171,7 +171,8 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Abbildung, statische Canvas-Ansicht, Speicherung unter `domainView`.
 - D2 Animation (fertig, 0.6.0; siehe `docs/domain-view.md`): Ansicht hört auf den Ereignisstrom, Steuerung, Kennzahlen,
   Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus.
-- D3 LLM-Erzeugung der Abbildung: OpenAI-kompatibler Anbieter, Prompt mit Netz,
+- D3 LLM-Erzeugung der Abbildung (fertig, 0.7.0; siehe `docs/domain-view.md`, Lauf mit echtem Modell für A6 steht aus):
+  OpenAI-kompatibler Anbieter, Prompt mit Netz,
   Domänenbeschreibung, Schema und Beispielen, Reparaturschleife, Auffüllen,
   Herkunft je Eintrag. Das Netz bestimmt das Verhalten, die Abbildung nur das
   Aussehen (neuro-symbolische Arbeitsteilung).

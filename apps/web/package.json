@@ -1,6 +1,6 @@
 {
   "name": "@pnm/web",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Web editor for Petri nets",
   "license": "MIT",
@@ -29,6 +29,7 @@
     "@pnm/expr": "workspace:*",
     "@pnm/io": "workspace:*",
     "@pnm/layout": "workspace:*",
+    "@pnm/llm": "workspace:*",
     "@pnm/sim": "workspace:*",
     "@radix-ui/react-context-menu": "^2.4.1",
     "@radix-ui/react-tooltip": "^1.4.1",

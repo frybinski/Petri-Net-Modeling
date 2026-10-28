@@ -26,6 +26,7 @@ import {
   setInitialTokens,
   setPlaceType as corePlaceType,
   setDomainView as coreSetDomainView,
+  setDomainViewGeneration as coreSetDomainViewGeneration,
   setProfile as coreSetProfile,
   setSimulationSettings as coreSetSimulationSettings,
   setTokens as coreSetTokens,
@@ -220,6 +221,11 @@ export interface EditorState {
   updateSimulationSettings(patch: Partial<SimulationSettings>): void;
   /** Sets the domain view of the net, or removes it with `undefined`. One undo step. */
   setDomainView(view: unknown): void;
+  /**
+   * Replaces the domain view and the record of how it was generated (`undefined` removes the
+   * record) in one undo step.
+   */
+  replaceDomainView(view: unknown, generation: unknown): void;
   align(mode: AlignMode): void;
   distribute(axis: DistributeAxis): void;
   applyLayout(positions: Record<Id, Position>): void;
@@ -858,6 +864,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     setDomainView(view) {
       edit((net) => coreSetDomainView(net, view));
+    },
+    replaceDomainView(view, generation) {
+      edit((net) => coreSetDomainViewGeneration(coreSetDomainView(net, view), generation));
     },
     align(mode) {
       edit((net) => alignNodes(net, get().selection, mode));

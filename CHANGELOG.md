@@ -2,6 +2,49 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.7.0: LLM generation of the domain view
+
+Milestone D3. The file format stays `1.0`; `domainViewGeneration` is a new optional field next to `domainView`, and nets
+of 0.6.0 work unchanged.
+
+### Added
+
+- `@pnm/llm` (new package, no React dependency): an OpenAI-compatible provider over `fetch` (`chat`, `listModels`,
+  `test`) with JSON mode negotiation (`json_schema`, then `json_object`, then plain), lenient parsing of the answer and
+  classified errors (`network`, `auth`, `rate-limit`, `timeout`, `bad-response`, `parse`, `aborted`); the prompts
+  (`compactNet`, `buildPrompt`, `buildRepairPrompt`) with the schema of the answer and two worked examples; and
+  `generateDomainView`, which checks the answer with the rules V1 to V8, sends the findings back as a repair request (at
+  most three rounds), drops what stays invalid, fills the gaps generically and keeps a log of the rounds. Every entry
+  carries its provenance. A scripted provider (`@pnm/llm/testing`) drives the tests.
+- `@pnm/core`: the optional net field `domainViewGeneration` (the record of how a model generated the view), passed
+  through like `domainView`, written right after it and removed together with it.
+- Web app: the dialog _LLM provider_ (presets for Ollama and LM Studio, custom server, model list, API key kept apart in
+  `localStorage`, temperature, JSON mode, connection test, hint on `OLLAMA_ORIGINS`, notice on what is sent) and the
+  dialog _Generate domain view with LLM_ (description, canvas size, progress per round, cancel or continue in the
+  background, preview, origin summary, findings, log of the rounds, prompt with a copy button, _Use this view_ as one undo
+  step). The domain panel shows who generated the view and opens the log, entries from a model get a badge, the hover
+  card names the model, and the status bar shows a running generation. A simulation stops a running generation and the
+  action is locked while simulating.
+- Evaluation script for acceptance A6: `pnpm --filter @pnm/llm eval -- --base-url <url> --model <name>` generates the
+  views of the parcel center and the smart office with a real model, prints the findings per round and writes a report
+  and the views to `docs/eval/` ([docs/eval/README.md](docs/eval/README.md)).
+- Tests: provider, prompts, repair loop (acceptance A6 with a scripted provider for both examples, repair in round 2),
+  the evaluation script against a local HTTP server, settings and dialogs, and Playwright tests with a routed provider
+  (V4 error in round 1, repair in round 2, log, use, origin, hover card, key kept out of saved nets, refused request,
+  settings dialog).
+- Documentation: the section _Generating a view with an LLM_ in [docs/domain-view.md](docs/domain-view.md), the record in
+  [docs/format.md](docs/format.md) and ADR 0010.
+
+### Pending
+
+- Acceptance A6 with a real model: the container for development has none. Run the evaluation script against a model
+  (see [docs/eval/README.md](docs/eval/README.md)) and keep the report in `docs/eval/`. Until then A6 is met by the tests
+  with the scripted provider only.
+
+### Changed
+
+- Nothing in the behaviour of the simulation or of the strict mapping; the generation never runs during a simulation.
+
 ## 0.6.0: Animated domain view
 
 Milestone D2. The file format stays `1.0`; nets and mappings of 0.5.0 work unchanged.

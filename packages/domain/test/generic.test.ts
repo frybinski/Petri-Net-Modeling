@@ -4,6 +4,7 @@ import { createEmptyNet, parseNetText, removeNode, type PetriNet } from '@pnm/co
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
+  fillArcs,
   fillMissing,
   genericDomainView,
   genericDomainViewWithLayout,
@@ -260,5 +261,40 @@ describe('fillMissing', () => {
       }),
       { numRuns: 60 },
     );
+  });
+});
+
+describe('fillArcs', () => {
+  it('leaves a view with all its arcs as it is', () => {
+    const net = smallNet();
+    const view = genericDomainView(net, { at: AT });
+    expect(fillArcs(net, view, { at: AT })).toBe(view);
+  });
+
+  it('adds straight paths for missing arcs, marks them generic and keeps the rest', () => {
+    const net = smallNet();
+    const view = genericDomainView(net, { at: AT });
+    const kept = view.arcs?.['work>done'];
+    const { arcs: _arcs, ...without } = view;
+    const filled = fillArcs(
+      net,
+      { ...without, arcs: { 'work>done': kept! } },
+      { at: '2027-01-01T00:00:00.000Z' },
+    );
+    expect(filled.arcs?.['work>done']).toBe(kept);
+    expect(Object.keys(filled.arcs ?? {}).sort()).toEqual(Object.keys(view.arcs ?? {}).sort());
+    expect(filled.provenance['arcs.t_in>q']).toEqual({
+      source: 'generic',
+      at: '2027-01-01T00:00:00.000Z',
+    });
+    expect(filled.provenance['arcs.work>done']).toEqual(view.provenance['arcs.work>done']);
+    expect(validateDomainView(net, filled).ok).toBe(true);
+  });
+
+  it('works on a view without an arcs field', () => {
+    const net = smallNet();
+    const { arcs: _arcs, ...without } = genericDomainView(net, { at: AT });
+    const filled = fillArcs(net, without, { at: AT });
+    expect(Object.keys(filled.arcs ?? {}).length).toBeGreaterThan(0);
   });
 });

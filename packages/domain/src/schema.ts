@@ -83,7 +83,8 @@ const label = z.string().optional();
 
 const spriteSchema = z.enum(['parcel', 'person', 'vehicle', 'document', 'dot']);
 
-const placeViewSchema = z.discriminatedUnion('kind', [
+/** Schema of one entry of `places`. */
+export const placeViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.enum(['queue', 'conveyor', 'buffer']),
     path: z.array(point),
@@ -95,7 +96,8 @@ const placeViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('hidden'), reason: z.string() }),
 ]);
 
-const transitionViewSchema = z.discriminatedUnion('kind', [
+/** Schema of one entry of `transitions`. */
+export const transitionViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.enum(['station', 'machine', 'gate']),
     box: rect,
@@ -121,13 +123,17 @@ const transitionViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('hidden'), reason: z.string() }),
 ]);
 
-const decorSchema = z.discriminatedUnion('kind', [
+/** Schema of one entry of `decor`. */
+export const decorSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.enum(['room', 'zone']), rect, label }),
   z.strictObject({ kind: z.literal('wall'), segs: z.array(rect), width: finite.optional() }),
   z.strictObject({ kind: z.literal('label'), pos: point, text: z.string() }),
   z.strictObject({ kind: z.literal('furniture'), rect }),
   z.strictObject({ kind: z.literal('scale'), pos: point, px: finite, label: z.string() }),
 ]);
+
+/** Schema of one entry of `arcs`. */
+export const arcViewSchema = z.strictObject({ path: z.array(point) });
 
 const provenanceSchema = z.strictObject({
   source: z.enum(['llm', 'user', 'generic']),
@@ -156,7 +162,7 @@ export const domainViewSchema = z.strictObject({
   meta: metaSchema,
   places: z.record(z.string(), placeViewSchema),
   transitions: z.record(z.string(), transitionViewSchema),
-  arcs: z.record(z.string(), z.strictObject({ path: z.array(point) })).optional(),
+  arcs: z.record(z.string(), arcViewSchema).optional(),
   decor: z.array(decorSchema).optional(),
   provenance: z.record(z.string(), provenanceSchema),
 }) satisfies z.ZodType<DomainView, unknown>;

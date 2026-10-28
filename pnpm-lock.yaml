@@ -80,6 +80,9 @@ importers:
       '@pnm/layout':
         specifier: workspace:*
         version: link:../../packages/layout
+      '@pnm/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@pnm/sim':
         specifier: workspace:*
         version: link:../../packages/sim
@@ -245,6 +248,28 @@ importers:
       '@types/node':
         specifier: ^22.19.0
         version: 22.20.5
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@types/node@22.20.5)(@vitest/coverage-v8@5.0.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(jiti@2.7.0))
+
+  packages/llm:
+    dependencies:
+      '@pnm/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pnm/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.0
+        version: 22.20.5
+      jiti:
+        specifier: ^2.7.0
+        version: 2.7.0
       vitest:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@22.20.5)(@vitest/coverage-v8@5.0.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(jiti@2.7.0))

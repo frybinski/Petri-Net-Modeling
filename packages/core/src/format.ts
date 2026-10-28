@@ -91,6 +91,7 @@ function canonical(net: PetriNet): Record<string, unknown> {
   };
   if (net.simulation) out.simulation = canonicalSimulation(net.simulation);
   if (net.domainView !== undefined) out.domainView = net.domainView;
+  if (net.domainViewGeneration !== undefined) out.domainViewGeneration = net.domainViewGeneration;
   if (net.annotations) {
     out.annotations = net.annotations.map((a) => ({
       id: a.id,

@@ -1,11 +1,21 @@
 import { useStore } from '@xyflow/react';
-import { AlertCircle, AlertTriangle, CheckCircle2, Grid3x3, Map as MapIcon, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Grid3x3,
+  Loader2,
+  Map as MapIcon,
+  X,
+} from 'lucide-react';
 import { en } from '../i18n/en';
 import { commandById, shortcutText } from '../lib/commands';
 import { useDiagnostics } from '../lib/use-diagnostics';
 import { getDomainViewApi } from '../lib/domain-view-api';
 import { getViewApi } from '../lib/view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
+import { openGenerateDialog } from '../lib/domain-generation';
+import { useGenerationStore } from '../store/generation-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
 import { Tooltip } from './ui/tooltip';
@@ -37,6 +47,9 @@ export function StatusBar() {
   const toggleMinimap = useUiStore((s) => s.toggleMinimap);
   const viewMode = useUiStore((s) => s.viewMode);
   const domainZoom = useUiStore((s) => s.domainZoom);
+  const generating = useGenerationStore((s) => s.stage === 'running');
+  const generationRound = useGenerationStore((s) => s.round);
+  const generationMax = useGenerationStore((s) => s.maxRounds);
   const diagnosticsOpen = useUiStore((s) => s.diagnosticsOpen);
   const setDiagnosticsOpen = useUiStore((s) => s.setDiagnosticsOpen);
 
@@ -96,6 +109,20 @@ export function StatusBar() {
             <X size={11} aria-hidden="true" />
           </button>
         </span>
+      ) : null}
+      {generating ? (
+        <Tooltip content={en.llm.statusRunningTip} side="top">
+          <button
+            type="button"
+            onClick={openGenerateDialog}
+            className="inline-flex h-6 items-center gap-1.5 rounded-full bg-accent-soft px-2 font-medium text-accent"
+            role="status"
+            data-testid="llm-status"
+          >
+            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+            {en.llm.statusRunning(generationRound, generationMax)}
+          </button>
+        </Tooltip>
       ) : null}
       {hint && mode === 'edit' ? (
         <span className="truncate text-fg" data-testid="tool-hint" role="status">
