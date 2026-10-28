@@ -2,6 +2,38 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.0: Editing the domain view in place
+
+Milestone D4. The file format stays `1.0`; nets of 0.7.0 work unchanged.
+
+### Added
+
+- `@pnm/domain`: handles and pure edit functions (`handlesFor`, `hitHandle`, `moveEntry`, `resizeEntry`, `setBox`,
+  `movePoint`, `insertPoint`, `removePoint`, `moveSlot`, `addSlot`, `removeSlot`, `moveRoom`, `setEntryKind`,
+  `setLabel`, `setSensor`, `setPass`, `hideEntry`, `showEntry`, `addDecor`, `removeDecor`, `markUser`, `resetEntry`,
+  `removeStale`, `staleEntries`, `missingEntries`, `allowedPlaceKinds`, `allowedTransitionKinds`); `fillMissing` can keep
+  stale entries (`dropStale: false`). A property test checks that edits keep V1, V4 and V5 satisfied and change only the
+  addressed entry.
+- Web app: the mode _Edit layout_ of the domain view (key `E`): selection, handles that stay crisp at any zoom, drags
+  with a live preview and one undo step per drag, grid (Alt: off), Shift keeps proportions, arrow keys (Shift: 8 px),
+  `Esc` cancels a drag, `Delete` hides the entry (the net keeps the element; only decor is removed), inline label
+  editing, a context menu (change kind, points, slots, hide and show, reset to generic, edit JSON, add decor), dashed
+  placeholders for hidden entries. Every hand change sets the origin `user`.
+- The entry section of the domain panel has fields for kind, label, sensor, `pass`, geometry, points and slots; the card
+  _The view is out of date_ offers _Fill missing entries_, _Remove stale entries_ and _Update hash_ as separate undo
+  steps; _Reset all to generic_ and _Edit JSON_ (selects the entry in the JSON editor).
+- Acceptance A8 as a script: `pnpm --filter @pnm/io check:pm4py` simulates the parcel center for two hours, exports CSV
+  and XES, reads them with pm4py and checks columns, time stamps, the number of cases, the activities of the discovered
+  net and the XES file. It uses the Python in `PNM_PYTHON` (a venv with `pip install pm4py pandas`). The first run is
+  [docs/eval/pm4py-2026-10-28.md](docs/eval/pm4py-2026-10-28.md): all checks pass (653 cases, 9 of 9 activities).
+- [ADR 0011](docs/adr/0011-domain-view-editing.md).
+
+### Acceptance
+
+- A7 (a new place: V3 names exactly it and V7 reports the stale view, _Fill missing entries_ adds only its entry with the
+  origin `generic`, _Update hash_ clears V7) is a Playwright test.
+- A8: passed with pm4py 2.7.23.11, see above.
+
 ## 0.7.0: LLM generation of the domain view
 
 Milestone D3. The file format stays `1.0`; `domainViewGeneration` is a new optional field next to `domainView`, and nets

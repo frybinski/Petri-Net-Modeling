@@ -114,6 +114,9 @@ log = pm4py.format_dataframe(
 net, initial, final = pm4py.discover_petri_net_inductive(log)
 ```
 
+The script `pnpm --filter @pnm/io check:pm4py` does exactly this for the parcel center and checks the result (acceptance A8,
+see [eval/README.md](eval/README.md)).
+
 Without the filter every activity occurs twice per case (start and complete), which the inductive miner may read as a
 loop. XES files keep both lifecycle events and can be filtered the same way.
 

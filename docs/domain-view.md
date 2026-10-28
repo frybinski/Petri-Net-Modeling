@@ -198,10 +198,63 @@ uses the animation below instead.
   pinch zoom, dragging pans, `F` fits, `Ctrl+0` resets the zoom; the zoom is in the status bar.
 - Hovering an element shows a card (name, id, kind of drawing, role, tokens, origin, sensor) and lights up its
   counterpart in the net, and the other way round. A click selects it.
+- The mode _Edit layout_ (key `E`) lets you move, resize and reshape the entries in the picture, see _Editing the view_.
 - The tab _Domain view_ in the right panel shows the problems, the origin of the entries and the state of the hash, the
   actions _Generate generic view_, _Fill missing entries_, _Update hash_ and _Remove domain view_, the appearance
   (theme, name, entity, canvas size), the entry of the selected element and the whole mapping as JSON with live checks.
   Applying the JSON replaces the view in one undo step.
+
+## Editing the view
+
+The switch _Inspect | Edit layout_ in the bar of the domain view (key `E`, only while the net is in the editing mode)
+turns the picture into an editor. The JSON editor of the panel stays as the second way; both go through the same rules
+and every change is checked at once.
+
+- **Selecting.** A click selects an element (the selection is shared with the net), a piece of decor, or a dashed
+  placeholder of a hidden element. The selected entry gets a frame and handles in the accent colour. They are drawn in
+  screen pixels, so they stay sharp and the same size at any zoom.
+- **Handles.** A box (station, machine, gate, area, rooms, source, sink, room, zone, furniture) has a surface to drag and
+  eight resize handles; rooms of a `rooms` area have their own surface and four corners. A position (door, dock,
+  waypoint, pool, label, scale bar) has one round handle, a scale bar a second one at its end. A path (queue, conveyor,
+  buffer, arc) has a round handle per point and a small one in the middle of each segment: click it to add a point
+  there, or press and drag to add and place it in one move. A double click on a point removes it (a path keeps two).
+  Slots are diamonds that move inside their station; wall segments have a handle at each end.
+- **Dragging.** The picture follows the pointer while you drag, nothing is written before you let go, and then the whole
+  drag is **one** undo step. `Esc` cancels a drag. The grid of the editor (8 px, key `G`) applies; `Alt` switches it
+  off for the drag. `Shift` on a corner handle keeps the proportions. Coordinates are whole numbers and stay inside the
+  canvas, boxes are at least 24 × 24 px, slots stay in their box, resizing scales slots and rooms with the box. A
+  number next to the pointer shows where the entry is and how large.
+- **Arcs follow.** Moving an element moves the end of the arcs that touch it, and so does moving the end of a belt.
+  Resizing leaves arcs where they are.
+- **Keys.** The arrow keys move the selection by 1 px, with `Shift` by 8 px. `Delete` does **not** delete the net
+  element: it hides the entry (`hidden`, reason _hidden by user_, a toast with _Undo_), and the element stays in the
+  net. Only decor is really removed. `F2` or a double click edits the label in place; an empty label brings the name of
+  the element back.
+- **Context menu.** On an entry: edit label, _Change kind_ (only the kinds that rule V4 allows for the role, converting
+  the geometry: a box becomes a point at its middle, a point becomes a box around it), add or remove a point, add or
+  remove a slot (at the click), hide or show, reset the entry to generic, edit JSON (selects the entry in the JSON
+  editor). On the empty sheet: add room, zone, wall, label, furniture or scale bar here.
+- **Hidden entries** are shown as dashed outlines at the position where the generic view would put them, so that they
+  can be found and shown again (_Show_ gives them their generic form). Arcs of a hidden element lose their path, and
+  _Show_ draws them again.
+- **Provenance.** Every hand change sets the origin of the entry to `user`; _Show_ and _Reset entry to generic_ set it
+  to `generic`. The panel counts the origins; _Reset all to generic_ replaces everything after a confirmation.
+- **Panel fields.** The entry section of the panel shows the same entry with fields for the kind, the label, the sensor,
+  `pass`, the box or position as numbers, the points of a path and the slots. Each commit goes through the same
+  functions as a drag. The JSON of the entry is one click away.
+- **Out of date.** When the net has changed (V7) the panel starts with a card _The view is out of date_. It lists the
+  elements without an entry (V3) and the entries of removed elements (V2) and offers _Fill missing entries_ (only the
+  new elements get a generic entry, everything else stays as it is), _Remove stale entries_ and _Update hash_, each as
+  its own undo step. The action _Fill missing entries_ in the action list does both of the first two at once.
+
+The edits are pure functions of `@pnm/domain` (`handlesFor`, `hitHandle`, `moveEntry`, `resizeEntry`, `setBox`,
+`movePoint`, `insertPoint`, `removePoint`, `moveSlot`, `addSlot`, `removeSlot`, `setEntryKind`, `setLabel`,
+`hideEntry`, `showEntry`, `addDecor`, `removeDecor`, `markUser`, ...). Each returns a new view, changes only the
+addressed entry (and the arcs that move along when the net is given) and keeps the rules V1, V4 and V5 satisfied; a
+property test over random nets checks this after random sequences of edits. See
+[ADR 0011](adr/0011-domain-view-editing.md).
+
+![The domain view in the mode Edit layout: the scanner is selected, with its handles, and the panel shows its fields](images/domain-edit-light.png)
 
 ## Animation
 
