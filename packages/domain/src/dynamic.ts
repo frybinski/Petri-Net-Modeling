@@ -127,7 +127,7 @@ export function buildDynamicScene(
         points: entry.path,
         stroke: level === 'crit' ? 'danger' : 'warn',
         lineWidth: width + 4,
-        alpha: level === 'crit' ? 0.5 : 0.42,
+        alpha: level === 'crit' ? 0.62 : 0.55,
         cap: 'round',
       });
       continue;

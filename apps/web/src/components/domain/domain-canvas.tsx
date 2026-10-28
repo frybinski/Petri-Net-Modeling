@@ -809,6 +809,7 @@ function DomainZoomControls({
       role="group"
       aria-label={en.canvas.zoomControls}
       className="absolute bottom-3 left-3 flex flex-col rounded-lg border border-border bg-surface p-0.5 shadow-panel"
+      data-domain-overlay="bottom"
     >
       <IconButton
         label={en.domain.zoomIn}

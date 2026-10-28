@@ -479,6 +479,8 @@ export const en = {
         'Drag, wheel in the domain view',
         'Pan the sheet (Ctrl+wheel, pinch and double click zoom and fit)',
       ],
+      ['Click a case in the domain view', 'Follow it through the run (Esc or the card lets go)'],
+      ['Click an enabled station in the domain view', 'Fire its transition while simulating'],
     ] as ReadonlyArray<readonly [string, string]>,
     groups: {
       tools: 'Tools',
