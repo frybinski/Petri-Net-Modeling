@@ -388,5 +388,953 @@
     "warmup": 2700,
     "startTime": "2026-01-05T08:00:00Z",
     "caseIdPrefix": "M-"
+  },
+  "domainView": {
+    "schemaVersion": 1,
+    "netHash": "fnv1a64:2a2366bb89845c6f",
+    "meta": {
+      "theme": "Smart Office",
+      "viewName": "Grundriss",
+      "entity": {
+        "singular": "Person",
+        "plural": "Personen",
+        "sprite": "person"
+      },
+      "canvas": {
+        "width": 1000,
+        "height": 560
+      },
+      "metersPerPixel": 0.05
+    },
+    "places": {
+      "o_foyer": {
+        "kind": "queue",
+        "path": [
+          [
+            46,
+            436
+          ],
+          [
+            96,
+            380
+          ],
+          [
+            182,
+            380
+          ]
+        ]
+      },
+      "o_flur": {
+        "kind": "queue",
+        "path": [
+          [
+            224,
+            332
+          ],
+          [
+            404,
+            332
+          ]
+        ]
+      },
+      "o_qDesk": {
+        "kind": "queue",
+        "path": [
+          [
+            548,
+            272
+          ],
+          [
+            300,
+            272
+          ]
+        ]
+      },
+      "o_qRoom": {
+        "kind": "queue",
+        "path": [
+          [
+            640,
+            250
+          ],
+          [
+            800,
+            250
+          ]
+        ]
+      },
+      "o_qCoffee": {
+        "kind": "queue",
+        "path": [
+          [
+            480,
+            382
+          ],
+          [
+            480,
+            470
+          ],
+          [
+            560,
+            470
+          ]
+        ]
+      },
+      "o_exit": {
+        "kind": "queue",
+        "path": [
+          [
+            404,
+            522
+          ],
+          [
+            240,
+            522
+          ],
+          [
+            240,
+            490
+          ],
+          [
+            218,
+            490
+          ]
+        ]
+      },
+      "o_gateIn": {
+        "kind": "slots",
+        "of": "o_in"
+      },
+      "o_gateOut": {
+        "kind": "slots",
+        "of": "o_out"
+      },
+      "o_desks": {
+        "kind": "slots",
+        "of": "o_work"
+      },
+      "o_rooms": {
+        "kind": "slots",
+        "of": "o_meet"
+      },
+      "o_coffee": {
+        "kind": "slots",
+        "of": "o_coffeeT"
+      },
+      "o_gone": {
+        "kind": "sink",
+        "box": [
+          34,
+          472,
+          72,
+          36
+        ],
+        "label": "Ausgang"
+      }
+    },
+    "transitions": {
+      "o_arr": {
+        "kind": "door",
+        "pos": [
+          16,
+          440
+        ],
+        "sensor": "Türkontakt"
+      },
+      "o_in": {
+        "kind": "gate",
+        "box": [
+          182,
+          346,
+          36,
+          64
+        ],
+        "slots": [
+          [
+            200,
+            386
+          ]
+        ],
+        "sensor": "Badge-Leser"
+      },
+      "o_wD": {
+        "kind": "waypoint",
+        "pos": [
+          565,
+          318
+        ],
+        "pass": true,
+        "sensor": "Bewegungsmelder Flur"
+      },
+      "o_wM": {
+        "kind": "waypoint",
+        "pos": [
+          660,
+          318
+        ],
+        "pass": true,
+        "sensor": "Bewegungsmelder Flur"
+      },
+      "o_work": {
+        "kind": "area",
+        "box": [
+          206,
+          22,
+          388,
+          240
+        ],
+        "slots": [
+          [
+            255,
+            100
+          ],
+          [
+            310,
+            100
+          ],
+          [
+            365,
+            100
+          ],
+          [
+            420,
+            100
+          ],
+          [
+            255,
+            214
+          ],
+          [
+            310,
+            214
+          ],
+          [
+            365,
+            214
+          ],
+          [
+            420,
+            214
+          ],
+          [
+            475,
+            100
+          ],
+          [
+            475,
+            214
+          ],
+          [
+            530,
+            100
+          ],
+          [
+            530,
+            214
+          ]
+        ],
+        "label": "Open Space",
+        "sensor": "Präsenzsensor je Schreibtisch"
+      },
+      "o_meet": {
+        "kind": "rooms",
+        "box": [
+          600,
+          16,
+          384,
+          528
+        ],
+        "slots": [
+          [
+            664,
+            92
+          ],
+          [
+            792,
+            92
+          ],
+          [
+            920,
+            92
+          ],
+          [
+            771,
+            456
+          ],
+          [
+            913,
+            456
+          ]
+        ],
+        "rooms": [
+          [
+            600,
+            16,
+            128,
+            150
+          ],
+          [
+            728,
+            16,
+            128,
+            150
+          ],
+          [
+            856,
+            16,
+            128,
+            150
+          ],
+          [
+            700,
+            360,
+            142,
+            184
+          ],
+          [
+            842,
+            360,
+            142,
+            184
+          ]
+        ],
+        "sensor": "Raumbelegungssensor"
+      },
+      "o_coffeeT": {
+        "kind": "machine",
+        "box": [
+          560,
+          400,
+          90,
+          110
+        ],
+        "slots": [
+          [
+            605,
+            436
+          ],
+          [
+            605,
+            480
+          ]
+        ],
+        "label": "Kaffee",
+        "sensor": "Smart Plug (Leistungsaufnahme)"
+      },
+      "o_out": {
+        "kind": "gate",
+        "box": [
+          182,
+          456,
+          36,
+          64
+        ],
+        "slots": [
+          [
+            200,
+            496
+          ]
+        ],
+        "sensor": "Badge-Leser"
+      }
+    },
+    "arcs": {
+      "o_in>o_flur": {
+        "path": [
+          [
+            218,
+            380
+          ],
+          [
+            224,
+            380
+          ],
+          [
+            224,
+            332
+          ]
+        ]
+      },
+      "o_flur>o_wD": {
+        "path": [
+          [
+            404,
+            332
+          ],
+          [
+            565,
+            332
+          ],
+          [
+            565,
+            324
+          ]
+        ]
+      },
+      "o_flur>o_wM": {
+        "path": [
+          [
+            404,
+            332
+          ],
+          [
+            660,
+            332
+          ],
+          [
+            660,
+            324
+          ]
+        ]
+      },
+      "o_wD>o_qDesk": {
+        "path": [
+          [
+            565,
+            312
+          ],
+          [
+            565,
+            272
+          ],
+          [
+            548,
+            272
+          ]
+        ]
+      },
+      "o_wM>o_qRoom": {
+        "path": [
+          [
+            660,
+            312
+          ],
+          [
+            660,
+            274
+          ],
+          [
+            640,
+            250
+          ]
+        ]
+      },
+      "o_qRoom>o_meet": {
+        "path": [
+          [
+            800,
+            250
+          ],
+          [
+            792,
+            236
+          ],
+          [
+            792,
+            170
+          ]
+        ]
+      },
+      "o_work>o_qCoffee": {
+        "path": [
+          [
+            575,
+            262
+          ],
+          [
+            575,
+            346
+          ],
+          [
+            480,
+            346
+          ],
+          [
+            480,
+            382
+          ]
+        ]
+      },
+      "o_meet>o_qCoffee": {
+        "path": [
+          [
+            820,
+            166
+          ],
+          [
+            820,
+            346
+          ],
+          [
+            480,
+            346
+          ],
+          [
+            480,
+            382
+          ]
+        ]
+      },
+      "o_coffeeT>o_exit": {
+        "path": [
+          [
+            590,
+            510
+          ],
+          [
+            590,
+            522
+          ],
+          [
+            404,
+            522
+          ]
+        ]
+      },
+      "o_out>o_gone": {
+        "path": [
+          [
+            182,
+            490
+          ],
+          [
+            106,
+            490
+          ]
+        ]
+      }
+    },
+    "decor": [
+      {
+        "kind": "room",
+        "rect": [
+          16,
+          16,
+          184,
+          140
+        ],
+        "label": "WC"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          16,
+          156,
+          184,
+          144
+        ],
+        "label": "Technik"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          200,
+          16,
+          400,
+          284
+        ],
+        "label": "Open Space"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          600,
+          16,
+          128,
+          150
+        ],
+        "label": "Raum A"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          728,
+          16,
+          128,
+          150
+        ],
+        "label": "Raum B"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          856,
+          16,
+          128,
+          150
+        ],
+        "label": "Raum C"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          420,
+          360,
+          280,
+          184
+        ],
+        "label": "Teeküche"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          700,
+          360,
+          142,
+          184
+        ],
+        "label": "Flexraum 1"
+      },
+      {
+        "kind": "room",
+        "rect": [
+          842,
+          360,
+          142,
+          184
+        ],
+        "label": "Flexraum 2"
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          96,
+          316,
+          64,
+          16
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          872,
+          268,
+          98,
+          20
+        ]
+      },
+      {
+        "kind": "label",
+        "pos": [
+          28,
+          322
+        ],
+        "text": "Foyer"
+      },
+      {
+        "kind": "label",
+        "pos": [
+          250,
+          420
+        ],
+        "text": "Garderobe"
+      },
+      {
+        "kind": "label",
+        "pos": [
+          612,
+          188
+        ],
+        "text": "Wartezone"
+      },
+      {
+        "kind": "label",
+        "pos": [
+          880,
+          334
+        ],
+        "text": "Flur"
+      },
+      {
+        "kind": "wall",
+        "segs": [
+          [
+            16,
+            16,
+            984,
+            16
+          ],
+          [
+            984,
+            16,
+            984,
+            544
+          ],
+          [
+            16,
+            544,
+            984,
+            544
+          ],
+          [
+            16,
+            16,
+            16,
+            405
+          ],
+          [
+            16,
+            475,
+            16,
+            544
+          ],
+          [
+            16,
+            156,
+            200,
+            156
+          ],
+          [
+            16,
+            300,
+            200,
+            300
+          ],
+          [
+            200,
+            16,
+            200,
+            300
+          ],
+          [
+            200,
+            300,
+            540,
+            300
+          ],
+          [
+            590,
+            300,
+            600,
+            300
+          ],
+          [
+            600,
+            16,
+            600,
+            300
+          ],
+          [
+            728,
+            16,
+            728,
+            166
+          ],
+          [
+            856,
+            16,
+            856,
+            166
+          ],
+          [
+            600,
+            166,
+            644,
+            166
+          ],
+          [
+            684,
+            166,
+            772,
+            166
+          ],
+          [
+            812,
+            166,
+            900,
+            166
+          ],
+          [
+            940,
+            166,
+            984,
+            166
+          ],
+          [
+            200,
+            300,
+            200,
+            366
+          ],
+          [
+            200,
+            394,
+            200,
+            476
+          ],
+          [
+            200,
+            504,
+            200,
+            544
+          ],
+          [
+            420,
+            360,
+            420,
+            508
+          ],
+          [
+            420,
+            536,
+            420,
+            544
+          ],
+          [
+            420,
+            360,
+            455,
+            360
+          ],
+          [
+            505,
+            360,
+            700,
+            360
+          ],
+          [
+            700,
+            360,
+            700,
+            544
+          ],
+          [
+            842,
+            360,
+            842,
+            544
+          ],
+          [
+            700,
+            360,
+            984,
+            360
+          ]
+        ],
+        "width": 5
+      }
+    ],
+    "provenance": {
+      "places.o_foyer": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_flur": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_qDesk": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_qRoom": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_qCoffee": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_exit": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_gateIn": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_gateOut": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_desks": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_rooms": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_coffee": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "places.o_gone": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_arr": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_in": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_wD": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_wM": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_work": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_meet": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_coffeeT": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "transitions.o_out": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_in>o_flur": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_flur>o_wD": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_flur>o_wM": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_wD>o_qDesk": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_wM>o_qRoom": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_qRoom>o_meet": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_work>o_qCoffee": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_meet>o_qCoffee": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_coffeeT>o_exit": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      },
+      "arcs.o_out>o_gone": {
+        "source": "user",
+        "at": "2026-10-28T09:00:00.000Z"
+      }
+    }
   }
 }

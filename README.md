@@ -19,13 +19,24 @@ logic can later run in a command line tool, behind an API, or inside an LLM proc
   <img alt="The timed simulation of the parcel center with progress bars on running transitions, a queue ring and the trace of events" src="docs/images/simulation-light.png">
 </picture>
 
-**Status: 0.4.0 (milestones M0 to M3 and the UI polish step).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/domain-hall-dark.png">
+  <img alt="The domain view of the parcel center as a hall: belts with parcels, scanner, sorter, loading gates and trucks, while the simulation runs" src="docs/images/domain-hall-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/domain-office-dark.png">
+  <img alt="The domain view of the smart office as a floor plan: rooms, desks, meeting tables, turnstiles and people, while the simulation runs" src="docs/images/domain-office-light.png">
+</picture>
+
+**Status: 0.5.0 (milestones M0 to M3, the UI polish step and D1, the domain view without animation).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
 tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
 inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
 [`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md),
 [`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md),
 [`docs/plan/UI-Polish_Umsetzungsplan.md`](docs/plan/UI-Polish_Umsetzungsplan.md) and
-[`docs/plan/M3_Umsetzungsplan.md`](docs/plan/M3_Umsetzungsplan.md) for the plans of the increments (in German).
+[`docs/plan/M3_Umsetzungsplan.md`](docs/plan/M3_Umsetzungsplan.md) and
+[`docs/plan/D1_Umsetzungsplan.md`](docs/plan/D1_Umsetzungsplan.md) for the plans of the increments (in German).
 
 ## Features
 
@@ -60,6 +71,24 @@ Timed simulation (0.4.0, see [docs/simulation.md](docs/simulation.md)):
   arrival rates and buttons to add or withdraw resources while the simulation runs.
 - Export of the event log as CSV (`case_id, activity, timestamp, lifecycle`) or XES for process mining tools.
 - Examples: parcel center, smart office, complaint handling (from the domain view mockup).
+
+Domain view (0.5.0, see [docs/domain-view.md](docs/domain-view.md)):
+
+- A second view next to the net editor (switch _Net | Domain | Both_ in the header, keys `1`, `2`, `3`) that draws the
+  net as what it models: a hall with conveyor belts, stations, gates and a loading area, a floor plan with rooms, desks,
+  meeting tables, turnstiles and doors, or a generic process picture. It is drawn on a Canvas 2D with sprites for
+  parcels, people, vehicles and documents, in the light and the dark theme, sharp on high-density screens.
+- The picture is a declarative **mapping** stored with the net (`domainView`) that says where and as what each place and
+  transition is drawn. It has no behaviour: durations, weights and rates stay in the net. Eight rules (V1 to V8) check
+  it against the net, so a wrong or outdated mapping is reported instead of believed; every entry records whether it
+  is generic, from you or from a language model.
+- Every net gets a generic view at one click (_Generate generic view_), derived from the editor positions and the roles
+  of the places. The parcel center (hall) and the smart office (floor plan) come with hand-made mappings.
+- Hovering an element lights up its counterpart in the other view, a click selects it, and while simulating the view
+  shows the current marking and the firings under way. Pan, zoom (wheel, pinch, buttons) and fit work as in the editor.
+- The _Domain view_ tab shows the problems with click-to-select, repairs a view after the net has changed (_Fill
+  missing entries_, _Update hash_) and edits the mapping as JSON with live checks.
+- Not yet: animation of cases, generation by a language model and editing by dragging in the picture (steps D2 to D4).
 
 JSON nets (switch the net class in the properties panel):
 
@@ -115,6 +144,7 @@ packages/core     @pnm/core    Net model, operations, validation, firing rules, 
 packages/layout   @pnm/layout  ELK-based automatic layout
 packages/sim      @pnm/sim     Timed discrete-event simulation: engine, key figures, Web Worker protocol
 packages/io       @pnm/io      Exports of the event stream: event log as CSV and XES
+packages/domain   @pnm/domain  Domain view: mapping schema, rules V1 to V8, generic mapping, scene builder, Canvas 2D painter
 examples/         Example nets (*.pn.json), also used as regression tests and shown in the app
 docs/             Architecture decisions (adr/), file format (format.md), plans (plan/)
 .github/          CI and GitHub Pages deployment
