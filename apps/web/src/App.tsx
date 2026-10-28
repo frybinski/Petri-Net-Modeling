@@ -3,8 +3,7 @@ import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { Header } from './components/header';
-import { PropertiesPanel } from './components/properties-panel';
-import { SimulationPanel } from './components/simulation-panel';
+import { RightPanel } from './components/right-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
 import { TokenDialog } from './components/tokens/token-dialog';
 import { TypeDialog } from './components/types/type-dialog';
@@ -27,7 +26,6 @@ function hasFiles(event: DragEvent): boolean {
 }
 
 export function App() {
-  const mode = useEditorStore((s) => s.mode);
   const viewMode = useUiStore((s) => s.viewMode);
   const netName = useEditorStore((s) => s.net.name);
   const dirty = useEditorStore(selectIsDirty);
@@ -125,7 +123,7 @@ export function App() {
                 </div>
               ) : null}
             </Workspace>
-            {mode === 'simulate' ? <SimulationPanel /> : <PropertiesPanel />}
+            <RightPanel />
           </div>
           <StatusBar />
         </div>
