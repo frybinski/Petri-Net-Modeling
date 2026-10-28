@@ -16,6 +16,12 @@ import type { PlaceFlowNode } from './types';
 
 const HALF = PLACE_SIZE / 2;
 
+const CHIP_POSITION = {
+  right: 'top-1/2 left-full ml-9 -translate-y-1/2',
+  left: 'top-1/2 right-full mr-9 -translate-y-1/2',
+  below: 'top-full left-1/2 mt-9 -translate-x-1/2',
+} as const;
+
 function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
   const {
     name,
@@ -23,6 +29,7 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
     json,
     chips,
     chipsMore,
+    chipSide,
     typeName,
     capacity,
     hasError,
@@ -95,7 +102,8 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
       {hasError ? <ErrorMarker text={errorText} corner={typeName ? 'left' : 'right'} /> : null}
       {json && chips.length > 0 ? (
         <div
-          className="pn-chips pn-detail pointer-events-none absolute top-1/2 left-full ml-9 flex -translate-y-1/2 flex-col items-start gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-panel"
+          className={`pn-chips pn-detail pointer-events-none absolute flex flex-col items-start gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-panel ${CHIP_POSITION[chipSide]}`}
+          data-side={chipSide}
           data-testid="token-chips"
         >
           {chips.map((chip, i) => (

@@ -9,7 +9,7 @@ import {
   type PetriNet,
 } from '@pnm/core';
 import { describe, expect, it } from 'vitest';
-import { buildFlowEdges, buildFlowNodes, errorIds, type FlowContext } from './flow-model';
+import { buildFlowEdges, buildFlowNodes, chipSide, errorIds, type FlowContext } from './flow-model';
 
 function net(): PetriNet {
   let n = createEmptyNet('x');
@@ -115,5 +115,36 @@ describe('buildFlowEdges', () => {
       context({ net: { ...n, arcs: [n.arcs[0]!] }, dragPositions: { t: { x: 70, y: 0 } } }),
     );
     expect(straight[0]?.data?.path).not.toContain('Q');
+  });
+});
+
+describe('chipSide', () => {
+  const at = (x: number, y: number) => ({ x, y });
+  function row(...nodes: Array<[string, number, number]>): PetriNet {
+    let n = createEmptyNet('x');
+    for (const [id, x, y] of nodes) n = addPlace(n, { id, position: at(x, y) });
+    return n;
+  }
+
+  it('prefers the right side', () => {
+    expect(chipSide(row(['a', 0, 0], ['far', 400, 0]), 'a', at(0, 0))).toBe('right');
+  });
+
+  it('moves to the left, then below, when a node is within 220 px', () => {
+    expect(chipSide(row(['a', 0, 0], ['r', 150, 10], ['w', -500, 0]), 'a', at(0, 0))).toBe('left');
+    // The leftmost node of a net would show its card outside the view.
+    expect(chipSide(row(['a', 0, 0], ['r', 150, 10]), 'a', at(0, 0))).toBe('below');
+    expect(chipSide(row(['a', 0, 0], ['r', 150, 10], ['l', -150, 0]), 'a', at(0, 0))).toBe('below');
+  });
+
+  it('keeps the right side when nothing is free', () => {
+    const net = row(['a', 0, 0], ['r', 150, 0], ['l', -150, 0], ['b', 0, 100]);
+    expect(chipSide(net, 'a', at(0, 0))).toBe('right');
+  });
+
+  it('is part of the node data', () => {
+    const nodes = buildFlowNodes(context());
+    const place = nodes.find((n) => n.id === 'p');
+    expect(place?.type === 'place' && place.data.chipSide).toBe('below'); // transition 100 px to the right, nothing further left
   });
 });

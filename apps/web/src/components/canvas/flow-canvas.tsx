@@ -201,6 +201,8 @@ export function FlowCanvas() {
       cardTimer.current = undefined;
       const state = useEditorStore.getState();
       if (state.renamingId === id || state.picker === id || state.dragPositions !== null) return;
+      // The details of a selected node are in the properties panel and its chip card.
+      if (state.selection.includes(id)) return;
       const rect = element.getBoundingClientRect();
       setCard({
         id,
@@ -560,15 +562,16 @@ export function FlowCanvas() {
     [screenToFlowPosition, cursor],
   );
 
-  const cardModel = card
-    ? buildHoverCard({
-        net,
-        marking,
-        id: card.id,
-        diagnostics,
-        enabled: simulating ? enabledResults : undefined,
-      })
-    : null;
+  const cardModel =
+    card && !selection.includes(card.id)
+      ? buildHoverCard({
+          net,
+          marking,
+          id: card.id,
+          diagnostics,
+          enabled: simulating ? enabledResults : undefined,
+        })
+      : null;
 
   return (
     <CanvasContextMenu>

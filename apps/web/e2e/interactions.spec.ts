@@ -538,3 +538,25 @@ test('the status bar explains the active tool', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tool-hint')).toHaveCount(0);
 });
+
+test('a selected place shows its chip card but not the hover card, on the side with room', async ({
+  page,
+}) => {
+  await openExample(page, 'order-processing');
+  const place = page.locator('.react-flow__node-place').filter({ hasText: 'Incoming orders' });
+  const point = await center(place.getByTestId('place-shape'));
+  await page.mouse.move(point.x, point.y, { steps: 3 });
+  // Unselected: the hover card shows after the pause.
+  await expect(page.getByTestId('hover-card')).toBeVisible();
+  await page.mouse.click(point.x, point.y);
+  await page.waitForTimeout(600); // longer than the hover delay
+  await expect(page.getByTestId('hover-card')).toHaveCount(0);
+  const chips = page.locator('[data-testid="token-chips"]:visible');
+  await expect(chips).toHaveCount(1);
+  // Approve is within 220 px to the right and the place is the leftmost one: the card goes below.
+  await expect(chips).toHaveAttribute('data-side', 'below');
+  // Exactly one card of either kind is visible.
+  await expect(
+    page.locator('[data-testid="hover-card"], [data-testid="token-chips"]:visible'),
+  ).toHaveCount(1);
+});

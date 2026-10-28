@@ -30,6 +30,36 @@ export const MAX_CARD_TOKENS = 10;
 export const INSCRIPTION_LABEL_LENGTH = 24;
 export const GUARD_LABEL_LENGTH = 28;
 
+export type ChipSide = 'right' | 'left' | 'below';
+
+/** Reach of the chip card from the node: to the sides, and downwards. */
+const CHIP_REACH_X = 220;
+const CHIP_REACH_Y = 160;
+/** Vertical band around the node that the chip card (and the guards next to it) occupies. */
+const CHIP_BAND = 90;
+
+/**
+ * Side of a place on which its token chips appear: to the right, unless another node is within
+ * about 220 px there (and roughly 90 px above or below); then to the left (not for the leftmost nodes of the net), then below. Without any free side it stays on the right.
+ */
+export function chipSide(net: PetriNet, id: Id, position: Position): ChipSide {
+  const others = [...net.places, ...net.transitions].filter((n) => n.id !== id);
+  const blocked = (inside: (dx: number, dy: number) => boolean): boolean =>
+    others.some((n) => inside(n.position.x - position.x, n.position.y - position.y));
+  if (!blocked((dx, dy) => dx > 0 && dx <= CHIP_REACH_X && Math.abs(dy) <= CHIP_BAND))
+    return 'right';
+  // The leftmost nodes of a net sit at the edge of the view, where a card to the left is cut off.
+  const atLeftEdge = others.every((n) => n.position.x >= position.x - 100);
+  if (
+    !atLeftEdge &&
+    !blocked((dx, dy) => dx < 0 && dx >= -CHIP_REACH_X && Math.abs(dy) <= CHIP_BAND)
+  ) {
+    return 'left';
+  }
+  if (!blocked((dx, dy) => dy > 0 && dy <= CHIP_REACH_Y && Math.abs(dx) <= 100)) return 'below';
+  return 'right';
+}
+
 /** The token chips of a place: the first few labels and how many more there are. */
 export function tokenChips(tokens: readonly Token[]): { chips: string[]; more: number } {
   return {
@@ -127,6 +157,7 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         json,
         chips,
         chipsMore: more,
+        chipSide: chipSide(ctx.net, place.id, positionOf(place.id, place.position)),
         ...(json && ctx.showInscriptions && place.type !== undefined && { typeName: place.type }),
         ...(place.capacity !== undefined && { capacity: place.capacity }),
         hasError: errors.has(place.id),

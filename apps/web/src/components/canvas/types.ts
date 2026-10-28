@@ -1,5 +1,6 @@
 import type { Id } from '@pnm/core';
 import type { Edge, Node } from '@xyflow/react';
+import type { ChipSide } from '../../lib/flow-model';
 
 export interface PlaceNodeData extends Record<string, unknown> {
   name: string;
@@ -10,6 +11,8 @@ export interface PlaceNodeData extends Record<string, unknown> {
   chips: string[];
   /** Number of tokens beyond the chips. */
   chipsMore: number;
+  /** Side of the node on which the chip card appears. */
+  chipSide: ChipSide;
   /** Type name, shown as a badge when inscriptions are visible. */
   typeName?: string;
   capacity?: number;
