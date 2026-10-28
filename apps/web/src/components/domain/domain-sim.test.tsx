@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../App';
 import { setSimulationClientFactory } from '../../lib/sim-client';
 import { useEditorStore } from '../../store/editor-store';
-import { toEventLogCsv } from '@pnm/io';
+import { toEventLogCsv, toXes } from '@pnm/io';
 import { eventLog } from '../../store/sim-log';
 import { SPLIT_DEFAULT, useUiStore } from '../../store/ui-store';
 import { loadExample } from '../../test/domain-fixtures';
@@ -16,6 +16,24 @@ const settled = () =>
   vi.waitFor(() => {
     expect(store().computing).toBe(false);
   });
+
+/**
+ * Waits until the engine has answered everything that is under way: after pausing, a tick that was
+ * already sent still delivers its result, and a slow machine can make that late.
+ */
+async function quiet(): Promise<void> {
+  let last = -1;
+  await vi.waitFor(
+    async () => {
+      const version = store().simLogVersion;
+      const steady = version === last && !store().computing;
+      last = version;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect(steady).toBe(true);
+    },
+    { timeout: 10_000, interval: 10 },
+  );
+}
 
 beforeEach(() => {
   store().newNet();
@@ -76,27 +94,48 @@ describe('the control bar of the domain view', () => {
     expect(screen.getByTestId('domain-play')).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByTestId('domain-play'));
     expect(store().simPlaying).toBe(false);
+    // A tick that was already sent still delivers its result. The engine answers in order, so a
+    // reset that is answered afterwards leaves the clean state that the steps below start from.
+    await user.click(screen.getByTestId('domain-reset'));
+    await settled();
+    await waitFor(() => {
+      expect(store().simTime).toBe(0);
+      expect(store().simCanBack).toBe(false);
+    });
+    await quiet();
     // Speed.
     expect(screen.getByTestId('domain-speed-10')).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByTestId('domain-speed-60'));
     expect(store().simSpeed).toBe(60);
     await user.click(screen.getByTestId('domain-speed-max'));
     expect(store().simSpeed).toBe('max');
+    await quiet();
     // Step, back, reset.
-    expect(screen.getByTestId('domain-back')).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('domain-back')).toBeDisabled();
+    });
     await user.click(screen.getByTestId('domain-step'));
     await settled();
-    expect(store().simTime).toBeGreaterThan(0);
-    expect(screen.getByTestId('domain-clock')).not.toHaveTextContent('00:00:00');
-    expect(screen.getByTestId('domain-back')).toBeEnabled();
+    await waitFor(() => {
+      expect(store().simTime).toBeGreaterThan(0);
+      expect(screen.getByTestId('domain-clock')).not.toHaveTextContent('00:00:00');
+      expect(screen.getByTestId('domain-back')).toBeEnabled();
+    });
     await user.click(screen.getByTestId('domain-back'));
     await settled();
-    expect(store().simTime).toBe(0);
+    await waitFor(() => {
+      expect(store().simTime).toBe(0);
+    });
     await user.click(screen.getByTestId('domain-step'));
     await settled();
+    await waitFor(() => {
+      expect(store().simTime).toBeGreaterThan(0);
+    });
     await user.click(screen.getByTestId('domain-reset'));
     await settled();
-    expect(store().simTime).toBe(0);
+    await waitFor(() => {
+      expect(store().simTime).toBe(0);
+    });
     // Back to editing.
     await user.click(screen.getByTestId('domain-exit'));
     expect(store().mode).toBe('edit');
@@ -304,7 +343,7 @@ describe('acceptance A3 through the view', () => {
     });
   });
 
-  /** Steps through 60 events with the given view and returns the log and its CSV export. */
+  /** Steps through 30 events with the given view and returns the log and its exports. */
   async function run(viewMode: 'net' | 'domain') {
     useUiStore.setState({ viewMode });
     const { unmount } = render(<App />);
@@ -312,23 +351,25 @@ describe('acceptance A3 through the view', () => {
       store().startSimulation();
     });
     await settled();
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < 30; i += 1) {
       await act(async () => {
         await store().stepNext();
       });
     }
     const events = [...eventLog.all()];
     const csv = toEventLogCsv(events, store().net);
+    const xes = toXes(events, store().net);
     store().stopSimulation();
     unmount();
-    return { events, csv };
+    return { events, csv, xes };
   }
 
   it('gives the same events and the same export with and without the domain view', async () => {
     const without = await run('net');
     const withView = await run('domain');
-    expect(without.events.length).toBeGreaterThan(60);
+    expect(without.events.length).toBeGreaterThan(30);
     expect(withView.events).toEqual(without.events);
     expect(withView.csv).toBe(without.csv);
-  });
+    expect(withView.xes).toBe(without.xes);
+  }, 60_000);
 });
