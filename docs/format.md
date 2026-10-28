@@ -16,17 +16,18 @@ Two net classes are supported, selected by the `profile` field:
 
 ## Top level
 
-| Field         | Type                       | Required | Description                                                  |
-| ------------- | -------------------------- | -------- | ------------------------------------------------------------ |
-| `version`     | `"1.0"`                    | yes      | Format version.                                              |
-| `profile`     | `"pt-net"` or `"json-net"` | yes      | Net class: place/transition net or JSON net.                 |
-| `name`        | string                     | yes      | Display name of the net.                                     |
-| `types`       | object                     | yes      | JSON Schema objects keyed by type name. See [Types](#types). |
-| `places`      | array of place             | yes      | See below.                                                   |
-| `transitions` | array of transition        | yes      | See below.                                                   |
-| `arcs`        | array of arc               | yes      | See below.                                                   |
-| `marking`     | object                     | yes      | Initial marking: place id to an array of tokens.             |
-| `annotations` | array of annotation        | no       | Free-text notes on the canvas.                               |
+| Field         | Type                       | Required | Description                                                                  |
+| ------------- | -------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `version`     | `"1.0"`                    | yes      | Format version.                                                              |
+| `profile`     | `"pt-net"` or `"json-net"` | yes      | Net class: place/transition net or JSON net.                                 |
+| `name`        | string                     | yes      | Display name of the net.                                                     |
+| `types`       | object                     | yes      | JSON Schema objects keyed by type name. See [Types](#types).                 |
+| `places`      | array of place             | yes      | See below.                                                                   |
+| `transitions` | array of transition        | yes      | See below.                                                                   |
+| `arcs`        | array of arc               | yes      | See below.                                                                   |
+| `marking`     | object                     | yes      | Initial marking: place id to an array of tokens.                             |
+| `annotations` | array of annotation        | no       | Free-text notes on the canvas.                                               |
+| `simulation`  | object                     | no       | Settings of the timed simulation. See [Timed simulation](#timed-simulation). |
 
 Unknown keys are ignored when reading and dropped when writing.
 
@@ -38,22 +39,26 @@ hand-written files may use any non-empty string.
 
 ### Place
 
-| Field      | Type    | Required | Description                                         |
-| ---------- | ------- | -------- | --------------------------------------------------- |
-| `id`       | string  | yes      |                                                     |
-| `name`     | string  | yes      | Label shown below the place.                        |
-| `position` | `{x,y}` | yes      | Center of the place in canvas coordinates (pixels). |
-| `capacity` | number  | no       | Integer >= 1. Omitted means unbounded.              |
-| `type`     | string  | no       | Name of an entry in `types`. Ignored by `pt-net`.   |
+| Field      | Type                     | Required | Description                                                                                |
+| ---------- | ------------------------ | -------- | ------------------------------------------------------------------------------------------ |
+| `id`       | string                   | yes      |                                                                                            |
+| `name`     | string                   | yes      | Label shown below the place.                                                               |
+| `position` | `{x,y}`                  | yes      | Center of the place in canvas coordinates (pixels).                                        |
+| `capacity` | number                   | no       | Integer >= 1. Omitted means unbounded.                                                     |
+| `type`     | string                   | no       | Name of an entry in `types`. Ignored by `pt-net`.                                          |
+| `role`     | `"case"` or `"resource"` | no       | Overrides the role computed from the structure. See [Timed simulation](#timed-simulation). |
 
 ### Transition
 
-| Field      | Type    | Required | Description                                     |
-| ---------- | ------- | -------- | ----------------------------------------------- |
-| `id`       | string  | yes      |                                                 |
-| `name`     | string  | yes      | Label shown below the transition.               |
-| `position` | `{x,y}` | yes      | Center of the transition in canvas coordinates. |
-| `guard`    | string  | no       | JSONata guard. Ignored by `pt-net`.             |
+| Field      | Type    | Required | Description                                           |
+| ---------- | ------- | -------- | ----------------------------------------------------- |
+| `id`       | string  | yes      |                                                       |
+| `name`     | string  | yes      | Label shown below the transition.                     |
+| `position` | `{x,y}` | yes      | Center of the transition in canvas coordinates.       |
+| `guard`    | string  | no       | JSONata guard. Ignored by `pt-net`.                   |
+| `timing`   | object  | no       | Duration of a firing. Missing means 0.                |
+| `priority` | number  | no       | Weight in random conflict resolution, > 0, default 1. |
+| `rate`     | number  | no       | Arrivals per hour; only for source transitions.       |
 
 ### Arc
 
@@ -87,35 +92,86 @@ inside objects and arrays). The marking stores values rather than counts, so a
 P/T net can be turned into a JSON net without a format change. The order of the
 array has no meaning for the firing rule, but is kept stable in files.
 
+## Timed simulation
+
+All of these fields are optional and ignored by the editing and by the atomic firing
+rule. They are used by the discrete-event simulation, see [simulation.md](simulation.md).
+
+`timing` is one of
+
+| Kind          | Fields       | Meaning                                        |
+| ------------- | ------------ | ---------------------------------------------- |
+| `fixed`       | `value`      | A constant number of seconds, `value` >= 0.    |
+| `uniform`     | `min`, `max` | Uniform between the two, 0 <= `min` <= `max`.  |
+| `exponential` | `mean`       | Exponentially distributed, `mean` > 0 seconds. |
+
+`priority` is the relative weight of a transition when several transitions compete
+for the same tokens (a transition with weight 3 wins three times as often as one
+with weight 1). `rate` is the mean number of arrivals per hour of a _source
+transition_ (a transition without input places); the time between arrivals is
+exponentially distributed.
+
+The role of a place is computed from the structure: a place no transition puts tokens
+on is a `source`, a place no transition takes tokens from is a `sink`, a place with
+initial tokens that is input and output of one transition is a `resource`, everything
+else is a `case` place. The `role` field overrides the choice between `resource` and
+`case`; source and sink follow from the structure alone.
+
+`simulation` holds settings stored with the net:
+
+| Field          | Type   | Default                | Description                                                |
+| -------------- | ------ | ---------------------- | ---------------------------------------------------------- |
+| `seed`         | number | 1                      | Integer seed of the random number generator.               |
+| `warmup`       | number | 0                      | Seconds at the start that are left out of the key figures. |
+| `startTime`    | string | `2026-01-05T08:00:00Z` | ISO timestamp that simulation time 0 maps to in exports.   |
+| `caseIdPrefix` | string | `C-`                   | Prefix of generated case ids.                              |
+
+```json
+{
+  "id": "scan",
+  "name": "Scan",
+  "timing": { "kind": "uniform", "min": 4, "max": 9 },
+  "priority": 2,
+  "position": { "x": 300, "y": 40 }
+}
+```
+
 ## Reading and validation
 
 Reading checks the structure (types, required fields, finite numbers). Range and
 consistency problems do not prevent a file from opening, so that they can be
 repaired in the editor. They are reported as diagnostics instead:
 
-| Code                       | Severity | Meaning                                                                    |
-| -------------------------- | -------- | -------------------------------------------------------------------------- |
-| `SCHEMA_INVALID`           | error    | The document does not match the format.                                    |
-| `DUPLICATE_ID`             | error    | An id is used more than once.                                              |
-| `ARC_DANGLING`             | error    | An arc end refers to a missing node.                                       |
-| `ARC_NOT_BIPARTITE`        | error    | An arc connects two places or two transitions.                             |
-| `ARC_WEIGHT_INVALID`       | error    | Weight is not an integer >= 1.                                             |
-| `CAPACITY_INVALID`         | error    | Capacity is not an integer >= 1.                                           |
-| `MARKING_UNKNOWN_PLACE`    | error    | The marking refers to a place that does not exist.                         |
-| `MARKING_EXCEEDS_CAPACITY` | error    | The initial marking holds more tokens than the capacity allows.            |
-| `DUPLICATE_NAME`           | warning  | Two places or two transitions share a name.                                |
-| `ISOLATED_NODE`            | warning  | A place or transition has no arc.                                          |
-| `MULTIPLE_ARCS`            | warning  | Parallel arcs in the same direction; raise the weight instead.             |
-| `TYPE_UNKNOWN`             | error    | A place refers to a type that is not in `types`.                           |
-| `TYPE_SCHEMA_INVALID`      | error    | The JSON Schema of a type does not compile.                                |
-| `TYPE_NAME_INVALID`        | error    | A type name does not match `[A-Za-z][A-Za-z0-9_]*`.                        |
-| `TYPE_UNUSED`              | warning  | No place uses the type.                                                    |
-| `TOKEN_TYPE_MISMATCH`      | error    | Initial tokens violate the type of their place (or a produced token does). |
-| `INSCRIPTION_SYNTAX`       | error    | An input or output inscription cannot be parsed.                           |
-| `GUARD_SYNTAX`             | error    | A guard cannot be parsed.                                                  |
-| `VARIABLE_UNBOUND`         | error    | A guard or output inscription uses a variable no input arc binds.          |
-| `WEIGHT_IGNORED`           | warning  | The weight is greater than 1, but the arc has an inscription.              |
-| `INSCRIPTION_ON_PT_NET`    | warning  | A type, guard or inscription is set, but the profile is `pt-net`.          |
+| Code                       | Severity | Meaning                                                                                        |
+| -------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `SCHEMA_INVALID`           | error    | The document does not match the format.                                                        |
+| `DUPLICATE_ID`             | error    | An id is used more than once.                                                                  |
+| `ARC_DANGLING`             | error    | An arc end refers to a missing node.                                                           |
+| `ARC_NOT_BIPARTITE`        | error    | An arc connects two places or two transitions.                                                 |
+| `ARC_WEIGHT_INVALID`       | error    | Weight is not an integer >= 1.                                                                 |
+| `CAPACITY_INVALID`         | error    | Capacity is not an integer >= 1.                                                               |
+| `MARKING_UNKNOWN_PLACE`    | error    | The marking refers to a place that does not exist.                                             |
+| `MARKING_EXCEEDS_CAPACITY` | error    | The initial marking holds more tokens than the capacity allows.                                |
+| `DUPLICATE_NAME`           | warning  | Two places or two transitions share a name.                                                    |
+| `ISOLATED_NODE`            | warning  | A place or transition has no arc.                                                              |
+| `MULTIPLE_ARCS`            | warning  | Parallel arcs in the same direction; raise the weight instead.                                 |
+| `TIMING_INVALID`           | error    | A duration is negative, `min` > `max`, or an exponential mean is not > 0.                      |
+| `PRIORITY_INVALID`         | error    | The priority is not a number greater than 0.                                                   |
+| `RATE_INVALID`             | error    | The arrival rate is negative.                                                                  |
+| `RATE_ON_NON_SOURCE`       | warning  | A rate on a transition that has input places; it is ignored.                                   |
+| `SOURCE_WITHOUT_RATE`      | warning  | In a net that uses time, a source transition has no rate and never fires by itself.            |
+| `ROLE_OVERRIDE_UNUSUAL`    | warning  | A place marked `resource` has no transition that takes from and gives back to it.              |
+| `SIMULATION_INVALID`       | error    | The seed is not an integer, the warm-up is negative or the start time is not an ISO timestamp. |
+| `TYPE_UNKNOWN`             | error    | A place refers to a type that is not in `types`.                                               |
+| `TYPE_SCHEMA_INVALID`      | error    | The JSON Schema of a type does not compile.                                                    |
+| `TYPE_NAME_INVALID`        | error    | A type name does not match `[A-Za-z][A-Za-z0-9_]*`.                                            |
+| `TYPE_UNUSED`              | warning  | No place uses the type.                                                                        |
+| `TOKEN_TYPE_MISMATCH`      | error    | Initial tokens violate the type of their place (or a produced token does).                     |
+| `INSCRIPTION_SYNTAX`       | error    | An input or output inscription cannot be parsed.                                               |
+| `GUARD_SYNTAX`             | error    | A guard cannot be parsed.                                                                      |
+| `VARIABLE_UNBOUND`         | error    | A guard or output inscription uses a variable no input arc binds.                              |
+| `WEIGHT_IGNORED`           | warning  | The weight is greater than 1, but the arc has an inscription.                                  |
+| `INSCRIPTION_ON_PT_NET`    | warning  | A type, guard or inscription is set, but the profile is `pt-net`.                              |
 
 The firing rule additionally reports `GUARD_ERROR` and `INSCRIPTION_ERROR` while
 bindings are computed (an expression fails at run time, for example because of
@@ -274,7 +330,7 @@ tokens, guards that join two places, and array results:
 ## Serialization
 
 `serializeNet` writes keys in a fixed order (`version`, `profile`, `name`,
-`types`, `places`, `transitions`, `arcs`, `marking`, `annotations`), uses two
+`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `annotations`), uses two
 spaces of indentation and ends with a newline, so that files diff cleanly in
 version control. Marking entries follow the order of the places; empty entries
 are omitted.

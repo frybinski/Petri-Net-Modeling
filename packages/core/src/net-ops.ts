@@ -7,12 +7,15 @@ import type {
   Place,
   Position,
   Profile,
+  SimulationSettings,
+  Timing,
   Token,
   Transition,
 } from './model';
 import { isPlace, isTransition, nodeById } from './queries';
 import { isToken } from './token';
 import { validateTypeName } from './types';
+import { timingProblem } from './validate';
 
 /** Error raised by net operations when the requested change is not allowed. */
 export class NetOpError extends Error {
@@ -179,14 +182,20 @@ export function removeElements(net: PetriNet, ids: Iterable<Id>): PetriNet {
 export function updateNode(net: PetriNet, nodeId: Id, patch: NodePatch): PetriNet {
   if ('capacity' in patch) assertCapacity(patch.capacity);
   if (isPlace(net, nodeId)) {
-    const { guard: _guard, ...placePatch } = patch;
+    const {
+      guard: _guard,
+      timing: _timing,
+      priority: _priority,
+      rate: _rate,
+      ...placePatch
+    } = patch;
     return {
       ...net,
       places: net.places.map((p) => (p.id === nodeId ? applyPatch(p, placePatch) : p)),
     };
   }
   if (isTransition(net, nodeId)) {
-    const { capacity: _capacity, type: _type, ...transitionPatch } = patch;
+    const { capacity: _capacity, type: _type, role: _role, ...transitionPatch } = patch;
     return {
       ...net,
       transitions: net.transitions.map((t) =>
@@ -514,4 +523,79 @@ export function removeToken(net: PetriNet, placeId: Id, index: number): PetriNet
 /** Switches the net class. Types, inscriptions and guards are kept; a P/T net ignores them. */
 export function setProfile(net: PetriNet, profile: Profile): PetriNet {
   return net.profile === profile ? net : { ...net, profile };
+}
+
+// --- Timed simulation: durations, priorities, rates, roles, settings --------------------------
+
+function assertTransition(net: PetriNet, transitionId: Id): void {
+  if (!isTransition(net, transitionId)) throw new NetOpError(`Unknown transition: ${transitionId}`);
+}
+
+/** Sets the duration of a transition, or removes it with `undefined` (duration 0). */
+export function setTiming(net: PetriNet, transitionId: Id, timing: Timing | undefined): PetriNet {
+  assertTransition(net, transitionId);
+  if (timing !== undefined) {
+    const problem = timingProblem(timing);
+    if (problem) throw new NetOpError(`Invalid timing: ${problem}`);
+  }
+  return updateNode(net, transitionId, { timing: timing && { ...timing } });
+}
+
+/** Sets the conflict weight of a transition (> 0), or removes it with `undefined` (weight 1). */
+export function setPriority(
+  net: PetriNet,
+  transitionId: Id,
+  priority: number | undefined,
+): PetriNet {
+  assertTransition(net, transitionId);
+  if (priority !== undefined && !(Number.isFinite(priority) && priority > 0)) {
+    throw new NetOpError('Priority must be a number greater than 0.');
+  }
+  return updateNode(net, transitionId, { priority });
+}
+
+/** Sets the arrival rate (per hour, >= 0) of a transition, or removes it with `undefined`. */
+export function setRate(net: PetriNet, transitionId: Id, rate: number | undefined): PetriNet {
+  assertTransition(net, transitionId);
+  if (rate !== undefined && !(Number.isFinite(rate) && rate >= 0)) {
+    throw new NetOpError('Arrival rate must be a number of at least 0 per hour.');
+  }
+  return updateNode(net, transitionId, { rate });
+}
+
+/** Overrides the computed role of a place, or restores the computed one with `undefined`. */
+export function setRole(
+  net: PetriNet,
+  placeId: Id,
+  role: 'case' | 'resource' | undefined,
+): PetriNet {
+  assertPlace(net, placeId);
+  return updateNode(net, placeId, { role });
+}
+
+/**
+ * Changes the simulation settings. A key whose value is `undefined` is removed; when no
+ * setting is left, the `simulation` object is removed as well.
+ */
+export function setSimulationSettings(net: PetriNet, patch: Partial<SimulationSettings>): PetriNet {
+  if (patch.seed !== undefined && !Number.isInteger(patch.seed)) {
+    throw new NetOpError('The seed must be an integer.');
+  }
+  if (patch.warmup !== undefined && !(Number.isFinite(patch.warmup) && patch.warmup >= 0)) {
+    throw new NetOpError('The warm-up time must be 0 or more seconds.');
+  }
+  if (patch.startTime !== undefined && Number.isNaN(Date.parse(patch.startTime))) {
+    throw new NetOpError(
+      'The start time must be an ISO timestamp, for example 2026-01-05T08:00:00Z.',
+    );
+  }
+  const next: Record<string, unknown> = { ...net.simulation };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  const { simulation: _old, ...rest } = net;
+  return Object.keys(next).length === 0
+    ? rest
+    : { ...rest, simulation: next as SimulationSettings };
 }
