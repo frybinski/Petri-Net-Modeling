@@ -331,9 +331,8 @@ describe('schema', () => {
 
   it('normalizes the key order of a view', () => {
     const view = smallView();
-    const shuffled = JSON.parse(
-      JSON.stringify({ provenance: view.provenance, places: view.places, ...view }),
-    ) as DomainView;
+    const { provenance, places, ...rest } = view;
+    const shuffled = JSON.parse(JSON.stringify({ provenance, places, ...rest })) as DomainView;
     expect(Object.keys(normalizeDomainView(shuffled))[0]).toBe('schemaVersion');
   });
 });
