@@ -9,17 +9,13 @@ export function formatClock(seconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-/** A short span of time: `45 s`, `3 min 20 s`, `1 h 05 min`. `–` for no value. */
+/** A short span of time: `45 s`, `3m 20s`, `1h 05m`. `–` for no value. */
 export function formatSpan(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '–';
   const total = Math.round(seconds);
   if (total < 60) return `${total} s`;
-  if (total < 3600) {
-    const s = total % 60;
-    return s === 0 ? `${Math.floor(total / 60)} min` : `${Math.floor(total / 60)} min ${s} s`;
-  }
-  const m = Math.floor((total % 3600) / 60);
-  return `${Math.floor(total / 3600)} h ${String(m).padStart(2, '0')} min`;
+  if (total < 3600) return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s`;
+  return `${Math.floor(total / 3600)}h ${String(Math.floor((total % 3600) / 60)).padStart(2, '0')}m`;
 }
 
 function trim(n: number): string {

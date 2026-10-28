@@ -116,9 +116,9 @@ und zeigt alle drei Beispiele. Für die Umsetzung sind diese Punkte wichtig:
 | Schritt | Inhalt | Status |
 |---------|--------|--------|
 | M0, M1, M2 | Gerüst, P/T-Editor, JSON-Netze | fertig (0.2.0) |
-| UI-Polish | Bedienung und Erscheinungsbild (Phase A, B1 bis B6) | in Arbeit |
-| **M3 Simulation (erweitert)** | Paket `@pnm/sim`: diskrete Ereignissimulation mit Dauern, Prioritäten, Raten, zweiphasigem Schalten, Fall-IDs, Seed, `SimEvent`-Strom, Web Worker. Editor: Abspielen mit Geschwindigkeit, Pause, Einzelschritt, Zurück, Haltepunkte, Animation des Markenflusses im Netz, Trace-Panel. Export CSV (Event Log) und XES. Modellfelder `timing`, `priority`, `rate`, `role` mit Panel-Feldern. | nächster Schritt |
-| **D1 Abbildung ohne Simulation** | Schema `DomainView`, Prüfung V1 bis V8, generische Abbildung, statische Canvas-Ansicht, drei Testnetze als `.pn.json`, Speicherung unter `domainView`. Abnahme A4, A5. | neu |
+| UI-Polish | Bedienung und Erscheinungsbild (Phase A, B1 bis B6) | fertig (0.3.0) |
+| **M3 Simulation (erweitert)** | Paket `@pnm/sim`: diskrete Ereignissimulation mit Dauern, Prioritäten, Raten, zweiphasigem Schalten, Fall-IDs, Seed, `SimEvent`-Strom, Web Worker. Editor: Abspielen mit Geschwindigkeit, Pause, Einzelschritt, Zurück, Haltepunkte, Animation des Markenflusses im Netz, Trace-Panel. Export CSV (Event Log) und XES. Modellfelder `timing`, `priority`, `rate`, `role` mit Panel-Feldern. | fertig (0.4.0) |
+| **D1 Abbildung ohne Simulation** | Schema `DomainView`, Prüfung V1 bis V8, generische Abbildung, statische Canvas-Ansicht, drei Testnetze als `.pn.json`, Speicherung unter `domainView`. Abnahme A4, A5. | nächster Schritt |
 | **D2 Animation** | Ansicht hört auf `SimEvent`, Bewegungen, Engpassfarben, Steuerung, Kennzahlen, Inspektor, Hover-Verknüpfung mit dem Netz, Nebeneinander-Modus. Abnahme A1, A2, A3, A9. | neu |
 | **D3 LLM-Erzeugung** | Anbieterkonfiguration, Prompt mit Netz, Domänenbeschreibung, Schema und Beispielen, Reparaturschleife (max. 3), Auffüllen, Herkunft je Eintrag. Abnahme A6. | neu |
 | **D4 Bearbeiten** | JSON-Editor mit Live-Prüfung, Ziehen von Punkten, Rechtecken und Pfaden, Erkennen veralteter Abbildungen (V7) mit „Ergänzen". Abnahme A7, A8 (Export kommt aus M3). | neu |

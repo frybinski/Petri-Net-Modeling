@@ -14,9 +14,9 @@ describe('formatClock', () => {
 describe('formatSpan', () => {
   it('chooses the unit by size', () => {
     expect(formatSpan(12.4)).toBe('12 s');
-    expect(formatSpan(60)).toBe('1 min');
-    expect(formatSpan(200)).toBe('3 min 20 s');
-    expect(formatSpan(3900)).toBe('1 h 05 min');
+    expect(formatSpan(60)).toBe('1m 00s');
+    expect(formatSpan(200)).toBe('3m 20s');
+    expect(formatSpan(3900)).toBe('1h 05m');
     expect(formatSpan(null)).toBe('–');
     expect(formatSpan(Number.NaN)).toBe('–');
   });

@@ -14,13 +14,18 @@ logic can later run in a command line tool, behind an API, or inside an LLM proc
   <img alt="A JSON net: order processing with typed tokens, guards, inscriptions and a binding list" src="docs/images/json-net-light.png">
 </picture>
 
-**Status: 0.3.0 (milestones M0 to M2 and the UI polish step).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/simulation-dark.png">
+  <img alt="The timed simulation of the parcel center with progress bars on running transitions, a queue ring and the trace of events" src="docs/images/simulation-light.png">
+</picture>
+
+**Status: 0.4.0 (milestones M0 to M3 and the UI polish step).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
 tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
 inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
 [`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md),
-[`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md) and
-[`docs/plan/UI-Polish_Umsetzungsplan.md`](docs/plan/UI-Polish_Umsetzungsplan.md) for the plans of the increments
-(in German).
+[`docs/plan/M2_Umsetzungsplan.md`](docs/plan/M2_Umsetzungsplan.md),
+[`docs/plan/UI-Polish_Umsetzungsplan.md`](docs/plan/UI-Polish_Umsetzungsplan.md) and
+[`docs/plan/M3_Umsetzungsplan.md`](docs/plan/M3_Umsetzungsplan.md) for the plans of the increments (in German).
 
 ## Features
 
@@ -35,10 +40,26 @@ inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PL
 - Automatic layout with ELK (left to right or top to bottom), undoable.
 - Save and open `.pn.json` files (also by drag and drop), export SVG, autosave to IndexedDB with restore on start.
 - Live validation: bipartiteness, dangling arcs, duplicate names, capacity violations and more, with click-to-select.
-- Simulation mode: enabled transitions are highlighted green, click to fire, random step, reset, firing history.
+- Simulation mode: enabled transitions are highlighted green, click to fire, random step, step back, reset, firing
+  history.
 - Light and dark theme, Inter and JetBrains Mono bundled with the app, accessible components with visible focus
   rings and ARIA labels, reduced motion respected.
 - Bundled examples: producer/consumer, traffic light, dining philosophers, mutual exclusion.
+
+Timed simulation (0.4.0, see [docs/simulation.md](docs/simulation.md)):
+
+- Durations (fixed, uniform, exponential), priorities for conflicts and arrival rates per transition, roles for places
+  (source, sink, resource, case) and simulation settings (seed, warm-up, start time, case id prefix), all optional and
+  edited in the properties panel.
+- A discrete-event engine (`@pnm/sim`) with two-phase firing (tokens are taken at the start, given at the end), parallel
+  firings limited by resource places, capacity reservation, cases that stay with their tokens, seeded randomness and an
+  event stream. It runs in a Web Worker, so the page stays responsive even at maximum speed.
+- Play and pause, step, step back (500 steps), reset, speeds from 1x to 60x and max, breakpoints on transitions and
+  places, progress bars on running transitions, tokens that move along the arcs, queue rings on the canvas.
+- A trace of events with filters, key figures (throughput, cycle time, queues, utilisation of resources), sliders for
+  arrival rates and buttons to add or withdraw resources while the simulation runs.
+- Export of the event log as CSV (`case_id, activity, timestamp, lifecycle`) or XES for process mining tools.
+- Examples: parcel center, smart office, complaint handling (from the domain view mockup).
 
 JSON nets (switch the net class in the properties panel):
 
@@ -92,12 +113,15 @@ apps/web          @pnm/web     React 19 + Vite + Tailwind 4 editor (React Flow c
 packages/expr     @pnm/expr    Expression language adapter (JSONata): guards, output inscriptions, input inscriptions
 packages/core     @pnm/core    Net model, operations, validation, firing rules, bindings, types, file format
 packages/layout   @pnm/layout  ELK-based automatic layout
+packages/sim      @pnm/sim     Timed discrete-event simulation: engine, key figures, Web Worker protocol
+packages/io       @pnm/io      Exports of the event stream: event log as CSV and XES
 examples/         Example nets (*.pn.json), also used as regression tests and shown in the app
 docs/             Architecture decisions (adr/), file format (format.md), plans (plan/)
 .github/          CI and GitHub Pages deployment
 ```
 
-`@pnm/core` and `@pnm/expr` have no browser or React dependency. The web app talks to the core only through immutable
+`@pnm/core`, `@pnm/expr`, `@pnm/sim` and `@pnm/io` have no React dependency, and the engine runs in Node as well as in a
+worker. The web app talks to the core only through immutable
 operations such as `addPlace`, `addArc` or `setInscription`, which return new nets, and through `findEnabled` and
 `fireBinding` for the firing rule.
 
@@ -106,8 +130,10 @@ operations such as `addPlace`, `addArc` or `setInscription`, which return new ne
 - [File format](docs/format.md): the `.pn.json` structure, types, inscriptions, evaluation rules, validation codes and
   the P/T firing rule.
 - [Expressions](docs/expressions.md): a short guide to guards and inscriptions for modelers.
+- [Simulation](docs/simulation.md): durations, resources, arrivals, cases, key figures, the event log and its export,
+  controls and limits.
 - [Architecture decision records](docs/adr): monorepo and TypeScript, React Flow canvas, JSON net profile, document
-  history, JSONata expressions, Radix primitives and self-hosted fonts.
+  history, JSONata expressions, Radix primitives and self-hosted fonts, discrete-event simulation.
 - [Review screenshots](docs/images/review): all seven examples in the detail, mid and far zoom levels, light and dark,
   at 1280 px and 1920 px width (`<example>_<theme>_<width>_<level>.png`).
 - [Changelog](CHANGELOG.md)

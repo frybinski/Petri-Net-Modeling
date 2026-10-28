@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-28 · Status: in Umsetzung (M0–M2 fertig, UI-Polish läuft) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-28 · Status: in Umsetzung (M0–M3 fertig, nächster Schritt D1) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -76,7 +76,8 @@ sich als Sonderfall (Typ „Einheit", Inschriften sind Zahlen).
 ├──────────────────────────────────────────────────────────────┤
 │  packages/core      Netzmodell · Typen · Schaltregel · Analyse│
 │  packages/expr      Ausdruckssprache (Adapter: JSONata)       │
-│  packages/io        JSON-Format · PNML · SVG · TikZ           │
+│  packages/sim       Ereignissimulation · Kennzahlen · Worker  │
+│  packages/io        Event Log (CSV, XES) · PNML · SVG · TikZ  │
 │  packages/layout    Automatisches Layout (ELK)                │
 ├──────────────────────────────────────────────────────────────┤
 │  apps/cli           Kommandozeile (validate, simulate, export)│
@@ -152,7 +153,7 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Markenansicht pro Stelle (Tabelle/JSON), Marken anlegen und bearbeiten.
 - Profilumschaltung Stellen/Transitions-Netz ⟷ JSON-Netz.
 
-### M3 · Simulation (erweitert, 3–4 Wochen)
+### M3 · Simulation (erweitert, 3–4 Wochen) · fertig (0.4.0)
 - Paket `@pnm/sim`: diskrete Ereignissimulation mit Dauern (fest, gleichverteilt,
   exponentiell), Prioritäten zur Konfliktauflösung, Raten für Quell-Transitionen,
   zweiphasigem Schalten, Fall-Identität, seedbarem Zufall und einem
