@@ -6,7 +6,7 @@ import {
   type Request,
   type WorkerLike,
 } from '../src';
-import { makeNet } from './helpers';
+import { makeJsonNet, makeNet } from './helpers';
 
 const net = () =>
   makeNet({
@@ -136,5 +136,37 @@ describe('worker client', () => {
     await expect(pending).rejects.toThrow('boom');
     client.dispose();
     expect(worker.terminated).toBe(true);
+  });
+});
+
+describe('adjusting tokens', () => {
+  it('adds and withdraws relative to the marking of the engine, however fast it is called', async () => {
+    const client = createLocalClient();
+    await client.init(net());
+    const results = await Promise.all([
+      client.adjust('q', 1),
+      client.adjust('q', 1),
+      client.adjust('q', -1),
+      client.adjust('p', -1),
+      client.adjust('p', -1),
+      client.adjust('p', -1),
+    ]);
+    const last = results.at(-1)!.view;
+    expect(last.marking['q']).toHaveLength(1);
+    expect(last.marking['p']).toBeUndefined();
+    client.dispose();
+  });
+
+  it('copies the last token of a JSON net, or the sample if the place is empty', async () => {
+    const client = createLocalClient();
+    const json = makeJsonNet({
+      places: [{ id: 'p', tokens: [{ id: 1 }] }, { id: 'q' }],
+      transitions: [],
+      arcs: [],
+    });
+    await client.init(json);
+    expect((await client.adjust('p', 1)).view.marking['p']).toEqual([{ id: 1 }, { id: 1 }]);
+    expect((await client.adjust('q', 1, { id: 'x' })).view.marking['q']).toEqual([{ id: 'x' }]);
+    client.dispose();
   });
 });

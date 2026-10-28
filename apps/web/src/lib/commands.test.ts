@@ -205,3 +205,76 @@ describe('keyboard building', () => {
     expect(useUiStore.getState().confirm).toBeNull();
   });
 });
+
+describe('simulation shortcuts', () => {
+  /** p1 -> t1 -> p2 with a token on p1. */
+  function simulationNet(): { t1: string } {
+    const store = useEditorStore.getState();
+    const p1 = store.addPlace({ x: 0, y: 0 }) as string;
+    const t1 = store.addTransition({ x: 100, y: 0 }) as string;
+    const p2 = store.addPlace({ x: 200, y: 0 }) as string;
+    store.addArc(p1, t1);
+    store.addArc(t1, p2);
+    store.setTokens(p1, 3);
+    return { t1 };
+  }
+
+  it('only work while simulating', () => {
+    simulationNet();
+    expect(handleShortcut(key({ key: ' ' }))).toBe(false);
+    expect(handleShortcut(key({ key: '.' }))).toBe(false);
+    expect(handleShortcut(key({ key: ',' }))).toBe(false);
+    expect(handleShortcut(key({ key: 'r' }))).toBe(false);
+    expect(handleShortcut(key({ key: 'b' }))).toBe(false);
+    expect(useEditorStore.getState().simPlaying).toBe(false);
+  });
+
+  it('play and pause with Space, step with a period and reset with R', async () => {
+    simulationNet();
+    useEditorStore.getState().startSimulation();
+    await vi.waitFor(() => {
+      expect(useEditorStore.getState().computing).toBe(false);
+    });
+    expect(handleShortcut(key({ key: ' ' }))).toBe(true);
+    expect(useEditorStore.getState().simPlaying).toBe(true);
+    expect(handleShortcut(key({ key: ' ' }))).toBe(true);
+    expect(useEditorStore.getState().simPlaying).toBe(false);
+    // A held key must not toggle again and again.
+    expect(handleShortcut(key({ key: ' ', repeat: true }))).toBe(false);
+    expect(handleShortcut(key({ key: '.' }))).toBe(true);
+    await vi.waitFor(() => {
+      expect(useEditorStore.getState().simHistory).toHaveLength(1);
+    });
+    expect(handleShortcut(key({ key: ',' }))).toBe(true);
+    await vi.waitFor(() => {
+      expect(useEditorStore.getState().simHistory).toHaveLength(0);
+    });
+    expect(handleShortcut(key({ key: '.' }))).toBe(true);
+    await vi.waitFor(() => {
+      expect(useEditorStore.getState().simHistory).toHaveLength(1);
+    });
+    expect(handleShortcut(key({ key: 'r' }))).toBe(true);
+    await vi.waitFor(() => {
+      expect(useEditorStore.getState().simHistory).toHaveLength(0);
+    });
+    useEditorStore.getState().stopSimulation();
+  });
+
+  it('B toggles a breakpoint on the selected transition', async () => {
+    const { t1 } = simulationNet();
+    useEditorStore.getState().startSimulation();
+    expect(handleShortcut(key({ key: 'b' }))).toBe(false); // nothing selected
+    useEditorStore.getState().select([t1]);
+    expect(handleShortcut(key({ key: 'b' }))).toBe(true);
+    expect(useEditorStore.getState().simBreakpoints.transitions).toEqual([t1]);
+    expect(handleShortcut(key({ key: 'B' }))).toBe(true);
+    expect(useEditorStore.getState().simBreakpoints.transitions).toEqual([]);
+    useEditorStore.getState().stopSimulation();
+  });
+
+  it('are listed in the help under their own group', () => {
+    const ids = commands.filter((c) => c.group === 'simulation').map((c) => c.id);
+    expect(ids).toEqual(['sim-play', 'sim-step', 'sim-back', 'sim-reset', 'breakpoint']);
+    expect(shortcutText(commandById('sim-play'))).toBe('Space');
+  });
+});

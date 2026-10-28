@@ -83,3 +83,21 @@ describe('buildHoverCard', () => {
     expect(buildHoverCard({ net, marking: net.marking, id: 'nope', diagnostics: [] })).toBeNull();
   });
 });
+
+describe('hover card of a timed transition', () => {
+  it('lists duration, priority, rate and running firings', () => {
+    const net = createEmptyNet('x');
+    net.transitions.push({
+      id: 't',
+      name: 'Scan',
+      position: { x: 0, y: 0 },
+      timing: { kind: 'fixed', value: 12 },
+      priority: 2,
+      rate: 40,
+    });
+    const card = buildHoverCard({ net, marking: {}, id: 't', diagnostics: [], running: 3 });
+    expect(card).toMatchObject({ timing: '12 s', priority: 2, rate: 40, running: 3 });
+    const idle = buildHoverCard({ net, marking: {}, id: 't', diagnostics: [], running: 0 });
+    expect(idle).not.toHaveProperty('running');
+  });
+});

@@ -1097,23 +1097,17 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       if (mode !== 'simulate' || simMarking === null) return;
       const place = net.places.find((p) => p.id === placeId);
       if (!place) return;
-      const tokens = [...(simMarking[placeId] ?? [])];
-      if (delta > 0) {
-        if (place.capacity !== undefined && tokens.length >= place.capacity) {
-          notify('info', en.messages.capacityReached(place.capacity));
-          return;
-        }
-        const sample =
-          net.profile === 'json-net'
-            ? (tokens[tokens.length - 1] ??
-              exampleToken(place.type === undefined ? undefined : net.types[place.type]))
-            : 1;
-        tokens.push(structuredClone(sample));
-      } else {
-        if (tokens.length === 0) return;
-        tokens.pop();
+      const count = simMarking[placeId]?.length ?? 0;
+      if (delta > 0 && place.capacity !== undefined && count >= place.capacity) {
+        notify('info', en.messages.capacityReached(place.capacity));
+        return;
       }
-      void command((client) => client.edit(placeId, tokens));
+      // Tokens of a JSON net are copies of the last one, or a typical value of the type.
+      const sample =
+        net.profile === 'json-net' && count === 0
+          ? exampleToken(place.type === undefined ? undefined : net.types[place.type])
+          : undefined;
+      void command((client) => client.adjust(placeId, delta > 0 ? 1 : -1, sample));
     },
     toggleTransitionBreakpoint(transitionId) {
       const { simBreakpoints } = get();

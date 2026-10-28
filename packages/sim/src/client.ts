@@ -53,6 +53,8 @@ function build(send: (request: Request) => Promise<Response>, stop: () => void):
     fire: (transitionId, binding, opts) =>
       result({ cmd: 'fire', transitionId, ...(binding && { binding }) }, opts),
     edit: (placeId, tokens, opts) => result({ cmd: 'edit', placeId, tokens }, opts),
+    adjust: (placeId, delta, sample, opts) =>
+      result({ cmd: 'adjust', placeId, delta, ...(sample !== undefined && { sample }) }, opts),
     setRate: (transitionId, perHour, opts) =>
       result({ cmd: 'setRate', transitionId, perHour }, opts),
     setBreakpoints: (breakpoints, opts) => result({ cmd: 'setBreakpoints', breakpoints }, opts),

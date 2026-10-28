@@ -50,6 +50,7 @@ export type Command =
   | { cmd: 'advance'; seconds: number; maxEvents?: number }
   | { cmd: 'fire'; transitionId: Id; binding?: EnabledBinding }
   | { cmd: 'edit'; placeId: Id; tokens: Token[] }
+  | { cmd: 'adjust'; placeId: Id; delta: 1 | -1; sample?: Token }
   | { cmd: 'setRate'; transitionId: Id; perHour: number | null }
   | { cmd: 'setBreakpoints'; breakpoints: Breakpoints }
   | { cmd: 'back' }
@@ -92,6 +93,11 @@ export interface SimulationClient {
   advance(seconds: number, maxEvents?: number, opts?: CommandOptions): Promise<SimResult>;
   fire(transitionId: Id, binding?: EnabledBinding, opts?: CommandOptions): Promise<SimResult>;
   edit(placeId: Id, tokens: Token[], opts?: CommandOptions): Promise<SimResult>;
+  /**
+   * Adds a token to a place (a copy of `sample`, else of the last token, else `1`) or withdraws
+   * the last one, relative to the marking at the time the engine handles the call.
+   */
+  adjust(placeId: Id, delta: 1 | -1, sample?: Token, opts?: CommandOptions): Promise<SimResult>;
   setRate(transitionId: Id, perHour: number | null, opts?: CommandOptions): Promise<SimResult>;
   setBreakpoints(breakpoints: Breakpoints, opts?: CommandOptions): Promise<SimResult>;
   back(opts?: CommandOptions): Promise<SimResult>;

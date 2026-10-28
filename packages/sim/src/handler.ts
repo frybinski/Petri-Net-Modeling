@@ -88,6 +88,14 @@ export function createHandler(): (request: Request) => Promise<Response> {
         case 'edit':
           events = await need().editMarking(request.placeId, request.tokens);
           break;
+        case 'adjust': {
+          const simulation = need();
+          const tokens = [...(simulation.state.marking[request.placeId] ?? [])];
+          if (request.delta > 0) tokens.push(structuredClone(request.sample ?? tokens.at(-1) ?? 1));
+          else tokens.pop();
+          events = await simulation.editMarking(request.placeId, tokens);
+          break;
+        }
         case 'setRate':
           await need().setRate(request.transitionId, request.perHour);
           break;
