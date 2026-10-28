@@ -1,0 +1,380 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Dining philosophers (3)",
+  "types": {},
+  "places": [
+    {
+      "id": "think1",
+      "name": "Philosopher 1 thinking",
+      "position": {
+        "x": 300,
+        "y": -40
+      }
+    },
+    {
+      "id": "hasleft1",
+      "name": "Philosopher 1 has left fork",
+      "position": {
+        "x": 300,
+        "y": 60
+      }
+    },
+    {
+      "id": "eat1",
+      "name": "Philosopher 1 eating",
+      "position": {
+        "x": 300,
+        "y": 160
+      }
+    },
+    {
+      "id": "fork1",
+      "name": "Fork 1",
+      "position": {
+        "x": 500,
+        "y": 180
+      }
+    },
+    {
+      "id": "think2",
+      "name": "Philosopher 2 thinking",
+      "position": {
+        "x": 600,
+        "y": 480
+      }
+    },
+    {
+      "id": "hasleft2",
+      "name": "Philosopher 2 has left fork",
+      "position": {
+        "x": 500,
+        "y": 420
+      }
+    },
+    {
+      "id": "eat2",
+      "name": "Philosopher 2 eating",
+      "position": {
+        "x": 420,
+        "y": 380
+      }
+    },
+    {
+      "id": "fork2",
+      "name": "Fork 2",
+      "position": {
+        "x": 300,
+        "y": 540
+      }
+    },
+    {
+      "id": "think3",
+      "name": "Philosopher 3 thinking",
+      "position": {
+        "x": 0,
+        "y": 480
+      }
+    },
+    {
+      "id": "hasleft3",
+      "name": "Philosopher 3 has left fork",
+      "position": {
+        "x": 100,
+        "y": 420
+      }
+    },
+    {
+      "id": "eat3",
+      "name": "Philosopher 3 eating",
+      "position": {
+        "x": 180,
+        "y": 380
+      }
+    },
+    {
+      "id": "fork3",
+      "name": "Fork 3",
+      "position": {
+        "x": 100,
+        "y": 180
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "left1",
+      "name": "P1 takes left fork",
+      "position": {
+        "x": 200,
+        "y": 40
+      }
+    },
+    {
+      "id": "right1",
+      "name": "P1 takes right fork",
+      "position": {
+        "x": 360,
+        "y": 120
+      }
+    },
+    {
+      "id": "release1",
+      "name": "P1 releases forks",
+      "position": {
+        "x": 220,
+        "y": 120
+      }
+    },
+    {
+      "id": "left2",
+      "name": "P2 takes left fork",
+      "position": {
+        "x": 580,
+        "y": 340
+      }
+    },
+    {
+      "id": "right2",
+      "name": "P2 takes right fork",
+      "position": {
+        "x": 420,
+        "y": 440
+      }
+    },
+    {
+      "id": "release2",
+      "name": "P2 releases forks",
+      "position": {
+        "x": 480,
+        "y": 320
+      }
+    },
+    {
+      "id": "left3",
+      "name": "P3 takes left fork",
+      "position": {
+        "x": 120,
+        "y": 520
+      }
+    },
+    {
+      "id": "right3",
+      "name": "P3 takes right fork",
+      "position": {
+        "x": 120,
+        "y": 340
+      }
+    },
+    {
+      "id": "release3",
+      "name": "P3 releases forks",
+      "position": {
+        "x": 200,
+        "y": 460
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "think1",
+      "target": "left1",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "fork1",
+      "target": "left1",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "left1",
+      "target": "hasleft1",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "hasleft1",
+      "target": "right1",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "fork2",
+      "target": "right1",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "right1",
+      "target": "eat1",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "eat1",
+      "target": "release1",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "release1",
+      "target": "think1",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "release1",
+      "target": "fork1",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "release1",
+      "target": "fork2",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "think2",
+      "target": "left2",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "fork2",
+      "target": "left2",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "left2",
+      "target": "hasleft2",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "hasleft2",
+      "target": "right2",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "fork3",
+      "target": "right2",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "right2",
+      "target": "eat2",
+      "weight": 1
+    },
+    {
+      "id": "a17",
+      "source": "eat2",
+      "target": "release2",
+      "weight": 1
+    },
+    {
+      "id": "a18",
+      "source": "release2",
+      "target": "think2",
+      "weight": 1
+    },
+    {
+      "id": "a19",
+      "source": "release2",
+      "target": "fork2",
+      "weight": 1
+    },
+    {
+      "id": "a20",
+      "source": "release2",
+      "target": "fork3",
+      "weight": 1
+    },
+    {
+      "id": "a21",
+      "source": "think3",
+      "target": "left3",
+      "weight": 1
+    },
+    {
+      "id": "a22",
+      "source": "fork3",
+      "target": "left3",
+      "weight": 1
+    },
+    {
+      "id": "a23",
+      "source": "left3",
+      "target": "hasleft3",
+      "weight": 1
+    },
+    {
+      "id": "a24",
+      "source": "hasleft3",
+      "target": "right3",
+      "weight": 1
+    },
+    {
+      "id": "a25",
+      "source": "fork1",
+      "target": "right3",
+      "weight": 1
+    },
+    {
+      "id": "a26",
+      "source": "right3",
+      "target": "eat3",
+      "weight": 1
+    },
+    {
+      "id": "a27",
+      "source": "eat3",
+      "target": "release3",
+      "weight": 1
+    },
+    {
+      "id": "a28",
+      "source": "release3",
+      "target": "think3",
+      "weight": 1
+    },
+    {
+      "id": "a29",
+      "source": "release3",
+      "target": "fork3",
+      "weight": 1
+    },
+    {
+      "id": "a30",
+      "source": "release3",
+      "target": "fork1",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "think1": [
+      1
+    ],
+    "fork1": [
+      1
+    ],
+    "think2": [
+      1
+    ],
+    "fork2": [
+      1
+    ],
+    "think3": [
+      1
+    ],
+    "fork3": [
+      1
+    ]
+  }
+}

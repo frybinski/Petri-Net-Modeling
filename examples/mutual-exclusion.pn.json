@@ -1,0 +1,223 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Mutual exclusion",
+  "types": {},
+  "places": [
+    {
+      "id": "idle1",
+      "name": "Process 1 idle",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "wait1",
+      "name": "Process 1 waiting",
+      "position": {
+        "x": 200,
+        "y": 0
+      }
+    },
+    {
+      "id": "crit1",
+      "name": "Process 1 critical",
+      "position": {
+        "x": 400,
+        "y": 0
+      }
+    },
+    {
+      "id": "mutex",
+      "name": "Mutex",
+      "position": {
+        "x": 300,
+        "y": 120
+      }
+    },
+    {
+      "id": "idle2",
+      "name": "Process 2 idle",
+      "position": {
+        "x": 0,
+        "y": 240
+      }
+    },
+    {
+      "id": "wait2",
+      "name": "Process 2 waiting",
+      "position": {
+        "x": 200,
+        "y": 240
+      }
+    },
+    {
+      "id": "crit2",
+      "name": "Process 2 critical",
+      "position": {
+        "x": 400,
+        "y": 240
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "request1",
+      "name": "request 1",
+      "position": {
+        "x": 100,
+        "y": 0
+      }
+    },
+    {
+      "id": "enter1",
+      "name": "enter 1",
+      "position": {
+        "x": 300,
+        "y": 0
+      }
+    },
+    {
+      "id": "leave1",
+      "name": "leave 1",
+      "position": {
+        "x": 200,
+        "y": -100
+      }
+    },
+    {
+      "id": "request2",
+      "name": "request 2",
+      "position": {
+        "x": 100,
+        "y": 240
+      }
+    },
+    {
+      "id": "enter2",
+      "name": "enter 2",
+      "position": {
+        "x": 300,
+        "y": 240
+      }
+    },
+    {
+      "id": "leave2",
+      "name": "leave 2",
+      "position": {
+        "x": 200,
+        "y": 340
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "idle1",
+      "target": "request1",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "request1",
+      "target": "wait1",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "wait1",
+      "target": "enter1",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "enter1",
+      "target": "crit1",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "mutex",
+      "target": "enter1",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "crit1",
+      "target": "leave1",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "leave1",
+      "target": "idle1",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "leave1",
+      "target": "mutex",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "idle2",
+      "target": "request2",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "request2",
+      "target": "wait2",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "wait2",
+      "target": "enter2",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "enter2",
+      "target": "crit2",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "mutex",
+      "target": "enter2",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "crit2",
+      "target": "leave2",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "leave2",
+      "target": "idle2",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "leave2",
+      "target": "mutex",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "idle1": [
+      1
+    ],
+    "mutex": [
+      1
+    ],
+    "idle2": [
+      1
+    ]
+  }
+}

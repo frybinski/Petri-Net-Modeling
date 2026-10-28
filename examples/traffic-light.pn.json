@@ -1,0 +1,228 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Traffic light",
+  "types": {},
+  "places": [
+    {
+      "id": "a_green",
+      "name": "A green",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "a_yellow",
+      "name": "A yellow",
+      "position": {
+        "x": 200,
+        "y": 0
+      }
+    },
+    {
+      "id": "a_red",
+      "name": "A red",
+      "position": {
+        "x": 400,
+        "y": 0
+      }
+    },
+    {
+      "id": "a_may_go",
+      "name": "A may go",
+      "position": {
+        "x": -100,
+        "y": 120
+      }
+    },
+    {
+      "id": "b_may_go",
+      "name": "B may go",
+      "position": {
+        "x": 200,
+        "y": 120
+      }
+    },
+    {
+      "id": "b_red",
+      "name": "B red",
+      "position": {
+        "x": 0,
+        "y": 240
+      }
+    },
+    {
+      "id": "b_green",
+      "name": "B green",
+      "position": {
+        "x": 200,
+        "y": 240
+      }
+    },
+    {
+      "id": "b_yellow",
+      "name": "B yellow",
+      "position": {
+        "x": 400,
+        "y": 240
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "a_to_yellow",
+      "name": "A to yellow",
+      "position": {
+        "x": 100,
+        "y": 0
+      }
+    },
+    {
+      "id": "a_to_red",
+      "name": "A to red",
+      "position": {
+        "x": 300,
+        "y": 0
+      }
+    },
+    {
+      "id": "a_to_green",
+      "name": "A to green",
+      "position": {
+        "x": 200,
+        "y": -100
+      }
+    },
+    {
+      "id": "b_to_green",
+      "name": "B to green",
+      "position": {
+        "x": 100,
+        "y": 240
+      }
+    },
+    {
+      "id": "b_to_yellow",
+      "name": "B to yellow",
+      "position": {
+        "x": 300,
+        "y": 240
+      }
+    },
+    {
+      "id": "b_to_red",
+      "name": "B to red",
+      "position": {
+        "x": 200,
+        "y": 340
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "a_green",
+      "target": "a_to_yellow",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "a_to_yellow",
+      "target": "a_yellow",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "a_yellow",
+      "target": "a_to_red",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "a_to_red",
+      "target": "a_red",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "a_to_red",
+      "target": "b_may_go",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "a_red",
+      "target": "a_to_green",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "a_may_go",
+      "target": "a_to_green",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "a_to_green",
+      "target": "a_green",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "b_red",
+      "target": "b_to_green",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "b_may_go",
+      "target": "b_to_green",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "b_to_green",
+      "target": "b_green",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "b_green",
+      "target": "b_to_yellow",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "b_to_yellow",
+      "target": "b_yellow",
+      "weight": 1
+    },
+    {
+      "id": "a14",
+      "source": "b_yellow",
+      "target": "b_to_red",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "b_to_red",
+      "target": "b_red",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "b_to_red",
+      "target": "a_may_go",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "a_green": [
+      1
+    ],
+    "b_red": [
+      1
+    ]
+  }
+}

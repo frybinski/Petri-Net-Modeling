@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest';
+import { hasErrors, validate, type DiagnosticCode, type PetriNet } from '../src';
+import { makeNet } from './helpers';
+
+const codes = (net: PetriNet): DiagnosticCode[] => validate(net).map((d) => d.code);
+
+const good = (): PetriNet =>
+  makeNet({
+    places: [['p', 1, 2]],
+    transitions: ['t'],
+    arcs: [
+      ['p', 't'],
+      ['t', 'p'],
+    ],
+  });
+
+describe('validate', () => {
+  it('accepts a well-formed net', () => {
+    expect(validate(good())).toEqual([]);
+    expect(hasErrors(validate(good()))).toBe(false);
+  });
+
+  it('SCHEMA_INVALID for structurally broken input', () => {
+    const broken = { ...good(), places: 'nope' } as unknown as PetriNet;
+    const result = validate(broken);
+    expect(result[0]?.code).toBe('SCHEMA_INVALID');
+    expect(result[0]?.severity).toBe('error');
+    expect(hasErrors(result)).toBe(true);
+  });
+
+  it('DUPLICATE_ID across element kinds', () => {
+    const net = good();
+    net.transitions[0]!.id = 'p';
+    net.arcs.forEach((a) => {
+      a.source = a.source === 't' ? 'p' : a.source;
+      a.target = a.target === 't' ? 'p' : a.target;
+    });
+    expect(codes(net)).toContain('DUPLICATE_ID');
+  });
+
+  it('ARC_DANGLING when an end does not exist', () => {
+    const net = good();
+    net.arcs.push({ id: 'x', source: 'p', target: 'missing', weight: 1 });
+    const d = validate(net).find((x) => x.code === 'ARC_DANGLING');
+    expect(d?.elementId).toBe('x');
+    expect(d?.severity).toBe('error');
+  });
+
+  it('ARC_NOT_BIPARTITE for place -> place and transition -> transition', () => {
+    const net = makeNet({
+      places: [['p'], ['q']],
+      transitions: ['t', 'u'],
+      arcs: [
+        ['p', 'q'],
+        ['t', 'u'],
+      ],
+    });
+    const found = validate(net).filter((d) => d.code === 'ARC_NOT_BIPARTITE');
+    expect(found).toHaveLength(2);
+    expect(found[0]?.message).toMatch(/two places/);
+    expect(found[1]?.message).toMatch(/two transitions/);
+  });
+
+  it('ARC_WEIGHT_INVALID for zero, negative and fractional weights', () => {
+    for (const weight of [0, -1, 1.5]) {
+      const net = good();
+      net.arcs[0]!.weight = weight;
+      expect(codes(net)).toContain('ARC_WEIGHT_INVALID');
+    }
+  });
+
+  it('CAPACITY_INVALID for capacity below one', () => {
+    const net = good();
+    net.places[0]!.capacity = 0;
+    expect(codes(net)).toContain('CAPACITY_INVALID');
+    net.places[0]!.capacity = 2.5;
+    expect(codes(net)).toContain('CAPACITY_INVALID');
+  });
+
+  it('MARKING_UNKNOWN_PLACE for tokens on a missing place', () => {
+    const net = good();
+    net.marking.ghost = [1];
+    expect(codes(net)).toContain('MARKING_UNKNOWN_PLACE');
+  });
+
+  it('MARKING_EXCEEDS_CAPACITY when the initial marking is too large', () => {
+    const net = good();
+    net.marking.p = [1, 1, 1];
+    const d = validate(net).find((x) => x.code === 'MARKING_EXCEEDS_CAPACITY');
+    expect(d?.elementId).toBe('p');
+  });
+
+  it('DUPLICATE_NAME is a warning, per kind and ignoring empty names', () => {
+    const net = makeNet({ places: [['a'], ['b']], transitions: ['a', 'b'] });
+    expect(codes(net)).not.toContain('DUPLICATE_NAME');
+    net.places[1]!.name = 'a';
+    const d = validate(net).filter((x) => x.code === 'DUPLICATE_NAME');
+    expect(d).toHaveLength(2);
+    expect(d.every((x) => x.severity === 'warning')).toBe(true);
+    net.places[0]!.name = '';
+    net.places[1]!.name = '  ';
+    expect(codes(net)).not.toContain('DUPLICATE_NAME');
+  });
+
+  it('ISOLATED_NODE is a warning', () => {
+    const net = good();
+    net.places.push({ id: 'lonely', name: 'lonely', position: { x: 0, y: 0 } });
+    const d = validate(net).filter((x) => x.code === 'ISOLATED_NODE');
+    expect(d).toHaveLength(1);
+    expect(d[0]?.elementId).toBe('lonely');
+    expect(d[0]?.severity).toBe('warning');
+    expect(hasErrors(d)).toBe(false);
+  });
+
+  it('MULTIPLE_ARCS is a warning for parallel arcs of the same direction only', () => {
+    const net = good();
+    expect(codes(net)).not.toContain('MULTIPLE_ARCS');
+    net.arcs.push({ id: 'dup', source: 'p', target: 't', weight: 1 });
+    const d = validate(net).filter((x) => x.code === 'MULTIPLE_ARCS');
+    expect(d).toHaveLength(1);
+    expect(d[0]?.elementId).toBe('dup');
+    expect(d[0]?.severity).toBe('warning');
+  });
+});

@@ -1,0 +1,153 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Producer/consumer",
+  "types": {},
+  "places": [
+    {
+      "id": "prod_idle",
+      "name": "Producer idle",
+      "position": {
+        "x": 0,
+        "y": 100
+      }
+    },
+    {
+      "id": "prod_ready",
+      "name": "Item ready",
+      "position": {
+        "x": 200,
+        "y": 0
+      }
+    },
+    {
+      "id": "buffer",
+      "name": "Buffer",
+      "capacity": 3,
+      "position": {
+        "x": 400,
+        "y": 100
+      }
+    },
+    {
+      "id": "cons_idle",
+      "name": "Consumer idle",
+      "position": {
+        "x": 600,
+        "y": 100
+      }
+    },
+    {
+      "id": "cons_ready",
+      "name": "Item received",
+      "position": {
+        "x": 400,
+        "y": 260
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "produce",
+      "name": "produce",
+      "position": {
+        "x": 100,
+        "y": 0
+      }
+    },
+    {
+      "id": "deliver",
+      "name": "deliver",
+      "position": {
+        "x": 300,
+        "y": 0
+      }
+    },
+    {
+      "id": "remove",
+      "name": "remove",
+      "position": {
+        "x": 500,
+        "y": 100
+      }
+    },
+    {
+      "id": "consume",
+      "name": "consume",
+      "position": {
+        "x": 200,
+        "y": 260
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "prod_idle",
+      "target": "produce",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "produce",
+      "target": "prod_ready",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "prod_ready",
+      "target": "deliver",
+      "weight": 1
+    },
+    {
+      "id": "a4",
+      "source": "deliver",
+      "target": "prod_idle",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "deliver",
+      "target": "buffer",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "buffer",
+      "target": "remove",
+      "weight": 1
+    },
+    {
+      "id": "a7",
+      "source": "cons_idle",
+      "target": "remove",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "remove",
+      "target": "cons_ready",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "cons_ready",
+      "target": "consume",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "consume",
+      "target": "cons_idle",
+      "weight": 1
+    }
+  ],
+  "marking": {
+    "prod_idle": [
+      1
+    ],
+    "cons_idle": [
+      1
+    ]
+  }
+}
