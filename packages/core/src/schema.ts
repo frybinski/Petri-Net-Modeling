@@ -71,6 +71,7 @@ export const netSchema = z.object({
   simulation: simulationSchema.optional(),
   // Passed through; `@pnm/domain` checks the content.
   domainView: z.unknown().optional(),
+  domainViewGeneration: z.unknown().optional(),
 }) satisfies z.ZodType<PetriNet, unknown>;
 
 /** Renders a Zod issue path like `places[2].capacity`. */

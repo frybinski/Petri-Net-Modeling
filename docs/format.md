@@ -16,19 +16,20 @@ Two net classes are supported, selected by the `profile` field:
 
 ## Top level
 
-| Field         | Type                       | Required | Description                                                                  |
-| ------------- | -------------------------- | -------- | ---------------------------------------------------------------------------- |
-| `version`     | `"1.0"`                    | yes      | Format version.                                                              |
-| `profile`     | `"pt-net"` or `"json-net"` | yes      | Net class: place/transition net or JSON net.                                 |
-| `name`        | string                     | yes      | Display name of the net.                                                     |
-| `types`       | object                     | yes      | JSON Schema objects keyed by type name. See [Types](#types).                 |
-| `places`      | array of place             | yes      | See below.                                                                   |
-| `transitions` | array of transition        | yes      | See below.                                                                   |
-| `arcs`        | array of arc               | yes      | See below.                                                                   |
-| `marking`     | object                     | yes      | Initial marking: place id to an array of tokens.                             |
-| `annotations` | array of annotation        | no       | Free-text notes on the canvas.                                               |
-| `simulation`  | object                     | no       | Settings of the timed simulation. See [Timed simulation](#timed-simulation). |
-| `domainView`  | object                     | no       | How the net is drawn in the domain view. See [Domain view](#domain-view).    |
+| Field                  | Type                       | Required | Description                                                                      |
+| ---------------------- | -------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `version`              | `"1.0"`                    | yes      | Format version.                                                                  |
+| `profile`              | `"pt-net"` or `"json-net"` | yes      | Net class: place/transition net or JSON net.                                     |
+| `name`                 | string                     | yes      | Display name of the net.                                                         |
+| `types`                | object                     | yes      | JSON Schema objects keyed by type name. See [Types](#types).                     |
+| `places`               | array of place             | yes      | See below.                                                                       |
+| `transitions`          | array of transition        | yes      | See below.                                                                       |
+| `arcs`                 | array of arc               | yes      | See below.                                                                       |
+| `marking`              | object                     | yes      | Initial marking: place id to an array of tokens.                                 |
+| `annotations`          | array of annotation        | no       | Free-text notes on the canvas.                                                   |
+| `simulation`           | object                     | no       | Settings of the timed simulation. See [Timed simulation](#timed-simulation).     |
+| `domainView`           | object                     | no       | How the net is drawn in the domain view. See [Domain view](#domain-view).        |
+| `domainViewGeneration` | object                     | no       | How a language model generated the domain view. See [Domain view](#domain-view). |
 
 Unknown keys are ignored when reading and dropped when writing.
 
@@ -144,6 +145,12 @@ where each place and transition is, as what it is drawn, and some scenery. It co
 weights, rates or conditions). `@pnm/core` reads, keeps and writes the value without looking at it (`setDomainView`
 changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V8) and draws it. The
 file format version stays `1.0`; files without the field are valid.
+
+`domainViewGeneration` is an optional record next to the view that says how a language model generated it: model, server
+(without credentials), time, the description of the domain, the first prompt, the log of the rounds (rule findings per
+round) and the lists of entries that were filled in generically or dropped. It is never part of the view itself, so the
+view stays strict, and it never contains an API key. `@pnm/core` passes it through like `domainView`; `@pnm/llm`
+defines and reads it. Removing the view removes the record.
 
 The full description, the schema, the rules and the generic mapping are in [domain-view.md](domain-view.md).
 
@@ -341,7 +348,7 @@ tokens, guards that join two places, and array results:
 ## Serialization
 
 `serializeNet` writes keys in a fixed order (`version`, `profile`, `name`,
-`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `domainView`, `annotations`), uses two
+`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `domainView`, `domainViewGeneration`, `annotations`), uses two
 spaces of indentation and ends with a newline, so that files diff cleanly in
 version control. Marking entries follow the order of the places; empty entries
 are omitted.

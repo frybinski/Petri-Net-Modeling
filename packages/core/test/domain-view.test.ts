@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { moveNodes, parseNetText, serializeNet, setDomainView, validate } from '../src';
+import {
+  moveNodes,
+  parseNetText,
+  serializeNet,
+  setDomainView,
+  setDomainViewGeneration,
+  validate,
+} from '../src';
 import { makeNet } from './helpers';
 
 const view = {
@@ -44,5 +51,54 @@ describe('domainView', () => {
   it('survives other edits', () => {
     const edited = moveNodes(setDomainView(net, view), { p: { x: 5, y: 5 } });
     expect(edited.domainView).toBe(view);
+  });
+});
+
+describe('domainViewGeneration', () => {
+  const net = makeNet({ places: [['p', 1]], transitions: ['t'], arcs: [['p', 't']] });
+  const record = { model: 'm', prompt: { system: 's', user: 'u' }, rounds: [] };
+
+  it('is passed through and written right after the domain view', () => {
+    const full = {
+      ...net,
+      simulation: { seed: 3 },
+      domainView: view,
+      domainViewGeneration: record,
+    };
+    const text = serializeNet(full);
+    const keys = Object.keys(JSON.parse(text) as object);
+    expect(keys.slice(-3)).toEqual(['simulation', 'domainView', 'domainViewGeneration']);
+    const back = parseNetText(text);
+    expect(back.domainViewGeneration).toEqual(record);
+    expect(serializeNet(back)).toBe(text);
+    expect(validate(full)).toEqual([]);
+  });
+
+  it('is absent from files without it', () => {
+    expect(serializeNet(net)).not.toContain('domainViewGeneration');
+  });
+
+  it('setDomainViewGeneration sets and removes the record without touching the rest', () => {
+    const withView = setDomainView(net, view);
+    const set = setDomainViewGeneration(withView, record);
+    expect(set.domainViewGeneration).toBe(record);
+    expect(set.domainView).toBe(view);
+    expect(set.places).toBe(net.places);
+    const removed = setDomainViewGeneration(set, undefined);
+    expect('domainViewGeneration' in removed).toBe(false);
+    expect(removed.domainView).toBe(view);
+  });
+
+  it('removing the view removes the record, replacing it keeps the record', () => {
+    const full = setDomainViewGeneration(setDomainView(net, view), record);
+    expect(setDomainView(full, { other: true }).domainViewGeneration).toBe(record);
+    const removed = setDomainView(full, undefined);
+    expect('domainView' in removed).toBe(false);
+    expect('domainViewGeneration' in removed).toBe(false);
+  });
+
+  it('survives other edits', () => {
+    const full = setDomainViewGeneration(setDomainView(net, view), record);
+    expect(moveNodes(full, { p: { x: 5, y: 5 } }).domainViewGeneration).toBe(record);
   });
 });
