@@ -302,6 +302,89 @@ describe('basic auth', () => {
   });
 });
 
+describe('the name of the server in the Host header', () => {
+  it('answers under the public address, under localhost and under the address of the machine', async () => {
+    const { url } = await start({ PNM_PUBLIC_URL: 'https://pnm.example.org' });
+    for (const host of [
+      'pnm.example.org',
+      'PNM.example.org:8443',
+      'localhost:8080',
+      '127.0.0.1:9',
+      '[::1]:80',
+    ]) {
+      const response = await raw(url, { path: '/api/health', headers: { Host: host } });
+      expect(response.status, host).toBe(200);
+    }
+  });
+
+  it('turns away a name that is not the server (DNS rebinding) and names the setting', async () => {
+    const { url, logs } = await start({ PNM_PUBLIC_URL: 'https://pnm.example.org' });
+    for (const host of [
+      'evil.example',
+      'evil.example:8080',
+      'pnm.example.org.evil.example',
+      '10.1.2.3:8080',
+    ]) {
+      const response = await raw(url, { path: '/api/health', headers: { Host: host } });
+      expect(response.status, host).toBe(421);
+      const body = JSON.parse(response.body) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe('misdirected');
+      expect(body.error.message).toContain('PNM_ALLOWED_HOSTS');
+    }
+    expect(
+      logs.entries().some((e) => e['msg'] === 'host refused' && e['host'] === 'evil.example'),
+    ).toBe(true);
+    // Also for the pages and the API behind it.
+    expect((await raw(url, { path: '/', headers: { Host: 'evil.example' } })).status).toBe(421);
+    expect(
+      (await raw(url, { path: '/api/v1/projects', headers: { Host: 'evil.example' } })).status,
+    ).toBe(421);
+  });
+
+  it('accepts further names from PNM_ALLOWED_HOSTS', async () => {
+    const { url } = await start({
+      PNM_PUBLIC_URL: 'https://pnm.example.org',
+      PNM_ALLOWED_HOSTS: 'pnm, Other.Example',
+    });
+    for (const host of ['pnm:8080', 'other.example']) {
+      expect((await raw(url, { path: '/api/health', headers: { Host: host } })).status, host).toBe(
+        200,
+      );
+    }
+    expect(
+      (await raw(url, { path: '/api/health', headers: { Host: 'third.example' } })).status,
+    ).toBe(421);
+  });
+
+  it('reads X-Forwarded-Host only from a trusted proxy', async () => {
+    const { url } = await start({
+      PNM_PUBLIC_URL: 'https://pnm.example.org',
+      PNM_TRUSTED_PROXIES: '127.0.0.1',
+    });
+    const good = await raw(url, {
+      path: '/api/health',
+      headers: { Host: 'pnm.example.org', 'X-Forwarded-Host': 'pnm.example.org' },
+    });
+    expect(good.status).toBe(200);
+    const bad = await raw(url, {
+      path: '/api/health',
+      headers: { Host: 'pnm.example.org', 'X-Forwarded-Host': 'evil.example' },
+    });
+    expect(bad.status).toBe(421);
+    // Not trusted: the header says nothing.
+    const other = await startApp({ PNM_PUBLIC_URL: 'https://pnm.example.org' });
+    try {
+      const ignored = await raw(other.url, {
+        path: '/api/health',
+        headers: { Host: 'pnm.example.org', 'X-Forwarded-Host': 'evil.example' },
+      });
+      expect(ignored.status).toBe(200);
+    } finally {
+      await other.stop();
+    }
+  });
+});
+
 describe('requests from other sites', () => {
   it('refuses a change that carries a foreign Origin', async () => {
     const { url } = await start();

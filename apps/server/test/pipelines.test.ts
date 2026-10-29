@@ -590,7 +590,7 @@ describe('the Compose overlays and the local file', () => {
     );
     expect(settings.length).toBeGreaterThan(20);
     const example = read('deploy/.env.example');
-    const reference = existsSync(join(REPO, 'docs', 'server.md')) ? read('docs/server.md') : null;
+    const reference = read('docs/server.md');
     for (const name of settings) {
       // The port and the folders belong to the image; the other settings are in the example.
       if (
@@ -607,7 +607,7 @@ describe('the Compose overlays and the local file', () => {
       ) {
         expect(example, name).toContain(name);
       }
-      if (reference !== null) expect(reference, name).toContain(name);
+      expect(reference, name).toContain(name);
     }
   });
 });

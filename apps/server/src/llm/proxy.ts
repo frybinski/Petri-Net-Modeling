@@ -1,6 +1,6 @@
 import type { ServerResponse } from 'node:http';
 import type { LlmConfig } from '../config';
-import { ApiError, messageOf } from '../errors';
+import { ApiError, describeError } from '../errors';
 import { isRecord, readJson, sendJson } from '../http';
 import type { Logger } from '../logger';
 import type { RequestContext, Router } from '../router';
@@ -156,7 +156,7 @@ export function createLlmProxy(config: LlmConfig, deps: LlmDeps): LlmProxy {
       );
     }
     deps.logger.warn('llm upstream unreachable', {
-      error: redact(messageOf(error), key).slice(0, 200),
+      error: redact(describeError(error), key),
     });
     return new ApiError(502, 'bad_gateway', 'The language model server could not be reached.');
   }
@@ -350,7 +350,7 @@ export function createLlmProxy(config: LlmConfig, deps: LlmDeps): LlmProxy {
       res.destroy();
       if (!signal.aborted) {
         deps.logger.warn('llm stream failed', {
-          error: redact(messageOf(error), key).slice(0, 200),
+          error: redact(describeError(error), key),
         });
       }
       return usage;

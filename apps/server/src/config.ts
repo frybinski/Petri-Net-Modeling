@@ -40,6 +40,8 @@ export interface Config {
   basicAuth: BasicAccount[];
   allowedNets: string[];
   trustedProxies: string[];
+  /** Host names (without port) besides the one of `publicUrl` and loopback that requests may use. */
+  allowedHosts: string[];
   llm: LlmConfig;
   jobs: { workers: number; timeoutMs: number; memoryMb: number; maxQueue: number };
   projects: { maxVersions: number; trashDays: number };
@@ -125,6 +127,7 @@ const schema = z.object({
   PNM_BASIC_AUTH: z.string().default(''),
   PNM_ALLOWED_NETS: z.string().default(DEFAULT_ALLOWED_NETS.join(',')),
   PNM_TRUSTED_PROXIES: z.string().default(''),
+  PNM_ALLOWED_HOSTS: z.string().default(''),
   PNM_LLM_BASE_URL: url.optional(),
   PNM_LLM_API_KEY: z.string().optional(),
   PNM_LLM_MODELS: z.string().default(''),
@@ -209,6 +212,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     basicAuth,
     allowedNets,
     trustedProxies,
+    allowedHosts: list(v.PNM_ALLOWED_HOSTS).map((host) => host.toLowerCase()),
     llm: {
       baseUrl: v.PNM_LLM_BASE_URL ?? null,
       apiKey: v.PNM_LLM_API_KEY ?? null,
@@ -240,6 +244,7 @@ export function describeConfig(config: Config): Record<string, unknown> {
     basicAuth: config.basicAuth.length > 0 ? `${config.basicAuth.length} account(s)` : 'off',
     allowedNets: config.allowedNets,
     trustedProxies: config.trustedProxies,
+    allowedHosts: [new URL(config.publicUrl).hostname, ...config.allowedHosts, 'localhost'],
     llm:
       config.llm.baseUrl === null
         ? 'off'

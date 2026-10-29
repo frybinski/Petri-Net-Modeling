@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Config } from './config';
-import { ApiError, messageOf } from './errors';
+import { ApiError, describeError } from './errors';
 import { header, sendError } from './http';
 import { createBasicAuth } from './basic-auth';
 import { createJobPool, type JobPool } from './api/pool';
@@ -59,6 +59,15 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
   const auth = createBasicAuth(config.basicAuth);
   const files = createStaticFiles(config.webDir);
   const publicHost = new URL(config.publicUrl).host;
+  // The names under which the server may be addressed. A page of another site that makes the
+  // browser of a visitor reach the server under its own name (DNS rebinding) is turned away.
+  const hostNames = new Set([
+    new URL(config.publicUrl).hostname.toLowerCase(),
+    ...config.allowedHosts,
+    'localhost',
+    '127.0.0.1',
+    '[::1]',
+  ]);
 
   registerHealth(router);
   const llm = createLlmProxy(config.llm, {
@@ -102,6 +111,18 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
         'The web app is not installed on this server (no index.html).',
       ),
     );
+  }
+
+  /** True if the Host header names this server. */
+  function hostAllowed(req: IncomingMessage, viaTrustedProxy: boolean): boolean {
+    const names = [header(req, 'host')];
+    if (viaTrustedProxy) names.push(header(req, 'x-forwarded-host')?.split(',')[0]);
+    const given = names.filter((name): name is string => name !== undefined && name !== '');
+    if (given.length === 0) return true; // HTTP/1.0 without Host: nothing to rebind
+    return given.every((name) => {
+      const bare = name.trim().toLowerCase().replace(/:\d+$/, '');
+      return hostNames.has(bare);
+    });
   }
 
   /** True unless the request is a change that comes from another site. */
@@ -154,6 +175,15 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
       if (!isAllowed(found, allowed)) {
         logger.warn('denied', { client: client === '' ? 'unknown' : client });
         throw new ApiError(403, 'forbidden', 'This address may not use the server.');
+      }
+
+      if (!hostAllowed(req, trusted.contains(found.peer))) {
+        logger.warn('host refused', { host: (header(req, 'host') ?? '').slice(0, 100) });
+        throw new ApiError(
+          421,
+          'misdirected',
+          'This server does not answer under this name. Use the address from PNM_PUBLIC_URL, or add the name to PNM_ALLOWED_HOSTS.',
+        );
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost');
@@ -219,7 +249,7 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
       }
       logger.error('unhandled error', {
         method: req.method ?? '-',
-        error: messageOf(error).slice(0, 300),
+        error: describeError(error),
       });
       sendError(res, new ApiError(500, 'internal', 'The server could not handle the request.'));
     }
@@ -231,6 +261,7 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
   // Proxies keep connections open for a while; a short timeout here would race with them.
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
+  server.maxConnections = 1024;
 
   return {
     server,

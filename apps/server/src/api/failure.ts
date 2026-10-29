@@ -1,7 +1,7 @@
 import { NetFormatError } from '@pnm/core';
 import { CommandError, UsageError } from '@pnm/cli/lib';
 import { PnmlError } from '@pnm/io';
-import { ApiError, messageOf, type ErrorCode } from '../errors';
+import { ApiError, describeError, type ErrorCode } from '../errors';
 
 /** An error as it crosses from a job thread to the main thread: plain data. */
 export interface Failure {
@@ -47,7 +47,7 @@ export function failureOf(error: unknown): Failure {
     status: 500,
     code: 'internal',
     message: 'The job failed unexpectedly.',
-    internal: messageOf(error).slice(0, 500),
+    internal: describeError(error),
   };
 }
 

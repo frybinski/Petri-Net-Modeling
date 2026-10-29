@@ -39,6 +39,7 @@ describe('loadConfig', () => {
       maxBody: 10 * 1024 * 1024,
       allowedNets: [...DEFAULT_ALLOWED_NETS],
       trustedProxies: [],
+      allowedHosts: [],
       jobs: { workers: 2, timeoutMs: 60_000 },
       projects: { maxVersions: 200, trashDays: 30 },
     });

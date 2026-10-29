@@ -440,5 +440,7 @@ docker compose logs pnm | grep '"msg":"llm"' | tail
 - The container runs as an unprivileged user with a read-only root file system, without capabilities, and with memory and CPU
   limits (`PNM_MEMORY_LIMIT`, `PNM_CPUS`). The job threads that run the analyses have no copy of the environment, so they
   never see the key.
+- The server answers only under its own name (`PNM_PUBLIC_URL`, `localhost`, `PNM_ALLOWED_HOSTS`), which keeps a page of
+  another site from reaching it through the visitor's browser under a name that the attacker controls.
 - Requests that change data must have the content type `application/json` and, if they carry an `Origin`, come from the
   server's own address. This keeps a web page from another site from acting with your rights.

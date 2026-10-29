@@ -2,7 +2,7 @@ import { createInterface } from 'node:readline';
 import { createApp } from './app';
 import { hashPassword } from './basic-auth';
 import { ConfigError, describeConfig, loadConfig } from './config';
-import { messageOf } from './errors';
+import { describeError, messageOf } from './errors';
 import { createLogger } from './logger';
 import { VERSION } from './version';
 
@@ -74,6 +74,13 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   const logger = createLogger();
+  // A bug that nobody caught ends the process (the container is restarted); the log says what.
+  for (const event of ['uncaughtException', 'unhandledRejection'] as const) {
+    process.on(event, (error: unknown) => {
+      logger.error(event, { error: describeError(error) });
+      process.exit(1);
+    });
+  }
   let app;
   let port: number;
   try {

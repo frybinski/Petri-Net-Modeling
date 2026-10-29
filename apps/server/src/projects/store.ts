@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { parseNet, serializeNet, type PetriNet } from '@pnm/core';
+import { describeError } from '../errors';
 import type { Logger } from '../logger';
 import { nodeFs, writeAtomic, type FsOps } from './fs-ops';
 
@@ -375,7 +376,7 @@ export async function openProjectStore(options: StoreOptions): Promise<ProjectSt
   const purgeTimer = setInterval(
     () => {
       void store.purgeTrash().catch((error: unknown) => {
-        logger.error('purging the trash failed', { error: (error as Error).message });
+        logger.error('purging the trash failed', { error: describeError(error) });
       });
     },
     6 * 60 * 60 * 1000,
@@ -461,7 +462,7 @@ export async function openProjectStore(options: StoreOptions): Promise<ProjectSt
         }
         metas.set(id, next);
         await thin(next).catch((error: unknown) => {
-          logger.error('thinning the versions failed', { id, error: (error as Error).message });
+          logger.error('thinning the versions failed', { id, error: describeError(error) });
         });
         return infoOf(next);
       });
