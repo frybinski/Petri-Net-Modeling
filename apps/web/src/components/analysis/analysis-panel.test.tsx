@@ -37,6 +37,7 @@ beforeEach(() => {
   useAnalysisStore.getState().clear();
   useAnalysisStore.getState().setLimit(20000);
   useAnalysisStore.getState().setFinalMode('deadlock');
+  useAnalysisStore.getState().setIncludeOpen(false);
   useUiStore.setState({ toasts: [] });
 });
 
@@ -411,6 +412,56 @@ describe('properties', () => {
     expect(ratios.length).toBe(3);
     expect(ratios).toContain('100 %');
   });
+});
+
+describe('the log check without finished cases', () => {
+  it('says that there is nothing to check instead of a share of zero cases', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(example('parcel-center'), null);
+    renderPanel();
+    await editor().startSimulation();
+    await waitFor(() => {
+      expect(editor().computing).toBe(false);
+    });
+    for (let i = 0; i < 4; i += 1) {
+      await editor().stepNext();
+      await waitFor(() => {
+        expect(editor().computing).toBe(false);
+      });
+    }
+    await waitFor(() => {
+      expect(screen.getByTestId('check-log')).toBeEnabled();
+    });
+    await user.click(screen.getByTestId('check-log'));
+    await waitFor(() => {
+      expect(screen.getByTestId('log-summary')).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId('log-verdict')[0]).toHaveTextContent('No case to check');
+    expect(screen.queryByTestId('log-ratio')).toBeNull();
+    expect(screen.getByTestId('log-summary')).toHaveTextContent('unfinished');
+  });
+});
+
+describe('a state space with more than 500 states', () => {
+  it('draws the first 500 states and says that there are more', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(example('parcel-center'), null);
+    useAnalysisStore.getState().setLimit(1000);
+    renderPanel();
+    render(<StateSpaceDialogHost />);
+    await user.click(screen.getByTestId('space-explore'));
+    await screen.findByTestId('space-result');
+    await user.click(screen.getByTestId('space-show-graph'));
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('space-node')).toHaveLength(500);
+      },
+      { timeout: 60000 },
+    );
+    expect(screen.getByTestId('space-limited')).toHaveTextContent(
+      'Showing the first 500 of 1,000 states',
+    );
+  }, 90000);
 });
 
 describe('the state space graph', () => {

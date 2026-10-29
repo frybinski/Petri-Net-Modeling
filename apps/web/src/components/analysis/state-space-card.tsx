@@ -42,7 +42,12 @@ function boundedText(
     };
   }
   if (coverability?.applicable && coverability.bounded === true) {
-    return { value: true, text: t.boundedYes(behaviour.maxPlaceTokens) };
+    // The exploration was cut off, so its largest count is only a lower bound; the graph has the bounds.
+    const largest = Math.max(
+      0,
+      ...Object.values(coverability.bounds).filter((n): n is number => typeof n === 'number'),
+    );
+    return { value: true, text: t.boundedYes(largest) };
   }
   return { value: null, text: t.boundedUnknown };
 }

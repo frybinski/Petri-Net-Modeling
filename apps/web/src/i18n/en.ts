@@ -1001,7 +1001,7 @@ export const en = {
       deadlock: 'deadlock',
       final: 'final',
       limited: (shown: number, total: number) =>
-        `Showing the first ${shown} of ${total} states. Choose a path to see more of one run.`,
+        `Showing the first ${shown.toLocaleString('en')} of ${total.toLocaleString('en')} states. Choose a path to see more of one run.`,
       focus: 'Show',
       focusAll: 'All states',
       focusPath: (label: string) => `Path to ${label}`,
@@ -1055,6 +1055,8 @@ export const en = {
       logResult: (satisfied: number, total: number, percent: string) =>
         `${satisfied} of ${total} cases (${percent})`,
       logTitle: 'Event log',
+      noCases:
+        'No case to check: the log has no finished case. Run the simulation longer, or count unfinished cases.',
       logOpen: (n: number) => `${n} unfinished ${n === 1 ? 'case' : 'cases'} left out.`,
       activations: (activations: number, fulfilled: number) =>
         `${fulfilled} of ${activations} activations fulfilled`,

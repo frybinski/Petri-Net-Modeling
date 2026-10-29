@@ -110,6 +110,13 @@ function LogVerdict({
   const t = en.analysis.properties;
   if (!conformance || stale) return null;
   if (conformance.error !== undefined) return null;
+  if (conformance.total === 0) {
+    return (
+      <p className="m-0 text-[11px] leading-snug text-muted" data-testid="log-verdict">
+        {t.noCases}
+      </p>
+    );
+  }
   const ok = conformance.violatingCount === 0;
   return (
     <div className="flex flex-col gap-1" data-testid="log-verdict">
