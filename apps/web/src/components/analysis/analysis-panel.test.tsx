@@ -36,6 +36,7 @@ async function analyzeAll(user: ReturnType<typeof userEvent.setup>): Promise<voi
 beforeEach(() => {
   useAnalysisStore.getState().clear();
   useAnalysisStore.getState().setLimit(20000);
+  useAnalysisStore.getState().setTimeLimit(10);
   useAnalysisStore.getState().setFinalMode('deadlock');
   useAnalysisStore.getState().setIncludeOpen(false);
   useUiStore.setState({ toasts: [] });
@@ -383,6 +384,51 @@ describe('properties', () => {
       expect(screen.getByTestId('property-status')).toHaveAttribute('data-status', 'violated');
     });
     expect(screen.getByTestId('counterexample')).toHaveTextContent('produce');
+  });
+
+  it('has a time limit field next to the state limit that the exploration uses', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(example('producer-consumer'), null);
+    renderPanel();
+    const field = screen.getByTestId('space-time-limit');
+    expect(field).toHaveValue('10');
+    await user.selectOptions(field, '30');
+    expect(useAnalysisStore.getState().timeLimit).toBe(30);
+    await user.click(screen.getByTestId('space-explore'));
+    await screen.findByTestId('space-result');
+  });
+
+  it('suggests "any marking" when no run ends in a deadlock, and switches with one click', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(example('producer-consumer'), null);
+    editor().setProperties([
+      { id: 'r', kind: 'declare', template: 'response', activities: ['produce', 'deliver'] },
+    ]);
+    renderPanel();
+    // Nothing to suggest before a check.
+    expect(screen.queryByTestId('check-suggest-all')).toBeNull();
+    await user.click(screen.getByTestId('check-space'));
+    const hint = await screen.findByTestId('check-suggest-all');
+    expect(hint).toHaveTextContent('No run of this net ends in a deadlock');
+    await user.click(screen.getByTestId('check-use-all'));
+    // The end states switched and the check ran again: the property has a verdict that means something.
+    expect(screen.getByTestId('check-final')).toHaveValue('all');
+    await waitFor(() => {
+      expect(screen.getByTestId('property-status')).toHaveAttribute('data-status', 'violated');
+    });
+    expect(screen.queryByTestId('check-suggest-all')).toBeNull();
+  });
+
+  it('does not suggest anything when the net has deadlocks to check', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(example('dining-philosophers-3'), null);
+    editor().setProperties([{ id: 'f', kind: 'ltlf', formula: 'F Release' }]);
+    renderPanel();
+    await user.click(screen.getByTestId('check-space'));
+    await waitFor(() => {
+      expect(screen.getByTestId('check-summary')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('check-suggest-all')).toBeNull();
   });
 
   it('checks the log of the last simulation run', async () => {

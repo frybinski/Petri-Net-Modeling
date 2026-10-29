@@ -5,6 +5,7 @@ import { en } from '../../i18n/en';
 import { elementName, markingText } from '../../lib/analysis-format';
 import {
   LIMIT_CHOICES,
+  TIME_LIMIT_CHOICES,
   isStale,
   useAnalysisStore,
   type SpaceOutcome,
@@ -205,12 +206,17 @@ export function StateSpaceCard() {
   const error = useAnalysisStore((s) => s.errors.space);
   const limit = useAnalysisStore((s) => s.limit);
   const setLimit = useAnalysisStore((s) => s.setLimit);
+  const timeLimit = useAnalysisStore((s) => s.timeLimit);
+  const setTimeLimit = useAnalysisStore((s) => s.setTimeLimit);
   const explore = useAnalysisStore((s) => s.exploreStateSpace);
   const cancel = useAnalysisStore((s) => s.cancel);
   const stale = isStale(result, net);
   const choices = LIMIT_CHOICES.includes(limit as (typeof LIMIT_CHOICES)[number])
     ? [...LIMIT_CHOICES]
     : [...LIMIT_CHOICES, limit].sort((a, b) => a - b);
+  const timeChoices = TIME_LIMIT_CHOICES.includes(timeLimit as (typeof TIME_LIMIT_CHOICES)[number])
+    ? [...TIME_LIMIT_CHOICES]
+    : [...TIME_LIMIT_CHOICES, timeLimit].sort((a, b) => a - b);
 
   return (
     <PanelSection title={t.title} hint={t.hint} data-testid="space-card">
@@ -225,6 +231,18 @@ export function StateSpaceCard() {
             }}
             disabled={busy}
             data-testid="space-limit"
+          />
+        </div>
+        <div className="w-24 shrink-0">
+          <SelectField
+            label={t.timeLimit}
+            value={String(timeLimit)}
+            options={timeChoices.map((n) => ({ value: String(n), label: String(n) }))}
+            onChange={(value) => {
+              setTimeLimit(Number(value));
+            }}
+            disabled={busy}
+            data-testid="space-time-limit"
           />
         </div>
         {busy ? (

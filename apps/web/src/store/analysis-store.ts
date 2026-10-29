@@ -1,6 +1,7 @@
 import {
   AnalysisCancelled,
   DEFAULT_MAX_STATES,
+  DEFAULT_MAX_TIME_MS,
   endActivities,
   activityLabels,
   parseProperties,
@@ -59,6 +60,8 @@ export interface ConformanceOutcome {
 }
 
 export const LIMIT_CHOICES = [1000, 5000, 20000, 100000] as const;
+/** The choices for the time limit of an exploration, in seconds (the default is 10). */
+export const TIME_LIMIT_CHOICES = [5, 10, 30, 60, 120, 300] as const;
 
 interface AnalysisState {
   structure: Computed<StructureResult> | null;
@@ -71,6 +74,8 @@ interface AnalysisState {
   errors: Partial<Record<AnalysisKind, string>>;
   /** Maximum number of states of an exploration. */
   limit: number;
+  /** The time limit of an exploration, in seconds. */
+  timeLimit: number;
   finalMode: FinalMode;
   /** Count the cases of a log that have not finished (default: leave them out). */
   includeOpen: boolean;
@@ -85,6 +90,7 @@ interface AnalysisState {
   /** Stops the running exploration or check. */
   cancel(): void;
   setLimit(limit: number): void;
+  setTimeLimit(seconds: number): void;
   setFinalMode(mode: FinalMode): void;
   setIncludeOpen(include: boolean): void;
   openGraph(): void;
@@ -157,6 +163,7 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => {
     progress: null,
     errors: {},
     limit: DEFAULT_MAX_STATES,
+    timeLimit: DEFAULT_MAX_TIME_MS / 1000,
     finalMode: 'deadlock',
     includeOpen: false,
     graphOpen: false,
@@ -185,7 +192,7 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => {
     },
     async exploreStateSpace() {
       const net = useEditorStore.getState().net;
-      const limit = get().limit;
+      const { limit, timeLimit } = get();
       const controller = begin('space');
       try {
         const run = {
@@ -194,7 +201,11 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => {
             set({ progress });
           },
         };
-        const report = await client().stateSpace(net, { maxStates: limit }, run);
+        const report = await client().stateSpace(
+          net,
+          { maxStates: limit, maxTimeMs: timeLimit * 1000 },
+          run,
+        );
         // The graph of place/transition nets is cheap and decides boundedness when the
         // exploration was cut off.
         const coverability =
@@ -218,13 +229,13 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => {
       const net = useEditorStore.getState().net;
       const { properties } = parseProperties(net.properties);
       if (properties.length === 0) return;
-      const { limit, finalMode } = get();
+      const { limit, timeLimit, finalMode } = get();
       const controller = begin('check');
       try {
         const report = await client().check(
           net,
           properties,
-          { maxStates: limit, final: finalStates(finalMode) },
+          { maxStates: limit, maxTimeMs: timeLimit * 1000, final: finalStates(finalMode) },
           {
             signal: controller.signal,
             onProgress: (progress) => {
@@ -279,6 +290,9 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => {
     },
     setLimit(limit) {
       set({ limit });
+    },
+    setTimeLimit(timeLimit) {
+      set({ timeLimit });
     },
     setFinalMode(mode) {
       set({ finalMode: mode });

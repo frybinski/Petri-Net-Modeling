@@ -893,7 +893,6 @@ export const en = {
     logFilled: (n: number) => `${n} filled generically`,
     logDropped: (n: number) => `${n} dropped`,
     logPaths: 'Paths',
-    badgeLlm: 'LLM',
   },
   analysis: {
     tab: 'Analyze',
@@ -967,6 +966,7 @@ export const en = {
       exploreTip: 'Build the reachability graph',
       limit: 'Limit (states)',
       limitHint: 'The exploration stops at this many states.',
+      timeLimit: 'Time limit (s)',
       progress: (states: number, edges: number) =>
         `${states.toLocaleString('en')} states, ${edges.toLocaleString('en')} edges so far…`,
       states: 'States',
@@ -1064,6 +1064,10 @@ export const en = {
       finalHint:
         'A property holds if every run from the initial marking to an end state satisfies it.',
       finalMarkingHint: 'Start the simulation to use its current marking as the end state.',
+      noDeadlock:
+        'No run of this net ends in a deadlock, so these properties hold only vacuously: there is nothing to check.',
+      useAll: 'Check every prefix of a run',
+      useAllTip: 'Switch the end states to "any marking" and check again',
       includeOpen: 'Count unfinished cases',
       includeOpenHint:
         'Cases that have not reached an end activity are left out of the log check unless this is set.',
