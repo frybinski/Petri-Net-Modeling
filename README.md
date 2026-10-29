@@ -95,7 +95,7 @@ Domain view (0.5.0, see [docs/domain-view.md](docs/domain-view.md)):
 - Hovering an element lights up its counterpart in the other view, a click selects it, and while simulating the view
   shows the current marking and the firings under way. Pan, zoom (wheel, pinch, buttons) and fit work as in the editor.
 - The _Domain view_ tab shows the problems with click-to-select, repairs a view after the net has changed (_Fill
-  missing entries_, _Update hash_) and edits the mapping as JSON with live checks.
+  missing entries_, _Remove stale entries_, _Update hash_) and edits the mapping as JSON with live checks.
 - Not yet: editing by dragging in the picture (step D4).
 
 Animation (0.6.0, see the section _Animation_ in [docs/domain-view.md](docs/domain-view.md)):

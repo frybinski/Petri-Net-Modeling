@@ -27,7 +27,6 @@ import {
   checkViewText,
   countSeverities,
   fillMissingEntries,
-  fillMissingOnly,
   generateGenericView,
   originCounts,
   removeDomainView,
@@ -385,7 +384,7 @@ function StaleCard({
           size="sm"
           disabled={locked || missing.length === 0}
           title={en.domain.staleFillTip}
-          onClick={fillMissingOnly}
+          onClick={fillMissingEntries}
           data-testid="stale-fill"
         >
           {en.domain.staleFill}
@@ -425,6 +424,7 @@ export function DomainPanel() {
   const stale = diagnostics.some((d) => d.rule === 'V7');
   const canUpdateHash = stale && errors === 0 && !locked;
   const canFill = view !== null && !locked;
+  const hasStale = view !== null && staleEntries(net, view).length > 0;
   const origins = view ? originCounts(view) : null;
   const storedGeneration = net.domainViewGeneration;
   const generation = useMemo(() => parseGeneration(storedGeneration), [storedGeneration]);
@@ -577,6 +577,14 @@ export function DomainPanel() {
             data-testid="domain-fill"
           >
             {en.domain.fill}
+          </Button>
+          <Button
+            onClick={removeStaleEntries}
+            disabled={!canFill || !hasStale}
+            title={en.domain.staleRemoveTip}
+            data-testid="domain-remove-stale"
+          >
+            {en.domain.staleRemove}
           </Button>
           <Button
             onClick={updateViewHash}

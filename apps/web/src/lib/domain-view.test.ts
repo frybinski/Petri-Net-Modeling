@@ -9,6 +9,7 @@ import {
   checkViewText,
   countSeverities,
   fillMissingEntries,
+  removeStaleEntries,
   generateGenericView,
   hasHandMadeEntries,
   originCounts,
@@ -100,14 +101,19 @@ describe('generateGenericView', () => {
 });
 
 describe('after the net has changed', () => {
-  it('reports removed elements (V2) and a stale hash (V7); fill and hash update clean up', () => {
+  it('reports removed elements (V2) and a stale hash (V7); removing the stale entries and the hash update clean up', () => {
     load('parcel-center');
     store().select(['p_B']);
     store().removeSelected();
     expect(problems()).toEqual(expect.arrayContaining(['V2', 'V7']));
     expect(analyseDomainView(store().net).validation?.ok).toBe(false);
 
+    // Filling only adds: the entry of the removed place stays until it is removed on purpose.
     fillMissingEntries();
+    expect(problems()).toEqual(expect.arrayContaining(['V2', 'V7']));
+    expect(viewOf().places['p_B']).toBeDefined();
+
+    removeStaleEntries();
     expect(problems()).toEqual(['V7']);
     expect(viewOf().places['p_B']).toBeUndefined();
     // Arcs of the removed place are gone with it, the rest of the view is untouched.
@@ -134,7 +140,7 @@ describe('after the net has changed', () => {
     load('parcel-center');
     store().select(['p_B']);
     store().removeSelected();
-    fillMissingEntries();
+    removeStaleEntries();
     updateViewHash();
     store().undo();
     expect(problems()).toEqual(['V7']);

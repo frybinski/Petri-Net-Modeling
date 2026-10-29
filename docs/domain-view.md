@@ -24,7 +24,7 @@ const { ok, view, diagnostics } = validateDomainView(net, net.domainView);
 ```
 
 Editing the net does not touch the mapping. A mapping that no longer fits (a place was deleted, an element was added)
-is reported by the rules V2, V3 and V7 and repaired with _Fill missing entries_ and _Update hash_.
+is reported by the rules V2, V3 and V7 and repaired with _Fill missing entries_, _Remove stale entries_ and _Update hash_.
 
 ## Schema
 
@@ -200,7 +200,7 @@ uses the animation below instead.
   counterpart in the net, and the other way round. A click selects it.
 - The mode _Edit layout_ (key `E`) lets you move, resize and reshape the entries in the picture, see _Editing the view_.
 - The tab _Domain view_ in the right panel shows the problems, the origin of the entries and the state of the hash, the
-  actions _Generate generic view_, _Fill missing entries_, _Update hash_ and _Remove domain view_, the appearance
+  actions _Generate generic view_, _Fill missing entries_, _Remove stale entries_, _Update hash_ and _Remove domain view_, the appearance
   (theme, name, entity, canvas size), the entry of the selected element and the whole mapping as JSON with live checks.
   Applying the JSON replaces the view in one undo step.
 
@@ -245,7 +245,8 @@ and every change is checked at once.
 - **Out of date.** When the net has changed (V7) the panel starts with a card _The view is out of date_. It lists the
   elements without an entry (V3) and the entries of removed elements (V2) and offers _Fill missing entries_ (only the
   new elements get a generic entry, everything else stays as it is), _Remove stale entries_ and _Update hash_, each as
-  its own undo step. The action _Fill missing entries_ in the action list does both of the first two at once.
+  its own undo step. The action list has the same two actions, _Fill missing entries_ (which only adds) and _Remove
+  stale entries_, so that the card and the list always do the same.
 
 The edits are pure functions of `@pnm/domain` (`handlesFor`, `hitHandle`, `moveEntry`, `resizeEntry`, `setBox`,
 `movePoint`, `insertPoint`, `removePoint`, `moveSlot`, `addSlot`, `removeSlot`, `setEntryKind`, `setLabel`,

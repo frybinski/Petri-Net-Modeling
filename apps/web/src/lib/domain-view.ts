@@ -175,18 +175,8 @@ export function generateGenericView(): void {
   void generate();
 }
 
-/** Adds generic entries for what the view lacks and drops entries of removed elements. */
+/** Adds generic entries for what the view lacks. Entries of removed elements stay (see `removeStaleEntries`). */
 export function fillMissingEntries(): void {
-  if (!editable()) return;
-  const view = getDomainView();
-  if (!view) return;
-  const state = useEditorStore.getState();
-  state.setDomainView(normalizeDomainView(fillMissing(state.net, view)));
-  notify('success', en.domain.filled);
-}
-
-/** Adds generic entries for what the view lacks. Entries of removed elements stay. */
-export function fillMissingOnly(): void {
   if (!editable()) return;
   const view = getDomainView();
   if (!view) return;

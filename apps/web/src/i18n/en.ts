@@ -589,7 +589,7 @@ export const en = {
     hashStale: 'The net has changed since the view was made.',
     actions: 'Actions',
     fill: 'Fill missing entries',
-    fillTip: 'Add generic entries for new elements and drop entries of removed ones',
+    fillTip: 'Give the new elements a generic entry; all other entries stay as they are',
     updateHash: 'Update hash',
     updateHashTip: 'Accept the current structure of the net as the one the view is made for',
     remove: 'Remove domain view',

@@ -132,10 +132,17 @@ describe('domain panel', () => {
     expect(screen.getByTestId('domain-hash-status')).toHaveAttribute('data-stale', 'true');
     expect(screen.getByTestId('domain-update-hash')).toBeDisabled();
 
+    // Filling adds entries only: the entry of the removed place is still there.
     await user.click(screen.getByTestId('domain-fill'));
+    expect(screen.getAllByTestId('domain-diagnostic').map((row) => row.dataset['rule'])).toEqual(
+      expect.arrayContaining(['V2', 'V7']),
+    );
+    // Removing the stale entries is its own action in the list.
+    await user.click(screen.getByTestId('domain-remove-stale'));
     expect(screen.getAllByTestId('domain-diagnostic').map((row) => row.dataset['rule'])).toEqual([
       'V7',
     ]);
+    expect(screen.getByTestId('domain-remove-stale')).toBeDisabled();
     expect(screen.getByTestId('domain-update-hash')).toBeEnabled();
 
     await user.click(screen.getByTestId('domain-update-hash'));
@@ -200,5 +207,6 @@ describe('domain panel', () => {
     expect(screen.getByTestId('domain-remove')).toBeDisabled();
     expect(screen.getByTestId('domain-generate-action')).toBeDisabled();
     expect(screen.getByTestId('domain-fill')).toBeDisabled();
+    expect(screen.getByTestId('domain-remove-stale')).toBeDisabled();
   });
 });
