@@ -30,6 +30,7 @@ Two net classes are supported, selected by the `profile` field:
 | `simulation`           | object                     | no       | Settings of the timed simulation. See [Timed simulation](#timed-simulation).     |
 | `domainView`           | object                     | no       | How the net is drawn in the domain view. See [Domain view](#domain-view).        |
 | `domainViewGeneration` | object                     | no       | How a language model generated the domain view. See [Domain view](#domain-view). |
+| `properties`           | array                      | no       | Behavioural properties to check. See [Properties](#properties).                  |
 
 Unknown keys are ignored when reading and dropped when writing.
 
@@ -153,6 +154,35 @@ view stays strict, and it never contains an API key. `@pnm/core` passes it throu
 defines and reads it. Removing the view removes the record.
 
 The full description, the schema, the rules and the generic mapping are in [domain-view.md](domain-view.md).
+
+## Properties
+
+`properties` is an optional list of behavioural requirements that the analysis checks (see [analysis.md](analysis.md)).
+The core stores it and passes it through without looking at it; `@pnm/analysis` defines and reads it. Entries that
+cannot be read are left out and reported. Activities are the names of the transitions.
+
+```json
+"properties": [
+  {
+    "id": "invoice-after-approval",
+    "kind": "declare",
+    "template": "response",
+    "activities": ["Approve", "Create invoice"],
+    "name": "Every approved order gets an invoice"
+  },
+  { "id": "reject-happens", "kind": "ltlf", "formula": "F Reject" }
+]
+```
+
+| Field        | Type     | Meaning                                                                                                     |
+| ------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `id`         | string   | unique within the list                                                                                      |
+| `kind`       | string   | `declare` or `ltlf`                                                                                         |
+| `name`       | string   | optional title shown instead of the template call or formula                                                |
+| `template`   | string   | DECLARE only: `existence`, `absence`, `exactly`, `init`, `end`, `respondedExistence`, ... (see analysis.md) |
+| `activities` | string[] | DECLARE only: one activity (unary templates) or two (binary ones)                                           |
+| `n`          | integer  | DECLARE only, for `existence`, `absence`, `exactly`                                                         |
+| `formula`    | string   | LTLf only, for example `G(Approve -> F "Create invoice")`                                                   |
 
 ## Reading and validation
 
@@ -348,7 +378,7 @@ tokens, guards that join two places, and array results:
 ## Serialization
 
 `serializeNet` writes keys in a fixed order (`version`, `profile`, `name`,
-`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `domainView`, `domainViewGeneration`, `annotations`), uses two
+`types`, `places`, `transitions`, `arcs`, `marking`, `simulation`, `domainView`, `domainViewGeneration`, `properties`, `annotations`), uses two
 spaces of indentation and ends with a newline, so that files diff cleanly in
 version control. Marking entries follow the order of the places; empty entries
 are omitted.
@@ -380,12 +410,12 @@ Everything that PNML has no place for travels in `<toolspecific tool="pnm" versi
 section (so no XML escaping is needed). Other tools skip them; `fromPnml` reads them back completely, so a net survives
 export and import unchanged.
 
-| Where      | Fields                                                                                                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| net        | `profile`, `version`, `name` (if it does not survive as text), `types`, `simulation`, `annotations`, `domainView`, `domainViewGeneration`, `strayMarking` |
-| place      | `id` (the original), `type`, `capacity`, `role`, `tokens` (the values; JSON nets, or values other than `1`)                                               |
-| transition | `id`, `guard`, `timing`, `priority`, `rate`                                                                                                               |
-| arc        | `id`, `inscription`                                                                                                                                       |
+| Where      | Fields                                                                                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| net        | `profile`, `version`, `name` (if it does not survive as text), `types`, `simulation`, `annotations`, `domainView`, `domainViewGeneration`, `properties`, `strayMarking` |
+| place      | `id` (the original), `type`, `capacity`, `role`, `tokens` (the values; JSON nets, or values other than `1`)                                                             |
+| transition | `id`, `guard`, `timing`, `priority`, `rate`                                                                                                                             |
+| arc        | `id`, `inscription`                                                                                                                                                     |
 
 With the option `toolspecific: false` (_Include data that only this tool understands_ in the dialog,
 `--no-toolspecific` on the command line) none of this is written; the file then holds the structure, names, markings,

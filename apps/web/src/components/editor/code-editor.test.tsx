@@ -81,3 +81,20 @@ describe('CodeEditor', () => {
     expect(viewOf('ed').state.readOnly).toBe(true);
   });
 });
+
+describe('CodeEditor in LTLf mode', () => {
+  it('shows the diagnostics of the formula and keeps the operators highlighted as text', () => {
+    render(
+      <CodeEditor
+        value='G("Approve" -> F b'
+        language="ltlf"
+        ariaLabel="LTLf formula"
+        data-testid="ltlf"
+        activities={['Approve', 'Create invoice']}
+        diagnostics={[{ from: 17, to: 17, message: 'Expected ")"', severity: 'error' }]}
+      />,
+    );
+    expect(viewOf('ltlf').state.doc.toString()).toBe('G("Approve" -> F b');
+    expect(screen.getByRole('textbox', { name: 'LTLf formula' })).toBeInTheDocument();
+  });
+});

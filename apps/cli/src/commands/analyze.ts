@@ -179,7 +179,7 @@ function textReport(net: PetriNet, report: AnalyzeReport, io: Io): string {
     );
     const bounded =
       behaviour.bounded === true
-        ? `yes, at most ${behaviour.maxPlaceTokens} tokens on a place`
+        ? `yes, at most ${plural(behaviour.maxPlaceTokens, 'token')} on a place`
         : coverability && coverability.bounded !== null
           ? coverability.bounded
             ? 'yes (coverability graph)'

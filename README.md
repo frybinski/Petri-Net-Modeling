@@ -29,7 +29,7 @@ logic can later run in a command line tool, behind an API, or inside an LLM proc
   <img alt="The running domain view of the smart office as a floor plan: people at desks and in meeting rooms, turnstiles, the coffee machine, the control bar and the card of a followed person" src="docs/images/domain-office-light.png">
 </picture>
 
-**Status: 0.9.0 (milestones M0 to M4, the UI polish step, D1 to D4: PNML, PNG and TikZ export and a command line next to the domain view).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
+**Status: 1.0.0-rc.1 (milestones M0 to M5, the UI polish step, D1 to D4: analysis and verification with DECLARE and LTLf, PNML, PNG and TikZ export and a command line next to the domain view).** The editor handles place/transition nets (P/T nets) and **JSON nets**:
 tokens are JSON values, places carry types as JSON Schema, input arcs bind variables, and guards and output
 inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PLAN.md) for the overall plan and
 [`docs/plan/M0-M1_Umsetzungsplan.md`](docs/plan/M0-M1_Umsetzungsplan.md),
@@ -39,7 +39,8 @@ inscriptions are [JSONata](https://jsonata.org/) expressions. See [`PLAN.md`](PL
 [`docs/plan/D1_Umsetzungsplan.md`](docs/plan/D1_Umsetzungsplan.md) and
 [`docs/plan/D2_Umsetzungsplan.md`](docs/plan/D2_Umsetzungsplan.md) and
 [`docs/plan/D3_Umsetzungsplan.md`](docs/plan/D3_Umsetzungsplan.md) and
-[`docs/plan/D4_Umsetzungsplan.md`](docs/plan/D4_Umsetzungsplan.md) for the plans of the increments (in German).
+[`docs/plan/D4_Umsetzungsplan.md`](docs/plan/D4_Umsetzungsplan.md) and
+[`docs/plan/M5_Umsetzungsplan.md`](docs/plan/M5_Umsetzungsplan.md) for the plans of the increments (in German).
 
 ## Features
 
@@ -152,6 +153,36 @@ LLM generation (0.7.0, see the section _Generating a view with an LLM_ in [docs/
 - `pnpm --filter @pnm/llm eval -- --base-url <url> --model <name>` measures a model on the parcel center and the smart
   office and writes a report to [docs/eval](docs/eval/README.md).
 
+Analysis and verification (1.0.0-rc.1, see [docs/analysis.md](docs/analysis.md)):
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/analysis-dark.png">
+  <img alt="The Analyze tab for the order processing net: properties with their verdicts, one holds and one is violated with a counterexample of nine steps that can be replayed in the simulation" src="docs/images/analysis-light.png">
+</picture>
+
+- The **Analyze** tab (key `Y`) computes on request: the **structure** (state machine, marked graph, free choice, siphons
+  and traps, Commoner's condition), **place and transition invariants** (exact, with capacities as complement places;
+  click a row to select its elements), and the **state space** with boundedness, deadlocks, liveness per transition
+  (dead, L1, L3, live) and reversibility. Place/transition nets also get the **Karp–Miller coverability graph**, which
+  finds unbounded places (ω) when the state space is infinite. Results say yes or no with a sentence; they are marked out
+  of date after an edit and not recomputed behind your back.
+- The exploration runs in a Web Worker with progress and a cancel button, has a limit for the number of states and says
+  when it was cut off. JSON nets are explored with bindings: one edge per binding.
+- The state space opens as a **graph** (ELK layered layout, routed edges, start, deadlocks and final states marked); a
+  click on a state shows its marking, _Show in net_ replays the way there.
+- **Properties** are DECLARE templates (21, each an explicit automaton tied to its LTLf formula) or **LTLf** formulas
+  over the names of the transitions, edited in a form or with syntax check and completion, and stored in the net.
+  They are checked on the state space (every run from the initial marking to a deadlock, to any marking or to given
+  markings) with a **shortest counterexample**, or on the cases of the **last simulation log** (share of the cases that
+  satisfy them, violating cases, activations and fulfilments).
+- A counterexample or the way into a deadlock is a list of steps: click one to see the net after it, or **Replay** to
+  play the run in the simulation and see that it ends in the reported marking.
+- The command line has `pnm analyze` and `pnm check` (exit status 1 for a violated property).
+- The results are proven, not only plausible: the tests check hand-derived state counts, bounds, deadlocks and
+  invariants of the examples and tie the pieces together with property tests (state space against naive enumeration,
+  invariants against an exact oracle, every DECLARE automaton against its formula, the LTLf automaton against direct
+  evaluation).
+
 JSON nets (switch the net class in the properties panel):
 
 - Type management: types are JSON Schemas, edited in a dialog with syntax highlighting, error marks, templates and a
@@ -175,12 +206,14 @@ pnpm dev          # starts the editor at http://localhost:5173
 
 ## Command line
 
-`pnm` validates, simulates, exports, imports and lays out nets and checks or generates domain views without a browser;
+`pnm` validates, simulates, analyzes, checks, exports, imports and lays out nets and checks or generates domain views without a browser;
 it is one bundled file for Node 22 (`pnpm --filter @pnm/cli build`, part of `pnpm build`).
 
 ```sh
 node apps/cli/dist/pnm.js validate examples/parcel-center.pn.json
 node apps/cli/dist/pnm.js simulate examples/parcel-center.pn.json --seconds 7200 --csv events.csv
+node apps/cli/dist/pnm.js analyze examples/dining-philosophers-3.pn.json
+node apps/cli/dist/pnm.js check examples/order-processing.pn.json --declare "response(Approve, Create invoice)"
 node apps/cli/dist/pnm.js export examples/producer-consumer.pn.json --format tikz -o net.tex
 node apps/cli/dist/pnm.js import net.pnml -o net.pn.json
 ```
@@ -223,6 +256,7 @@ packages/core     @pnm/core    Net model, operations, validation, firing rules, 
 packages/layout   @pnm/layout  ELK-based automatic layout and the drawing geometry
 packages/sim      @pnm/sim     Timed discrete-event simulation: engine, key figures, Web Worker protocol
 packages/io       @pnm/io      Event log as CSV and XES, PNML in both directions, SVG and TikZ export, XML reader
+packages/analysis @pnm/analysis Structure, invariants, state space, coverability, DECLARE and LTLf checking, conformance, worker
 packages/domain   @pnm/domain  Domain view: mapping schema, rules V1 to V8, generic mapping, scene builder, Canvas 2D painter
 packages/llm      @pnm/llm     LLM generation of the mapping: OpenAI-compatible provider, prompts, repair loop, evaluation script
 examples/         Example nets (*.pn.json), also used as regression tests and shown in the app
@@ -230,7 +264,7 @@ docs/             Architecture decisions (adr/), file format (format.md), plans 
 .github/          CI and GitHub Pages deployment
 ```
 
-`@pnm/core`, `@pnm/expr`, `@pnm/sim` and `@pnm/io` have no React dependency, and the engine runs in Node as well as in a
+`@pnm/core`, `@pnm/expr`, `@pnm/sim`, `@pnm/io` and `@pnm/analysis` have no React dependency, and the engine runs in Node as well as in a
 worker. The web app talks to the core only through immutable
 operations such as `addPlace`, `addArc` or `setInscription`, which return new nets, and through `findEnabled` and
 `fireBinding` for the firing rule.
@@ -242,12 +276,14 @@ operations such as `addPlace`, `addArc` or `setInscription`, which return new ne
 - [Expressions](docs/expressions.md): a short guide to guards and inscriptions for modelers.
 - [Simulation](docs/simulation.md): durations, resources, arrivals, cases, key figures, the event log and its export,
   controls and limits.
+- [Analysis and verification](docs/analysis.md): structure, invariants, state space, coverability, DECLARE templates, LTLf,
+  counterexamples, event logs and the limits.
 - [PNML](docs/format.md#pnml), [TikZ export](docs/tikz.md) and [command line](docs/cli.md).
 - [Domain view](docs/domain-view.md): the mapping, its rules, drawing, animation and the generation by a language model.
 - [Architecture decision records](docs/adr): monorepo and TypeScript, React Flow canvas, JSON net profile, document
   history, JSONata expressions, Radix primitives and self-hosted fonts, discrete-event simulation, the domain view
-  mapping, its animation, the generation of the mapping by a language model, its editing, and interchange and the
-  command line.
+  mapping, its animation, the generation of the mapping by a language model, its editing, interchange and the
+  command line, and analysis and verification.
 - [Review screenshots](docs/images/review): all seven examples in the detail, mid and far zoom levels, light and dark,
   at 1280 px and 1920 px width (`<example>_<theme>_<width>_<level>.png`).
 - [Changelog](CHANGELOG.md)

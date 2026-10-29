@@ -125,6 +125,23 @@ describe('handleShortcut', () => {
   });
 });
 
+describe('analysis shortcut', () => {
+  it('Y shows the analysis tab and goes back to the properties, also while simulating', async () => {
+    useUiStore.setState({ rightTab: 'main' });
+    handleShortcut(key({ key: 'y' }));
+    expect(useUiStore.getState().rightTab).toBe('analyze');
+    await useEditorStore.getState().startSimulation();
+    handleShortcut(key({ key: 'y' }));
+    expect(useUiStore.getState().rightTab).toBe('main');
+    useEditorStore.getState().stopSimulation();
+  });
+
+  it('is listed in the help and does not clash with redo', () => {
+    expect(shortcutText(commandById('analyze'))).toBe('Y');
+    expect(shortcutText(commandById('redo'))).toContain('Ctrl+Y');
+  });
+});
+
 describe('keyboard building', () => {
   it('Tab adds and connects the next node when exactly one node is selected', () => {
     const p = useEditorStore.getState().addPlace({ x: 0, y: 0 }) as string;

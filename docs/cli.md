@@ -1,6 +1,6 @@
 # Command line
 
-`pnm` runs the core, the simulation, the exports and the domain view without a browser. It is one file,
+`pnm` runs the core, the simulation, the analysis, the exports and the domain view without a browser. It is one file,
 `apps/cli/dist/pnm.js`, built with esbuild from the workspace packages; it needs Node 22 and nothing else.
 
 ```sh
@@ -62,6 +62,67 @@ PLACE           ROLE      NOW    MEAN  MAX   MEAN WAIT
 ...
 Wrote out.csv (6394 rows)
 ```
+
+### `pnm analyze <net> [--states N] [--time ms] [--coverability] [--structure-only] [--json]`
+
+Analyses the net: structure (connected, state machine, marked graph, free choice, siphons and traps, Commoner's
+condition), place and transition invariants, and the state space with boundedness, deadlocks (with the shortest firing
+sequence into each), liveness per transition and reversibility. A place/transition net also gets its coverability graph
+when the state space was cut off (or with `--coverability`). The definitions and limits are in
+[analysis.md](analysis.md). Exit status 0 if the analysis ran, 1 if the net has errors.
+
+```
+$ pnm analyze examples/dining-philosophers-3.pn.json
+...
+State space
+  14 states, 27 edges (complete)
+  bounded: yes, at most 1 token on a place
+  deadlocks: 1
+    after 3 steps: P1 takes left fork -> P2 takes left fork -> P3 takes left fork
+    marking: Philosopher 1 has left fork, Philosopher 2 has left fork, Philosopher 3 has left fork
+  live: no
+```
+
+`--states` (default 20000) and `--time` (default 10000 ms) limit the exploration; `--structure-only` skips it. `--json`
+prints structure, invariants, state space summary (bounds, deadlocks with traces, liveness) and coverability.
+
+### `pnm check <net> [--declare t]... [--ltlf f]... [options]`
+
+Checks properties of the behaviour: DECLARE templates and LTLf formulas over the names of the transitions. Without
+`--declare` and `--ltlf` the net's stored `properties` are checked.
+
+```
+$ pnm check examples/order-processing.pn.json --declare "response(Approve, Create invoice)" \
+      --declare "precedence(Reject, Create invoice)"
+Order processing: 216 states, 756 edges
+
+holds    response(Approve, Create invoice)
+         Every Approve is eventually followed by Create invoice.
+         Every run that ends in a deadlock satisfies the property (216 states searched).
+
+VIOLATED precedence(Reject, Create invoice)
+         Create invoice only occurs after Reject has occurred.
+         A run of 9 steps that ends in a deadlock violates the property.
+         counterexample (9 steps):
+           1. Approve {"o":{"id":"A-1","amount":12.5,"customer":"c1"}}
+           ...
+         ends in: Customers x2, Rejected orders, Invoices x5
+```
+
+| Option               | Meaning                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--declare <t>`      | a template such as `response(a, b)` or `existence(a, 2)`; may be repeated                                                  |
+| `--ltlf <f>`         | an LTLf formula such as `G(a -> F b)`; may be repeated                                                                     |
+| `--final <e>`        | what ends a run: `deadlock` (default), `all` (every prefix) or a JSON file with markings (place name or id to token count) |
+| `--states`, `--time` | limits of the state space                                                                                                  |
+| `--log <file.csv>`   | check an event log instead of the state space; prints the share of the cases that satisfy each property                    |
+| `--include-open`     | with `--log`: also count cases that have not reached an end activity (see [analysis.md](analysis.md#event-logs))           |
+| `--json`             | print the result as JSON                                                                                                   |
+
+Exit status: **0** every property holds, **1** a property is violated, cannot be verified (the state space was cut off,
+so "unknown") or the net has errors, **2** a property cannot be read (syntax error with position, unknown template,
+unknown activity). A property that holds only because no run ends in an end state says "holds vacuously" and warns about
+infinite runs; see [analysis.md](analysis.md#traces-and-end-states).
 
 ### `pnm export <net> --format svg|png|pnml|tikz|json [-o file]`
 

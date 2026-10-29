@@ -2,6 +2,36 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.0.0-rc.1: Analysis and verification
+
+Milestone M5. The file format stays `1.0` and gains the optional field `properties`; nets of 0.9.0 work unchanged.
+
+### Added
+
+- **`@pnm/analysis`**: structure (incidence matrix, state machine, marked graph, free choice, siphons and traps,
+  Commoner's condition), place and transition invariants (minimal semi-positive, `bigint`, capacities as complement
+  places), the state space with boundedness, deadlocks and shortest witnesses, liveness classes, reversibility and home
+  states (P/T nets on count vectors, JSON nets through `findEnabled`, one edge per binding), the Karp-Miller coverability
+  graph with ω, 21 DECLARE templates as explicit automata, an LTLf parser, direct evaluation and translation to minimal
+  automata, the check on the state space (product search, shortest counterexamples, deadlock, marking or prefix end
+  states, vacuous truth and infinite runs reported), conformance on event logs (share of satisfying cases, activations),
+  and a worker with progress and cancellation. See [docs/analysis.md](docs/analysis.md) and
+  [ADR 0013](docs/adr/0013-analysis-and-verification.md).
+- Web app: the **Analyze** tab (key `Y`) with cards for structure, invariants, state space and properties; a property
+  editor for templates and LTLf formulas (CodeMirror with syntax check and completion); results marked out of date after
+  edits; counterexamples and deadlock witnesses as clickable traces and a **Replay** that plays them in the untimed
+  simulation and checks the end; the state space as a graph dialog (ELK layered layout with routed edges).
+  The right panel has a tab strip in every view.
+- Command line: `pnm analyze` and `pnm check` (DECLARE, LTLf, end states, event logs, JSON output, exit status 1 for a
+  violated property).
+- `@pnm/core`: the optional net field `properties` (passed through; `setProperties`); PNML keeps it. `@pnm/io`:
+  `parseEventLogCsv` reads what `toEventLogCsv` writes. `@pnm/layout`: `layoutGraph` for any directed graph.
+- Examples: order processing, dining philosophers and parcel center carry stored properties.
+
+### Changed
+
+- The simulation can start without time (`startSimulation({ untimed: true })`) to replay analysis traces.
+
 ## 0.9.0: Interchange and export
 
 Milestone M4. The file format stays `1.0`; nets of 0.8.0 work unchanged.
