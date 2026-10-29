@@ -136,10 +136,18 @@ test('drag snaps to the grid and is one undo step; rename and copy/paste work', 
   await page.mouse.down();
   await page.mouse.move(start.x + 133, start.y + 77, { steps: 8 });
   await page.mouse.up();
+  // The place center snaps to the 20 px grid at 100 % zoom. The node settles with the next
+  // render, which can take a moment on a busy machine.
+  await expect
+    .poll(async () => {
+      const moved = await shape.boundingBox();
+      if (!moved) return NaN;
+      const rest = (((moved.x - start.x) % 20) + 20) % 20;
+      return Math.min(rest, 20 - rest);
+    })
+    .toBeCloseTo(0, 0);
   const moved = await shape.boundingBox();
   if (!moved) throw new Error('place not visible');
-  // The place center snaps to the 20 px grid at 100 % zoom.
-  expect((moved.x + 20 - (start.x + 20)) % 20).toBeCloseTo(0, 0);
   expect(moved.x).toBeGreaterThanOrEqual(start.x + 80);
   await page.keyboard.press('Control+z');
   // The undo shows up with the next render, which can take a moment on a busy machine.

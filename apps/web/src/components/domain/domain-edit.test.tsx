@@ -254,3 +254,17 @@ describe('the context menu', () => {
     expect(screen.queryByTestId('context-menu')).toBeNull();
   });
 });
+
+describe('the shortcut help', () => {
+  it('lists the keys and mouse actions of the edit mode', async () => {
+    const user = await open();
+    await user.keyboard('?');
+    const list = await screen.findByTestId('shortcuts-list');
+    expect(list).toHaveTextContent('Edit the layout of the domain view');
+    expect(list).toHaveTextContent('Move the selected entry in the domain view');
+    expect(list).toHaveTextContent('Hide the selected entry in the domain view');
+    const mouse = screen.getByTestId('mouse-help');
+    expect(mouse).toHaveTextContent('Drag in "Edit layout"');
+    expect(mouse).toHaveTextContent('Shift+drag a corner handle');
+  });
+});
