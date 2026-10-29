@@ -3,8 +3,9 @@ import { eventLogRows, toEventLogCsv, toXes } from '@pnm/io';
 import { createSimulation, type MetricsSnapshot, type SimEvent } from '@pnm/sim';
 import { numberOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError, UsageError } from '../errors';
-import { formatDuration, formatNumber, makeStyle, plural, table } from '../format';
+import { formatDuration, formatNumber, makeStyle, plural } from '../format';
 import type { Io } from '../io';
+import { metricTables } from '../metrics-text';
 import { loadNet, reportImportWarnings } from '../net-file';
 
 export const SIMULATE_HELP = `Usage: pnm simulate <net> [options]
@@ -90,51 +91,7 @@ function summary(net: PetriNet, metrics: MetricsSnapshot, info: Info, io: Io): s
   lines.push(
     `  cycle time         mean ${formatDuration(metrics.meanCycleTime)}, max ${formatDuration(metrics.maxCycleTime)}`,
   );
-  const names = new Map(net.places.map((p) => [p.id, p.name]));
-  if (metrics.places.length > 0) {
-    lines.push('');
-    lines.push(
-      table(
-        [
-          { header: 'PLACE' },
-          { header: 'ROLE' },
-          { header: 'NOW', align: 'right' },
-          { header: 'MEAN', align: 'right' },
-          { header: 'MAX', align: 'right' },
-          { header: 'MEAN WAIT', align: 'right' },
-        ],
-        metrics.places.map((p) => [
-          names.get(p.placeId) ?? p.placeId,
-          p.role,
-          String(p.current),
-          formatNumber(p.mean),
-          String(p.max),
-          formatDuration(p.meanWait),
-        ]),
-      ).trimEnd(),
-    );
-  }
-  if (metrics.resources.length > 0) {
-    lines.push('');
-    lines.push(
-      table(
-        [
-          { header: 'RESOURCE' },
-          { header: 'FREE', align: 'right' },
-          { header: 'IN USE', align: 'right' },
-          { header: 'CAPACITY', align: 'right' },
-          { header: 'UTILIZATION', align: 'right' },
-        ],
-        metrics.resources.map((r) => [
-          names.get(r.placeId) ?? r.placeId,
-          String(r.free),
-          String(r.inUse),
-          String(r.capacity),
-          `${formatNumber(r.utilization * 100, 1)} %`,
-        ]),
-      ).trimEnd(),
-    );
-  }
+  lines.push(...metricTables(net, metrics));
   return `${lines.join('\n')}\n`;
 }
 

@@ -30,6 +30,8 @@ export interface ReadLogResult {
   cases: number;
   /** Seconds from the first to the last event. */
   span: number;
+  /** The moment that time 0 is, as ISO 8601 in UTC. */
+  origin: string;
   /** Remarks about what was skipped or assumed. */
   warnings: string[];
   format: 'csv' | 'xes';
@@ -165,6 +167,7 @@ function build(
     activities,
     cases: cases.size,
     span: events[events.length - 1]!.time - events[0]!.time,
+    origin: new Date(origin).toISOString(),
     warnings: c.warnings,
     format,
   };

@@ -7,6 +7,7 @@ import { EXAMPLES_HELP, examplesCommand } from './commands/examples';
 import { EXPORT_HELP, exportCommand } from './commands/export';
 import { IMPORT_HELP, importCommand } from './commands/import';
 import { LAYOUT_HELP, layoutCommand } from './commands/layout';
+import { REPLAY_HELP, replayCommand } from './commands/replay';
 import { SIMULATE_HELP, simulateCommand } from './commands/simulate';
 import { VALIDATE_HELP, validateCommand } from './commands/validate';
 
@@ -19,6 +20,7 @@ Usage: pnm <command> [arguments]
 Commands:
   validate <net>             check a net and its domain view
   simulate <net>             run the timed simulation, print key figures, write event logs
+  replay <net> <log>         replay an event log (CSV or XES) on the net: fitness, deviations, key figures
   analyze <net>              structure, invariants, state space, boundedness, deadlocks, liveness
   check <net>                check DECLARE and LTLf properties on the state space or an event log
   export <net> --format <f>  write svg, pnml, tikz or json (png: web app only)
@@ -31,13 +33,15 @@ Commands:
 A <net> is a .pn.json or PNML file; - reads standard input.
 Run "pnm <command> --help" for the options of a command.
 
-Exit status: 0 success, 1 the command failed (errors in the net, unreadable file, a violated property),
+Exit status: 0 success, 1 the command failed (errors in the net, unreadable file, a violated property,
+a replay with --strict that does not fit),
 2 wrong usage.
 `;
 
 const HELP: Record<string, string> = {
   validate: VALIDATE_HELP,
   simulate: SIMULATE_HELP,
+  replay: REPLAY_HELP,
   analyze: ANALYZE_HELP,
   check: CHECK_HELP,
   export: EXPORT_HELP,
@@ -52,6 +56,7 @@ type Handler = (io: Io, args: readonly string[]) => Promise<number>;
 const COMMANDS: Record<string, Handler> = {
   validate: validateCommand,
   simulate: simulateCommand,
+  replay: replayCommand,
   analyze: analyzeCommand,
   check: checkCommand,
   export: exportCommand,
