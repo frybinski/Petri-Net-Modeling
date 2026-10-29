@@ -17,7 +17,7 @@ import {
   snap,
   snapDragged,
   tokenDotOffsets,
-} from './geometry';
+} from '../src/geometry';
 
 describe('boundaryPoint', () => {
   it('finds the point on a circle', () => {

@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react';
 import type { CSSProperties } from 'react';
-import { PLACE_SIZE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '../../lib/geometry';
+import { PLACE_SIZE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '@pnm/layout/geometry';
 
 /** How far the connection ring reaches beyond the outline of a node, and into the node. */
 export const RING_OUTSIDE = 5;

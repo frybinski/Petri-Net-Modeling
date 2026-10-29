@@ -1,5 +1,4 @@
 import { tokenLabel, type Id, type Marking, type PetriNet, type Position } from '@pnm/core';
-import { truncate } from './inscriptions';
 import {
   MAX_TOKEN_DOTS,
   NODE_STROKE,
@@ -14,7 +13,7 @@ import {
   obstaclesFor,
   tokenDotOffsets,
   type Endpoint,
-} from './geometry';
+} from '@pnm/layout/geometry';
 
 export interface SvgExportOptions {
   /** Marking to draw; defaults to the initial marking of the net. */
@@ -78,6 +77,12 @@ const SANS = "'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Rob
 export const NOTE_WIDTH = 180;
 export const NOTE_LINE_HEIGHT = 16;
 const NOTE_PADDING = 8;
+
+/** Shortens text for labels. */
+function truncate(text: string, max: number): string {
+  const single = text.replace(/\s+/g, ' ').trim();
+  return single.length <= max ? single : `${single.slice(0, max - 1)}…`;
+}
 
 export function escapeXml(text: string): string {
   return text

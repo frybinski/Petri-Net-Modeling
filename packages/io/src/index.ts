@@ -10,3 +10,12 @@ export {
   type XmlNode,
 } from './xml';
 export { toTikz, texEscape, TIKZ_MAX_DOTS, type TikzOptions } from './tikz';
+export {
+  NOTE_LINE_HEIGHT,
+  NOTE_WIDTH,
+  escapeXml,
+  netToSvg,
+  noteHeight,
+  wrapNoteText,
+  type SvgExportOptions,
+} from './svg';

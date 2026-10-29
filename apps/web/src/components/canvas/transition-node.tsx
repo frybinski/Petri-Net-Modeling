@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { en } from '../../i18n/en';
 import { GUARD_LABEL_LENGTH } from '../../lib/flow-model';
 import { truncate } from '../../lib/inscriptions';
-import { NODE_STROKE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '../../lib/geometry';
+import { NODE_STROKE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '@pnm/layout/geometry';
 import { Tooltip } from '../ui/tooltip';
 import { BindingPicker } from './binding-picker';
 import { BreakpointMarker } from './breakpoint-marker';

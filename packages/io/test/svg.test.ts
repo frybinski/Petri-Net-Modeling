@@ -11,7 +11,8 @@ import {
   type PetriNet,
 } from '@pnm/core';
 import { describe, expect, it } from 'vitest';
-import { escapeXml, netToSvg, wrapNoteText } from './svg-export';
+import { parseXml } from '../src/xml';
+import { escapeXml, netToSvg, wrapNoteText } from '../src/svg';
 
 function sampleNet() {
   let net = createEmptyNet('A & B <net>');
@@ -113,7 +114,7 @@ describe('netToSvg for JSON nets', () => {
   });
 
   it('is well-formed XML', () => {
-    const doc = new DOMParser().parseFromString(netToSvg(json()), 'image/svg+xml');
-    expect(doc.querySelector('parsererror')).toBeNull();
+    const root = parseXml(netToSvg(json()));
+    expect(root.name).toBe('svg');
   });
 });

@@ -1,5 +1,5 @@
 import type { ConnectionLineComponentProps } from '@xyflow/react';
-import { PLACE_SIZE, boundaryPoint, PLACE_SHAPE, TRANSITION_SHAPE } from '../../lib/geometry';
+import { PLACE_SIZE, boundaryPoint, PLACE_SHAPE, TRANSITION_SHAPE } from '@pnm/layout/geometry';
 
 /**
  * Line shown while an arc is dragged from the ring of a node. It starts on the outline of the

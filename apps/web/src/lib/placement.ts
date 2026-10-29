@@ -1,5 +1,5 @@
 import type { PetriNet, Position } from '@pnm/core';
-import { TRANSITION_HEIGHT, PLACE_SIZE } from './geometry';
+import { TRANSITION_HEIGHT, PLACE_SIZE } from '@pnm/layout/geometry';
 
 /** Horizontal distance between a node and the node that Tab adds next to it. */
 export const CHAIN_DISTANCE = 160;

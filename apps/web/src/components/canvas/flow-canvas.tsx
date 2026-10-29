@@ -28,7 +28,7 @@ import { targetElement } from '../../lib/context-target';
 import { buildHoverCard } from '../../lib/hover-card';
 import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
 import { findBottlenecks, runningByTransition } from '../../lib/sim-view';
-import { GRID_SIZE, snap, snapDragged } from '../../lib/geometry';
+import { GRID_SIZE, snap, snapDragged } from '@pnm/layout/geometry';
 import { registerViewApi } from '../../lib/view-api';
 import { zoomLevel } from '../../lib/zoom';
 import { currentMarking, useEditorStore } from '../../store/editor-store';

@@ -1,10 +1,9 @@
 import { NetFormatError, parseNetText, serializeNet, validate, type PetriNet } from '@pnm/core';
-import { eventLogRows, toEventLogCsv, toXes } from '@pnm/io';
+import { eventLogRows, netToSvg, toEventLogCsv, toXes } from '@pnm/io';
 import { en } from '../i18n/en';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
 import { eventLog } from '../store/sim-log';
 import { notify, useUiStore } from '../store/ui-store';
-import { netToSvg } from './svg-export';
 
 export const NET_EXTENSION = '.pn.json';
 

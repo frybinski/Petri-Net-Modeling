@@ -20,7 +20,7 @@ import {
   arrowHeadPoints,
   obstaclesFor,
   type Endpoint,
-} from './geometry';
+} from '@pnm/layout/geometry';
 
 export const ANNOTATION_WIDTH = 180;
 
