@@ -63,6 +63,50 @@ afterEach(() => {
   setSimulationClientFactory();
 });
 
+describe('a click right after the switch to the simulation', () => {
+  it('is kept until the engine has answered and then fires the transition', async () => {
+    void store().startSimulation();
+    expect(store().computing).toBe(true);
+    // The arrival transition is not known to be enabled yet: this click used to be lost.
+    store().fireTransition('arrive');
+    await vi.waitFor(() => {
+      expect(store().simHistory.map((h) => h.transitionId)).toEqual(['arrive']);
+    });
+    await settled();
+    expect(store().simMetrics?.casesInSystem).toBe(1);
+  });
+
+  it('keeps only the last of several clicks', async () => {
+    void store().startSimulation();
+    store().fireTransition('serve');
+    store().fireTransition('arrive');
+    await vi.waitFor(() => {
+      expect(store().simHistory).toHaveLength(1);
+    });
+    await settled();
+    expect(store().simHistory.map((h) => h.transitionId)).toEqual(['arrive']);
+  });
+
+  it('is dropped when the simulation is stopped before the answer', async () => {
+    void store().startSimulation();
+    store().fireTransition('arrive');
+    store().stopSimulation();
+    store().startSimulation();
+    await settled();
+    expect(store().simHistory).toHaveLength(0);
+  });
+
+  it('does not queue clicks later on, while a command is under way', async () => {
+    store().startSimulation();
+    await settled();
+    void store().stepRandom();
+    expect(store().computing).toBe(true);
+    store().fireTransition('arrive');
+    await settled();
+    expect(store().simHistory.filter((h) => h.transitionName === 'Arrive').length).toBeLessThan(2);
+  });
+});
+
 describe('timed simulation in the store', () => {
   it('starts timed nets at 10x with the clock at zero', async () => {
     store().startSimulation();

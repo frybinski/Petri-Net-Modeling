@@ -422,6 +422,10 @@ const runtime: {
   lastEnabledAt: number;
   ticking: boolean;
   replayTimer: ReturnType<typeof setTimeout> | undefined;
+  /** True from the start of a simulation until the engine has answered for the first time. */
+  starting: boolean;
+  /** A click on a transition during `starting`: it is carried out with the first answer. */
+  pendingClick: Id | null;
 } = {
   client: null,
   session: 0,
@@ -431,6 +435,8 @@ const runtime: {
   lastEnabledAt: 0,
   ticking: false,
   replayTimer: undefined,
+  starting: false,
+  pendingClick: null,
 };
 
 function clearPlayTimer(): void {
@@ -461,6 +467,8 @@ function disposeRuntime(): void {
   clearReplayTimer();
   runtime.pending = 0;
   runtime.ticking = false;
+  runtime.starting = false;
+  runtime.pendingClick = null;
   runtime.client?.dispose();
   runtime.client = null;
 }
@@ -1133,6 +1141,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         computing: true,
       });
       runtime.pending = 1;
+      runtime.starting = true;
+      runtime.pendingClick = null;
       const session = runtime.session;
       const hasBreakpoints =
         breakpoints.transitions.length > 0 || Object.keys(breakpoints.places).length > 0;
@@ -1146,12 +1156,19 @@ export const useEditorStore = create<EditorState>()((set, get) => {
           (result) => {
             if (session !== runtime.session) return;
             runtime.pending -= 1;
+            runtime.starting = false;
             apply(result, { reset: true });
             if (runtime.pending === 0) set({ computing: false });
+            // A click that came in before the engine had answered counts now.
+            const click = runtime.pendingClick;
+            runtime.pendingClick = null;
+            if (click !== null) get().fireTransition(click);
           },
           (error: unknown) => {
             if (session !== runtime.session) return;
             runtime.pending -= 1;
+            runtime.starting = false;
+            runtime.pendingClick = null;
             set({ computing: false });
             notify('error', error instanceof Error ? error.message : String(error));
           },
@@ -1165,7 +1182,13 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     fireTransition(id) {
       const { mode, enabled, computing } = get();
-      if (mode !== 'simulate' || computing) return;
+      if (mode !== 'simulate') return;
+      if (computing) {
+        // Before the first answer of the engine nothing is known to be enabled yet: the click is
+        // kept (one at most, the last) instead of being lost.
+        if (runtime.starting) runtime.pendingClick = id;
+        return;
+      }
       const result = enabled.get(id);
       if (!result || result.bindings.length === 0) return;
       if (result.bindings.length === 1) get().fireBindingAt(id, 0);

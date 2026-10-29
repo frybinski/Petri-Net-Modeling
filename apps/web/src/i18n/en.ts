@@ -423,6 +423,10 @@ export const en = {
     critical: 'Red from',
     thresholdsHint: 'Places that hold cases and reach these counts get a ring on the canvas.',
     notYet: 'Run the simulation to see figures.',
+    warmupTitle: (time: string, total: string) => `Warm-up ${time} of ${total}`,
+    warmupHint: 'The figures start when the warm-up is over.',
+    warmupChange: 'Change warm-up',
+    warmupChangeTip: 'Stops the simulation and opens the setting',
     untimed: 'Key figures need a net with durations or arrival rates.',
   },
   status: {

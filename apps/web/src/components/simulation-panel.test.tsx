@@ -322,6 +322,44 @@ describe('metrics tab', () => {
     expect(screen.getAllByTestId('metrics-resource-row')).toHaveLength(1);
   });
 
+  it('shows the progress of the warm-up instead of bare dashes, and where to change it', async () => {
+    const user = userEvent.setup();
+    const net = shop();
+    net.simulation = { ...net.simulation, warmup: 1200 };
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    expect(screen.getByTestId('metrics-warmup-label')).toHaveTextContent(
+      /^Warm-up \d+:\d\d of 20:00$/,
+    );
+    const bar = screen.getByRole('progressbar');
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(0);
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeLessThan(100);
+    // The link stops the simulation and leaves the net settings, where the field is, to edit.
+    await user.click(screen.getByTestId('metrics-warmup-change'));
+    expect(store().mode).toBe('edit');
+    expect(useUiStore.getState().rightTab).toBe('main');
+  });
+
+  it('shows no progress without a warm-up, or once it is over', async () => {
+    const net = shop();
+    net.simulation = { ...net.simulation, warmup: 1 };
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    for (let i = 0; i < 6; i += 1) await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    expect(store().simTime).toBeGreaterThan(1);
+    expect(screen.queryByTestId('metrics-warmup')).toBeNull();
+    expect(screen.getByTestId('metric-cases')).toBeInTheDocument();
+  });
+
   it('changes the queue thresholds', async () => {
     const user = userEvent.setup();
     store().loadNet(shop(), null);
