@@ -56,8 +56,9 @@ guard cannot interrupt a regular expression (limitation 8).
   must name the server (DNS rebinding), and the content security policy allows only the own origin (plus `'unsafe-eval'`
   for the validators that Ajv compiles, and `data:` fonts that the build inlines; both found by running the real app under
   the policy).
-- **Local-first stays.** The app finds the server by asking its own address for `api/health` with a marker; where that is
-  not the answer of the server (Pages, dev server, file), nothing is shown. The server preset for the language model is a
+- **Local-first stays.** The server marks the `index.html` it delivers with a `<meta name="pnm-server">`; only a marked
+  page asks its own address for `api/health` (and checks the marker in the answer), so Pages, the dev server and a file
+  make no request at all and show nothing. The server preset for the language model is a
   default for people who chose nothing; autosave stays local; saving to the server is an explicit act; a share page does not
   touch the local autosave.
 - **Image and pipeline fit the host, not the other way round.** One `deploy/Dockerfile` (two stages, `node:22-alpine`,

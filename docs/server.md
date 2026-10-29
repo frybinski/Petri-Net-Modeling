@@ -281,9 +281,11 @@ $ curl -s -X POST -H 'Content-Type: application/json' -d '{"mode":"read"}' …/a
 
 ## The app on a server
 
-At start the app asks `GET api/health` below its own base path. The answer must have the marker
-`"app":"petri-net-modeling"`; a 404, a page that answers every path with HTML (the dev server, GitHub Pages) or a
-timeout means: no server, and nothing changes.
+The server adds `<meta name="pnm-server" content="<version>">` to the `index.html` it delivers. Only a page with this
+marker asks `GET api/health` below its own base path (so that GitHub Pages, the dev server and a local file make no
+request that ends in a 404 in the browser console). The answer must have the marker `"app":"petri-net-modeling"`; a 404,
+a page that answers every path with HTML or a timeout means: no server, and nothing changes. With `PNM_DEV_SERVER` the
+Vite dev server adds the marker itself.
 
 With a server:
 

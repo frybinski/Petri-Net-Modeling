@@ -335,6 +335,10 @@ bzw. Variablen der Pipeline und der Ingress-Eintrag.
 
 Umgesetzt ist alles in den Abschnitten 1 bis 3, 5 und 6; Abnahme siehe 7. Abweichungen und Ergänzungen gegenüber dem Plan:
 
+- **Erkennung des Servers:** der Server setzt in die ausgelieferte `index.html` ein `<meta name="pnm-server">`; nur eine so
+  markierte Seite fragt `GET /api/health` ab. Ohne die Marke (GitHub Pages, Vite-Entwicklungsserver, Datei) entsteht keine
+  Anfrage, die mit 404 endet und als Konsolenfehler erscheint (der Test `domain-simulation` erwartet eine fehlerfreie
+  Konsole). Mit `PNM_DEV_SERVER` setzt Vite die Marke selbst.
 - **Optionales Docker-Netz zu Open WebUI** liegt in `deploy/compose.ollama-network.yaml` (mit `-f` oder `COMPOSE_FILE`
   hinzuzunehmen), nicht in `compose.yaml`: Compose kann ein externes Netz nicht bedingt einbinden. `extra_hosts` steht
   immer in `compose.yaml`, es schadet nicht.

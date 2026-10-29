@@ -34,7 +34,7 @@ served by a server. The file format stays `1.0`. How it works is in [docs/server
   read and write, renewable, removable), a trash for 30 days. Versions are immutable files; saves are atomic and need
   `If-Match` (409 with the current version, 428 without); old versions are thinned out beyond `PNM_MAX_VERSIONS`; a crash
   at any point leaves the project readable.
-- **Web app in server mode.** Detection by `GET /api/health`; _File > Open from server_, _Save to server_ (`Ctrl+S`; the
+- **Web app in server mode.** Detection by `GET /api/health` on pages that the server marked with `<meta name="pnm-server">` (elsewhere the app asks nothing); _File > Open from server_, _Save to server_ (`Ctrl+S`; the
   file is `Ctrl+Shift+S`), _Versions_ (with the element counts compared with the editor), _Share_, the trash, a conflict
   dialog on 409, the status bar with the server and the project, share pages `/s/<token>` (read-only blocks saving to the
   project and offers a copy), and the LLM preset _Server (Ollama)_ with no key field and the models of the server.
@@ -47,15 +47,17 @@ served by a server. The file format stays `1.0`. How it works is in [docs/server
   `<version>-<sha>` and `latest` on tags), `.github/workflows/image.yml` as the alternative that pushes from GitHub (does
   nothing unless `KIT_REGISTRY_IMAGE` is set), and a job in `ci.yml` that builds the image on every push and pull request
   and runs `deploy/smoke-test.sh` against the container.
-- **Tests.** 250 tests for the server (configuration, filter, static files, proxy against the fake model server, every
-  endpoint against the command line, pool with timeout and memory limit, store with a failing disk, pipeline files), 60
+- **Tests.** 259 tests for the server (configuration, filter, static files, proxy against the fake model server, every
+  endpoint against the command line, pool with timeout and memory limit, store with a failing disk, pipeline files), 67
   for the app (client, actions, dialogs, share page, language model preset), and a Playwright project that runs the real
   server process with the built app (11 tests: policy, saving, versions, two people and a conflict, links, trash, model).
+  In all: 2071 unit and component tests (1745 before), 23 tests of the release scripts and 116 Playwright tests (105
+  before). The web unit suite ran three times next to a full Playwright run without a failure.
 
 ### Changed
 
 - The commands of `pnm` call the new library `apps/cli/src/lib` (exported as `@pnm/cli/lib`) and only read arguments and
-  print. The output of 190 command runs on the examples is identical to 1.1.0.
+  print. The output of about 190 command runs on the examples (stdout, stderr, exit status) is identical to 1.1.0.
 - `buildCli` takes the output file as an argument.
 - `Ctrl+S` saves to the server when the app has one (to the file otherwise); `Ctrl+Shift+S` always saves to the file.
 - Limitations 8, 22 and 23 are fixed in server mode (see [docs/limitations.md](docs/limitations.md)).
