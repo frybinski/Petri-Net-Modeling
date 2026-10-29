@@ -2,6 +2,13 @@ import { deleteSelection } from './delete';
 import { chooseFile, exportSvg, saveNet } from './files';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
+import {
+  currentSelectedEntry,
+  deleteSelectedEntry,
+  domainEditActive,
+  nudgeSelected as nudgeDomainEntry,
+  startLabelEdit,
+} from './domain-edit';
 import { getDomainViewApi } from './domain-view-api';
 import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
@@ -24,7 +31,7 @@ export interface Command {
   keys: KeySpec[];
   /** Shown instead of the generated text, for grouped keys such as the arrows. */
   display?: string;
-  run: () => void;
+  run: (event?: KeyboardEvent) => void;
   /** Whether the shortcut works while a simulation is running. */
   inSimulation?: boolean;
   /** Left out of the shortcut help (variants of a command that is already listed). */
@@ -71,6 +78,20 @@ function focusOnCanvas(event: KeyboardEvent): boolean {
   return (
     target.closest('.react-flow') !== null &&
     target.closest('.react-flow__panel, .react-flow__minimap') === null
+  );
+}
+
+/**
+ * True if the keys belong to the domain view in the mode "Edit layout": its picture has the focus,
+ * or nothing has and the domain view is the only one shown.
+ */
+function focusOnDomainEdit(event: KeyboardEvent): boolean {
+  if (!domainEditActive()) return false;
+  const target = event.target;
+  if (target instanceof HTMLElement && target.matches('[data-testid="domain-canvas"]')) return true;
+  return (
+    (target === document.body || !(target instanceof HTMLElement)) &&
+    useUiStore.getState().viewMode === 'domain'
   );
 }
 
@@ -129,6 +150,29 @@ function viewCommand(id: string, label: string, key: string, mode: ViewMode): Co
 
 const NUDGE = 10;
 
+/** Arrow keys move the selected entry of the domain view by 1 px, with Shift by 8 px. */
+function domainNudgeCommands(): Command[] {
+  const make = (key: string, dx: number, dy: number, hidden: boolean): Command => ({
+    id: `domain-nudge-${key}`,
+    label: 'Move the selected entry in the domain view (Shift: 8 px)',
+    group: 'editing',
+    keys: [{ key }],
+    display: 'Arrow keys',
+    hidden,
+    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    run: (event) => {
+      const step = event?.shiftKey ? 8 : 1;
+      nudgeDomainEntry(dx * step, dy * step);
+    },
+  });
+  return [
+    make('ArrowLeft', -1, 0, false),
+    make('ArrowRight', 1, 0, true),
+    make('ArrowUp', 0, -1, true),
+    make('ArrowDown', 0, 1, true),
+  ];
+}
+
 function nudgeCommand(id: string, key: string, dx: number, dy: number, hidden = true): Command {
   return {
     id,
@@ -151,6 +195,31 @@ export const commands: Command[] = [
   toolCommand('arc', 'Arc tool', 'a'),
   toolCommand('annotation', 'Note tool', 'n'),
 
+  {
+    id: 'domain-edit',
+    label: 'Edit the layout of the domain view',
+    group: 'view',
+    keys: [{ key: 'e', shift: false }],
+    when: () => {
+      const { viewMode } = useUiStore.getState();
+      return viewMode !== 'net' && !inSimulationMode();
+    },
+    run: () => {
+      useUiStore.getState().toggleDomainEdit();
+    },
+  },
+  ...domainNudgeCommands(),
+  {
+    id: 'domain-delete',
+    label: 'Hide the selected entry in the domain view (decor is deleted)',
+    group: 'editing',
+    keys: [{ key: 'Delete' }, { key: 'Backspace' }],
+    display: 'Del',
+    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    run: () => {
+      deleteSelectedEntry();
+    },
+  },
   {
     id: 'undo',
     label: 'Undo',
@@ -222,6 +291,11 @@ export const commands: Command[] = [
     group: 'editing',
     keys: [{ key: 'F2' }],
     run: () => {
+      if (domainEditActive() && useUiStore.getState().viewMode === 'domain') {
+        const entry = currentSelectedEntry();
+        if (entry) startLabelEdit(entry);
+        return;
+      }
       const { selection, startRename } = editor();
       if (selection.length === 1 && selection[0] !== undefined) startRename(selection[0]);
     },
@@ -302,6 +376,7 @@ export const commands: Command[] = [
     keys: [{ key: 'Escape' }],
     run: () => {
       const state = editor();
+      if (getDomainViewApi()?.cancelDrag()) return;
       if (state.picker !== null) state.setPicker(null);
       else if (useUiStore.getState().followedCase !== null) useUiStore.getState().followCase(null);
       else if (state.arcSource !== null) state.setArcSource(null);
@@ -497,7 +572,7 @@ export function handleShortcut(event: KeyboardEvent): boolean {
       event.preventDefault();
       // React Flow selects a focused node on Escape; the canvas has already handled the key.
       if (command.id === 'escape') event.stopPropagation();
-      command.run();
+      command.run(event);
       return true;
     }
   }

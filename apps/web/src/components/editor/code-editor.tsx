@@ -44,6 +44,8 @@ export interface CodeEditorProps {
   minHeight?: string;
   maxHeight?: string;
   autoFocus?: boolean;
+  /** Selects the range, scrolls it into view and focuses the editor; a new `nonce` repeats it. */
+  reveal?: { from: number; to: number; nonce: number } | null;
   'data-testid'?: string;
 }
 
@@ -235,6 +237,22 @@ export default function CodeEditor(props: CodeEditorProps) {
       ]),
     });
   }, [readOnly]);
+
+  const reveal = props.reveal;
+  useEffect(() => {
+    const instance = view.current;
+    if (!instance || !reveal) return;
+    const length = instance.state.doc.length;
+    const from = Math.min(Math.max(0, reveal.from), length);
+    const to = Math.min(Math.max(from, reveal.to), length);
+    instance.dispatch({
+      selection: { anchor: from, head: to },
+      effects: EditorView.scrollIntoView(from, { y: 'center' }),
+    });
+    instance.contentDOM.focus({ preventScroll: true });
+    // Only a new request moves the selection, not a change of the text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.nonce]);
 
   useEffect(() => {
     const instance = view.current;

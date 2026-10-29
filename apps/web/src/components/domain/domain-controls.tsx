@@ -1,6 +1,8 @@
 import {
   ChevronUp,
   Dices,
+  Eye,
+  Move,
   Pause,
   Pencil,
   Play,
@@ -18,6 +20,9 @@ import { Button, IconButton } from '../ui/button';
 import { Tooltip } from '../ui/tooltip';
 
 const shortcut = (id: string): string => shortcutText(commandById(id));
+
+const modeButton =
+  'inline-flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast';
 
 const iconButton =
   'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40';
@@ -44,6 +49,8 @@ export function DomainControls() {
   const reset = useEditorStore((s) => s.resetSimulation);
   const setSpeed = useEditorStore((s) => s.setSimSpeed);
   const simulating = mode === 'simulate';
+  const editLayout = useUiStore((s) => s.domainEdit);
+  const setEditLayout = useUiStore((s) => s.setDomainEdit);
 
   if (!visible) {
     return (
@@ -75,17 +82,55 @@ export function DomainControls() {
         data-domain-overlay="top"
       >
         {!simulating ? (
-          <Tooltip content={en.domain.startTip} shortcut={shortcut('simulate')}>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Play size={13} aria-hidden="true" />}
-              onClick={start}
-              data-testid="domain-simulate"
+          <>
+            <Tooltip content={en.domain.startTip} shortcut={shortcut('simulate')}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Play size={13} aria-hidden="true" />}
+                onClick={start}
+                data-testid="domain-simulate"
+              >
+                {en.menu.simulate}
+              </Button>
+            </Tooltip>
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+            <div
+              role="group"
+              aria-label={en.domain.modeGroup}
+              className="flex rounded-md border border-border-strong p-0.5"
+              data-testid="domain-mode"
             >
-              {en.menu.simulate}
-            </Button>
-          </Tooltip>
+              <Tooltip content={en.domain.inspectTip}>
+                <button
+                  type="button"
+                  aria-pressed={!editLayout}
+                  onClick={() => {
+                    setEditLayout(false);
+                  }}
+                  data-testid="domain-mode-inspect"
+                  className={modeButton}
+                >
+                  <Eye size={13} aria-hidden="true" />
+                  {en.domain.inspect}
+                </button>
+              </Tooltip>
+              <Tooltip content={en.domain.editTip} shortcut={shortcut('domain-edit')}>
+                <button
+                  type="button"
+                  aria-pressed={editLayout}
+                  onClick={() => {
+                    setEditLayout(true);
+                  }}
+                  data-testid="domain-mode-edit"
+                  className={modeButton}
+                >
+                  <Move size={13} aria-hidden="true" />
+                  {en.domain.editLayout}
+                </button>
+              </Tooltip>
+            </div>
+          </>
         ) : (
           <>
             <Tooltip

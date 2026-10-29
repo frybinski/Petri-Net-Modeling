@@ -1,4 +1,9 @@
-# Evaluation of language models (acceptance A6)
+# Evaluations
+
+This folder holds the results of two evaluations: language models (acceptance A6, below) and the event log export
+with pm4py (acceptance A8, at the end).
+
+## Language models (acceptance A6)
 
 This folder holds the results of runs of the evaluation script with a real model. It is empty until someone runs it:
 the development container has no model, and the output of a simulated server is not kept here.
@@ -29,3 +34,21 @@ worked examples in the prompt.
 
 A net passes (A6) when the view of the model has no errors after at most three rounds without anything being filled in
 or dropped.
+
+## Event log and pm4py (acceptance A8)
+
+`pnpm --filter @pnm/io check:pm4py` simulates the parcel center for two hours (seed 1), writes the log as CSV and XES to a
+scratch folder, reads both with pm4py, discovers a Petri net with the inductive miner from the rows with the lifecycle
+`complete` and compares its activities with the names of the transitions that carry cases. The result is written to
+`pm4py-<date>.md`.
+
+pm4py is not a dependency of the repository. Create a virtual environment and point the script at it:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install pm4py pandas
+PNM_PYTHON=.venv/bin/python pnpm --filter @pnm/io check:pm4py
+```
+
+Without `PNM_PYTHON` the script uses `python3`. Options: `--out-dir`, `--scratch`, `--date`, `--hours`, `--seed` and
+`--example`. Exit status 0 means every check passed, 1 a failed check, 3 that pm4py cannot be imported (the message says
+how to set it up).

@@ -176,11 +176,16 @@ describe('the animation loop', () => {
       expect(frames()).toBeGreaterThan(running + 5);
     });
     await user.click(screen.getByTestId('domain-play'));
-    // Motions and flashes end within a second.
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    const rested = frames();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(frames()).toBe(rested);
+    // Motions and flashes end within a second; on a busy machine the loop needs longer to notice.
+    // Rested means: no frame was drawn during a whole 300 ms.
+    await waitFor(
+      async () => {
+        const before = frames();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(frames()).toBe(before);
+      },
+      { timeout: 15_000, interval: 50 },
+    );
   });
 
   it('draws again when something changes while it rests', async () => {

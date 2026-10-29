@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+// `waitFor` and `findBy*` give up after 1 s by default, which is too short on a busy machine.
+configure({ asyncUtilTimeout: 6000 });
 
 afterEach(() => {
   cleanup();

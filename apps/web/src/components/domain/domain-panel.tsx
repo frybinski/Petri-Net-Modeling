@@ -1,17 +1,24 @@
-import type { Id } from '@pnm/core';
+import type { Id, PetriNet } from '@pnm/core';
 import { parseGeneration } from '@pnm/llm/record';
-import { SPRITES, type DomainDiagnostic, type DomainView } from '@pnm/domain';
+import {
+  missingEntries,
+  SPRITES,
+  staleEntries,
+  type DomainDiagnostic,
+  type DomainView,
+} from '@pnm/domain';
 import {
   AlertCircle,
   AlertTriangle,
   Bot,
   CheckCircle2,
+  RotateCcw,
   ScrollText,
   Settings,
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { en } from '../../i18n/en';
 import {
   analyseDomainView,
@@ -19,9 +26,11 @@ import {
   checkViewText,
   countSeverities,
   fillMissingEntries,
+  fillMissingOnly,
   generateGenericView,
   originCounts,
   removeDomainView,
+  removeStaleEntries,
   updateViewHash,
   updateViewMeta,
   viewToText,
@@ -30,7 +39,11 @@ import { formatOrigin } from '../../lib/domain-hover';
 import { locateJsonPath, splitPath } from '../../lib/json-path';
 import { openGenerateDialog } from '../../lib/domain-generation';
 import { getViewApi } from '../../lib/view-api';
+import { selectedEntry } from '../../lib/domain-edit';
+import { useDomainEditStore } from '../../store/domain-edit-store';
 import { useEditorStore } from '../../store/editor-store';
+import { useUiStore } from '../../store/ui-store';
+import { EntryEditor } from './domain-entry-editor';
 import { useGenerationStore } from '../../store/generation-store';
 import { useLlmStore } from '../../store/llm-store';
 import { Button } from '../ui/button';
@@ -152,6 +165,19 @@ function JsonSection({ locked }: { locked: boolean }) {
     setSeen(stored);
     setDraft(stored);
   }
+  const jsonReveal = useUiStore((s) => s.jsonReveal);
+  const [reveal, setReveal] = useState<{ from: number; to: number; nonce: number } | null>(null);
+  const [handled, setHandled] = useState(jsonReveal?.nonce ?? 0);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  // "Edit JSON" in a menu or in the entry fields: select the entry in the text.
+  if (jsonReveal && jsonReveal.nonce !== handled) {
+    setHandled(jsonReveal.nonce);
+    const range = locateJsonPath(draft, splitPath(jsonReveal.path));
+    if (range) setReveal({ from: range.from, to: range.to, nonce: jsonReveal.nonce });
+  }
+  useEffect(() => {
+    if (reveal) sectionRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [reveal]);
   const parsed = useMemo(() => parseJson(draft), [draft]);
   const checked = useMemo(
     () => (parsed.ok ? checkViewText(net, draft) : null),
@@ -168,6 +194,7 @@ function JsonSection({ locked }: { locked: boolean }) {
 
   return (
     <Section title={en.domain.json} testId="domain-json-section">
+      <div ref={sectionRef} />
       <p className="m-0 text-[11px] text-muted">{en.domain.jsonHint}</p>
       <LazyCodeEditor
         value={draft}
@@ -180,6 +207,7 @@ function JsonSection({ locked }: { locked: boolean }) {
         maxHeight="24rem"
         ariaLabel={en.domain.json}
         diagnostics={markers}
+        reveal={reveal}
         data-testid="domain-json"
       />
       <div className="flex items-center gap-2">
@@ -220,12 +248,19 @@ function JsonSection({ locked }: { locked: boolean }) {
   );
 }
 
-function EntrySection({ view }: { view: DomainView }) {
+function EntrySection({ view, locked }: { view: DomainView; locked: boolean }) {
   const net = useEditorStore((s) => s.net);
   const selection = useEditorStore((s) => s.selection);
-  const id: Id | undefined = selection.length === 1 ? selection[0] : undefined;
+  const decor = useDomainEditStore((s) => s.decor);
+  const id: Id | undefined = selection.length === 1 && decor === null ? selection[0] : undefined;
+  const editing = selectedEntry(net, view, selection, decor);
   let body: ReactNode = <p className="m-0 text-xs text-muted">{en.domain.entryNone}</p>;
-  if (id !== undefined) {
+  let json: unknown;
+  let origin: DomainView['provenance'][string] | undefined;
+  let missing = false;
+  if (decor !== null && view.decor?.[decor]) {
+    json = view.decor[decor];
+  } else if (id !== undefined) {
     const arc = net.arcs.find((a) => a.id === id);
     const key = arc ? `${arc.source}>${arc.target}` : undefined;
     const isPlace = net.places.some((p) => p.id === id);
@@ -244,41 +279,135 @@ function EntrySection({ view }: { view: DomainView }) {
         : key
           ? `arcs.${key}`
           : undefined;
-    const origin = provenanceKey ? view.provenance[provenanceKey] : undefined;
+    origin = provenanceKey ? view.provenance[provenanceKey] : undefined;
     if (isPlace || isTransition || arc) {
-      body = entry ? (
-        <>
+      json = entry;
+      missing = entry === undefined;
+    }
+  }
+  if (json !== undefined || missing) {
+    body = missing ? (
+      <p className="m-0 text-xs text-muted">{en.domain.entryMissing}</p>
+    ) : (
+      <>
+        {editing ? (
+          <p className="m-0 font-mono text-[11px] text-muted" data-testid="domain-entry-ref">
+            {editing.section === 'decor'
+              ? `decor[${editing.key}]`
+              : `${editing.section}.${editing.key}`}
+          </p>
+        ) : null}
+        {origin ? (
+          <p className="m-0 text-[11px] text-muted" data-testid="domain-entry-origin">
+            {en.domain.origin1}:{' '}
+            {origin.source === 'llm' ? (
+              <span
+                className="rounded bg-accent-soft px-1 py-px font-medium text-accent"
+                data-testid="domain-entry-badge"
+              >
+                {formatOrigin(origin)}
+              </span>
+            ) : (
+              formatOrigin(origin)
+            )}
+          </p>
+        ) : null}
+        {editing ? <EntryEditor view={view} net={net} entry={editing} locked={locked} /> : null}
+        <details className="text-xs" data-testid="domain-entry-details">
+          <summary className="cursor-pointer text-muted select-none">{en.domain.entryRaw}</summary>
           <pre
-            className="m-0 max-h-48 overflow-auto rounded-md bg-surface-2 p-2 font-mono text-[11px] leading-4"
+            className="mt-2 mb-0 max-h-48 overflow-auto rounded-md bg-surface-2 p-2 font-mono text-[11px] leading-4"
             data-testid="domain-entry"
           >
-            {JSON.stringify(entry, null, 2)}
+            {JSON.stringify(json, null, 2)}
           </pre>
-          {origin ? (
-            <p className="m-0 text-[11px] text-muted" data-testid="domain-entry-origin">
-              {en.domain.origin1}:{' '}
-              {origin.source === 'llm' ? (
-                <span
-                  className="rounded bg-accent-soft px-1 py-px font-medium text-accent"
-                  data-testid="domain-entry-badge"
-                >
-                  {formatOrigin(origin)}
-                </span>
-              ) : (
-                formatOrigin(origin)
-              )}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <p className="m-0 text-xs text-muted">{en.domain.entryMissing}</p>
-      );
-    }
+        </details>
+      </>
+    );
   }
   return (
     <Section title={en.domain.entry} testId="domain-entry-section">
       {body}
     </Section>
+  );
+}
+
+/** What is out of date in the view, with the three ways to bring it up to date. */
+function StaleCard({
+  net,
+  view,
+  diagnostics,
+  locked,
+  errors,
+}: {
+  net: PetriNet;
+  view: DomainView | null;
+  diagnostics: readonly DomainDiagnostic[];
+  locked: boolean;
+  errors: number;
+}) {
+  const missing = view ? missingEntries(net, view) : [];
+  const orphans = view ? staleEntries(net, view) : [];
+  const hashStale = diagnostics.some((d) => d.rule === 'V7');
+  if (missing.length === 0 && orphans.length === 0 && !hashStale) return null;
+  const listed = [...missing, ...orphans].slice(0, 8);
+  return (
+    <section
+      className="flex flex-col gap-2 border-b border-border bg-warn-soft px-4 py-3"
+      aria-label={en.domain.staleTitle}
+      data-testid="domain-stale-card"
+    >
+      <h3 className="m-0 flex items-center gap-1.5 text-sm font-semibold text-warn">
+        <AlertTriangle size={14} aria-hidden="true" />
+        {en.domain.staleTitle}
+      </h3>
+      <p className="m-0 text-xs">{en.domain.staleBody}</p>
+      <ul
+        className="m-0 flex list-none flex-col gap-0.5 p-0 text-xs"
+        data-testid="domain-stale-list"
+      >
+        {missing.length > 0 ? <li>{en.domain.staleMissing(missing.length)}</li> : null}
+        {orphans.length > 0 ? <li>{en.domain.staleOrphans(orphans.length)}</li> : null}
+      </ul>
+      {listed.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0 font-mono text-[10px] text-muted">
+          {listed.map((key) => (
+            <li key={key} className="truncate">
+              {key}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          disabled={locked || missing.length === 0}
+          title={en.domain.staleFillTip}
+          onClick={fillMissingOnly}
+          data-testid="stale-fill"
+        >
+          {en.domain.staleFill}
+        </Button>
+        <Button
+          size="sm"
+          disabled={locked || orphans.length === 0}
+          title={en.domain.staleRemoveTip}
+          onClick={removeStaleEntries}
+          data-testid="stale-remove"
+        >
+          {en.domain.staleRemove}
+        </Button>
+        <Button
+          size="sm"
+          disabled={locked || errors > 0 || !hashStale}
+          title={en.domain.staleHashTip}
+          onClick={updateViewHash}
+          data-testid="stale-update-hash"
+        >
+          {en.domain.staleHash}
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -306,6 +435,15 @@ export function DomainPanel() {
       className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-surface"
       data-testid="domain-panel"
     >
+      {analysis.present ? (
+        <StaleCard
+          net={net}
+          view={view}
+          diagnostics={diagnostics}
+          locked={locked}
+          errors={errors}
+        />
+      ) : null}
       <Section title={en.domain.status}>
         {!analysis.present ? (
           <p className="m-0 text-xs text-muted">{en.domain.emptyBody}</p>
@@ -352,6 +490,18 @@ export function DomainPanel() {
                   {stale ? en.domain.hashStale : en.domain.hashOk}
                 </dd>
               </dl>
+            ) : null}
+            {origins && origins.user + origins.llm > 0 ? (
+              <Button
+                size="sm"
+                icon={<RotateCcw size={13} aria-hidden="true" />}
+                disabled={locked}
+                title={en.domain.resetAllTip}
+                onClick={generateGenericView}
+                data-testid="domain-reset-all"
+              >
+                {en.domain.resetAll}
+              </Button>
             ) : null}
             {generation ? (
               <p
@@ -524,7 +674,7 @@ export function DomainPanel() {
         </Section>
       ) : null}
 
-      {view ? <EntrySection view={view} /> : null}
+      {view ? <EntrySection view={view} locked={locked} /> : null}
       {analysis.present ? <JsonSection locked={locked} /> : null}
     </aside>
   );

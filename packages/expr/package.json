@@ -1,6 +1,6 @@
 {
   "name": "@pnm/expr",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Expression language for guards and arc inscriptions (adapter around JSONata)",
   "license": "MIT",

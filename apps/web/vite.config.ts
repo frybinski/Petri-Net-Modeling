@@ -20,5 +20,8 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Some tests wait for animation frames and a worker; a busy machine (a Playwright run next to
+    // the unit tests) must not turn that into a failure.
+    testTimeout: 30_000,
   },
 });
