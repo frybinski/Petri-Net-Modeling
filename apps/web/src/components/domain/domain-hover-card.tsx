@@ -75,7 +75,13 @@ export function DomainHoverCard({ model, anchor }: { model: DomainCardModel; anc
           <>
             <dt className="text-muted">{en.domain.cardStatus}</dt>
             <dd
-              className="m-0 font-medium text-fg"
+              className={`m-0 font-medium ${
+                model.status === 'blocked'
+                  ? 'text-danger'
+                  : model.status === 'busy-full'
+                    ? 'text-warn'
+                    : 'text-fg'
+              }`}
               data-testid="domain-card-status"
               data-status={model.status}
             >

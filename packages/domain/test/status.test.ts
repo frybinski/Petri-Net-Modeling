@@ -13,13 +13,24 @@ import {
 import { smallNet, smallView } from './helpers';
 
 describe('stationStatus', () => {
-  it('is blocked only when every slot is in use and cases are waiting', () => {
-    expect(stationStatus(2, 2, 1)).toBe('blocked');
+  it('is full only when every slot is in use and cases are waiting', () => {
+    expect(stationStatus(2, 2, 1)).toBe('busy-full');
     expect(stationStatus(2, 2, 0)).toBe('busy');
     expect(stationStatus(1, 2, 5)).toBe('busy');
-    expect(stationStatus(3, 2, 1)).toBe('blocked');
-    // A station without slots in the view is never blocked.
+    expect(stationStatus(3, 2, 1)).toBe('busy-full');
+    // A station without slots in the view is never full or blocked.
     expect(stationStatus(1, 0, 5)).toBe('busy');
+  });
+
+  it('is blocked once the waiting cases reach the yellow limit of the queues', () => {
+    expect(stationStatus(2, 2, 5)).toBe('busy-full');
+    expect(stationStatus(2, 2, 6)).toBe('blocked');
+    expect(stationStatus(2, 2, 40)).toBe('blocked');
+    // The limit is the one of the key figure settings.
+    expect(stationStatus(2, 2, 2, { warn: 3, critical: 5 })).toBe('busy-full');
+    expect(stationStatus(2, 2, 3, { warn: 3, critical: 5 })).toBe('blocked');
+    // Free slots never block, however many cases wait.
+    expect(stationStatus(1, 2, 40)).toBe('busy');
   });
 
   it('tells a station without work from one that is about to start', () => {
@@ -66,7 +77,20 @@ describe('stationInfos', () => {
       running: [firing],
     });
     const info = stationInfos(net, view, layout.counts, layout.running).get('work')!;
-    expect(info).toMatchObject({ busy: 1, capacity: 1, waiting: 3, status: 'blocked' });
+    expect(info).toMatchObject({ busy: 1, capacity: 1, waiting: 3, status: 'busy-full' });
+    const many = layoutTokens(net, view, {
+      time: 0,
+      marking: { q: Array.from({ length: 7 }, () => 1), res: [] },
+      running: [firing],
+    });
+    expect(stationInfos(net, view, many.counts, many.running).get('work')!.status).toBe('blocked');
+    // The thresholds of the settings apply.
+    expect(
+      stationInfos(net, view, layout.counts, layout.running, undefined, {
+        warn: 3,
+        critical: 5,
+      }).get('work')!.status,
+    ).toBe('blocked');
   });
 
   it('has no entry for arrivals and for stations without a card', () => {

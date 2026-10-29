@@ -267,7 +267,7 @@ simulator never waits for it. The pieces are pure functions in `@pnm/domain`; th
 | `applyEvents(prev, events, before, after, ...)` | Turns a bundle of events into motions, flashes and counters, from the layout before and after the bundle.            |
 | `sampleSprites(layout, anim, now, simTime)`     | The sprites at one moment: resting ones at their place, moving ones on their route (`sampleTokens` gives positions). |
 | `buildStaticScene` and `buildDynamicScene`      | The part of the picture that depends on net and view only, and the part that changes every frame.                    |
-| `stationStatus`, `queueLevel`, `stationInfos`   | Free, busy, blocked or starved stations, and the yellow and red of queues.                                           |
+| `stationStatus`, `queueLevel`, `stationInfos`   | Free, busy, busy-full, blocked or starved stations, and the yellow and red of queues.                                |
 | `caseTrail`, `caseActivities`                   | The steps of one case in the stream, for following a case.                                                           |
 
 **Tokens and their identity.** A token on a place is known by its `TokenMeta.id` from the simulation state (the view of
@@ -305,9 +305,10 @@ element: `motion`, `flash`, `counter` or `hidden`. Every motion, flash and count
 caused it. The tests compare this log with the event stream (acceptance A2): over 30 simulated minutes of the parcel
 center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event.
 
-**States and colors.** A station is _busy_ when a slot is in use (green frame), _blocked_ when all slots are in use and
-cases wait in front of it (red frame and tint, red bar), _starved_ when nothing is in use and nothing waits (neutral) and
-_free_ otherwise. A queue, belt or buffer that holds cases turns yellow from 6 and red from 10 tokens; the limits are
+**States and colors.** A station is _busy_ when a slot is in use (green frame), _busy-full_ when all slots are in use and
+cases wait in front of it (amber frame, tint and bar), _blocked_ when, in addition, the waiting cases have reached the
+yellow limit of the queues, 6 by default (red frame and tint, red bar), _starved_ when nothing is in use and nothing
+waits (neutral) and _free_ otherwise. One waiting case at a full station is normal; only a growing queue turns it red. A queue, belt or buffer that holds cases turns yellow from 6 and red from 10 tokens; the limits are
 those of the key figure settings (_Queue highlighting_). A room of a `rooms` transition lights up while one of its slots
 is in use. Firings show a ring around the slot (or a bar under a desk or table) that fills with the simulation time.
 

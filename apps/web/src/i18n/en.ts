@@ -652,7 +652,8 @@ export const en = {
     stationStatus: {
       free: 'Ready',
       busy: 'Busy',
-      blocked: 'Blocked, cases wait',
+      'busy-full': 'Busy, cases wait',
+      blocked: 'Blocked, cases pile up',
       starved: 'Waiting for cases',
     } as Record<string, string>,
     queueLevel: { warn: 'Getting long', crit: 'Bottleneck' } as Record<string, string>,

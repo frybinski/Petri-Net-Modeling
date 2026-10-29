@@ -98,7 +98,7 @@ export function buildDynamicScene(
   const thresholds = options.thresholds ?? DEFAULT_THRESHOLDS;
   const simTime = options.simTime ?? layout.time;
   const now = options.now;
-  const stations = stationInfos(net, view, layout.counts, layout.running, context);
+  const stations = stationInfos(net, view, layout.counts, layout.running, context, thresholds);
 
   // Which transition's slots are drawn by a resource place.
   const slotPlaceOf = new Map<Id, Id>();
@@ -223,10 +223,12 @@ export function buildDynamicScene(
         entry.kind === 'rooms' && entry.rooms?.length ? entry.rooms : [entry.box];
       const [x, y, w, h] = entry.box;
       const card = entry.kind === 'station' || entry.kind === 'machine' || entry.kind === 'gate';
-      if (info.status === 'busy' || info.status === 'blocked') {
+      if (info.status === 'busy' || info.status === 'busy-full' || info.status === 'blocked') {
         const blocked = info.status === 'blocked';
+        // Green while working, amber with every slot in use and cases waiting, red for a bottleneck.
+        const tone = blocked ? 'danger' : info.status === 'busy-full' ? 'warn' : 'ok';
         if (card) {
-          if (blocked) {
+          if (info.status !== 'busy') {
             layers.transitions.push({
               layer: 'transitions',
               elementId: id,
@@ -236,8 +238,8 @@ export function buildDynamicScene(
               w,
               h,
               radius: 8,
-              fill: 'danger',
-              alpha: 0.09,
+              fill: tone,
+              alpha: blocked ? 0.09 : 0.07,
             });
           }
           layers.transitions.push({
@@ -249,8 +251,8 @@ export function buildDynamicScene(
             w,
             h,
             radius: 8,
-            stroke: blocked ? 'danger' : 'ok',
-            lineWidth: blocked ? 2.6 : 2,
+            stroke: tone,
+            lineWidth: blocked ? 2.6 : info.status === 'busy-full' ? 2.3 : 2,
           });
         } else {
           for (const region of regions) {
@@ -273,8 +275,8 @@ export function buildDynamicScene(
               w: rw - 2 * inset,
               h: rh - 2 * inset,
               radius: entry.kind === 'rooms' ? 4 : 6,
-              stroke: blocked ? 'danger' : 'ok',
-              lineWidth: blocked ? 2.2 : 1.4,
+              stroke: tone,
+              lineWidth: blocked ? 2.2 : info.status === 'busy-full' ? 1.8 : 1.4,
               dash: [7, 5],
               alpha: 0.9,
             });
@@ -295,7 +297,8 @@ export function buildDynamicScene(
             h: 4,
             value:
               slots.length === 0 ? (info.busy > 0 ? 1 : 0) : Math.min(1, info.busy / slots.length),
-            tone: info.status === 'blocked' ? 'danger' : 'ok',
+            tone:
+              info.status === 'blocked' ? 'danger' : info.status === 'busy-full' ? 'warn' : 'ok',
           });
         }
       }

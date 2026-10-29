@@ -130,7 +130,7 @@ describe('buildDynamicScene', () => {
     expect(later.layers.tokens.find((c) => c.op === 'ring')).toMatchObject({ value: 0.75 });
   });
 
-  it('marks a station busy with a green frame and blocked with a red one', () => {
+  it('marks a station busy with a green frame, full with an amber one and blocked with a red one', () => {
     const busy = dynamic({ time: 5, marking: {}, running: [firing] });
     const card = (s: ReturnType<typeof dynamic>) =>
       s.layers.transitions.filter((c) => c.op === 'rect' && c.elementId === 'work');
@@ -142,8 +142,25 @@ describe('buildDynamicScene', () => {
       meta: { q: metas(2) },
       running: [firing],
     });
-    expect(blocked.stations.get('work')!.status).toBe('blocked');
-    expect(card(blocked).some((c) => c.op === 'rect' && c.stroke === 'danger')).toBe(true);
+    // One or two waiting cases are not a bottleneck yet: amber.
+    expect(blocked.stations.get('work')!.status).toBe('busy-full');
+    expect(card(blocked).some((c) => c.op === 'rect' && c.stroke === 'warn')).toBe(true);
+    expect(card(blocked).some((c) => c.op === 'rect' && c.stroke === 'danger')).toBe(false);
+    expect(blocked.layers.transitions.find((c) => c.op === 'progress')).toMatchObject({
+      tone: 'warn',
+    });
+    // From the yellow limit of the queues on it is red.
+    const long = dynamic({
+      time: 5,
+      marking: { q: Array.from({ length: 6 }, () => 1) },
+      meta: { q: metas(6) },
+      running: [firing],
+    });
+    expect(long.stations.get('work')!.status).toBe('blocked');
+    expect(card(long).some((c) => c.op === 'rect' && c.stroke === 'danger')).toBe(true);
+    expect(long.layers.transitions.find((c) => c.op === 'progress')).toMatchObject({
+      tone: 'danger',
+    });
     const idle = dynamic({ marking: {} });
     expect(card(idle)).toEqual([]);
     expect(idle.layers.transitions.find((c) => c.op === 'progress')).toMatchObject({ value: 0 });
