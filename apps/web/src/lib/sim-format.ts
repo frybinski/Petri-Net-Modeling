@@ -63,3 +63,9 @@ export function timingOfKind(kind: Timing['kind'], previous: Timing | undefined)
       return { kind, mean: value };
   }
 }
+
+/** Fitness of a replay as a percentage; only exactly 1 is shown as 100 %. */
+export function fitnessText(fitness: number | null): string {
+  if (fitness === null) return '–';
+  return fitness >= 1 ? '100 %' : `${(Math.floor(fitness * 1000) / 10).toFixed(1)} %`;
+}

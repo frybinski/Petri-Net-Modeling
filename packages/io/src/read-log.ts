@@ -385,6 +385,18 @@ function readXes(text: string, options: ReadLogOptions): ReadLogResult {
   return build(raw, options, c, 'xes');
 }
 
+/** The names in the header row of a CSV log, to choose the columns from. Empty if there is no header. */
+export function readCsvHeaders(text: string): string[] {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const end = source.search(/\r|\n/);
+  const line = end < 0 ? source : source.slice(0, end);
+  try {
+    return (csvRecords(line, detectDelimiter(line))[0] ?? []).map((h) => h.trim());
+  } catch {
+    return [];
+  }
+}
+
 /** True if `text` looks like XES (XML) rather than CSV. */
 export function looksLikeXes(text: string): boolean {
   return (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).trimStart().startsWith('<');

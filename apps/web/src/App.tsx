@@ -17,8 +17,14 @@ import { TooltipProvider } from './components/ui/tooltip';
 import { en } from './i18n/en';
 import { restoreAutosave, startAutosave } from './lib/autosave';
 import { handleShortcut } from './lib/commands';
-import { openFileGuarded, registerFileInput } from './lib/files';
-import { selectIsDirty, useEditorStore } from './store/editor-store';
+import {
+  chooseLogFile,
+  openFileGuarded,
+  openLogFile,
+  registerFileInput,
+  registerLogFileInput,
+} from './lib/files';
+import { registerLogFileRequest, selectIsDirty, useEditorStore } from './store/editor-store';
 import { useUiStore } from './store/ui-store';
 
 let restoreStarted = false;
@@ -35,6 +41,7 @@ export function App() {
   const tokenDialog = useUiStore((s) => s.tokenDialog);
   const [dropActive, setDropActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.title = `${dirty ? '• ' : ''}${netName.trim() || en.app.untitled} · ${en.app.name}`;
@@ -44,6 +51,15 @@ export function App() {
     registerFileInput(fileInputRef.current);
     return () => {
       registerFileInput(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    registerLogFileInput(logInputRef.current);
+    registerLogFileRequest(chooseLogFile);
+    return () => {
+      registerLogFileInput(null);
+      registerLogFileRequest(null);
     };
   }, []);
 
@@ -144,6 +160,20 @@ export function App() {
         {typeDialog ? (
           <TypeDialog key={typeDialog.name ?? '(new)'} original={typeDialog.name} />
         ) : null}
+        <input
+          ref={logInputRef}
+          type="file"
+          accept=".csv,.tsv,.txt,.xes,text/csv,text/plain,application/xml,text/xml"
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          data-testid="open-log-input"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) void openLogFile(file);
+          }}
+        />
         <input
           ref={fileInputRef}
           type="file"

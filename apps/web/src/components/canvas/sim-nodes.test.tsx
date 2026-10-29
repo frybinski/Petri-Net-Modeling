@@ -122,6 +122,16 @@ describe('place node in the timed simulation', () => {
     expect(screen.queryByTestId('breakpoint-marker')).toBeNull();
   });
 
+  it('draws a red ring for a moment around a place that got a token created by a replay', () => {
+    renderPlace(placeData({ deviation: true }));
+    expect(screen.getByTestId('deviation-ring')).toBeInTheDocument();
+  });
+
+  it('has no deviation ring by default', () => {
+    renderPlace(placeData());
+    expect(screen.queryByTestId('deviation-ring')).toBeNull();
+  });
+
   it('marks a breakpoint on a place', () => {
     renderPlace(placeData({ breakpoint: 5 }));
     expect(screen.getByTestId('breakpoint-marker')).toBeInTheDocument();

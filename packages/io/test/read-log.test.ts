@@ -5,6 +5,7 @@ import {
   EventLogParseError,
   looksLikeXes,
   parseLogTime,
+  readCsvHeaders,
   readLog,
   toEventLogCsv,
   toXes,
@@ -270,5 +271,22 @@ describe('readLog: files that are no event log', () => {
   it('tells XES from CSV', () => {
     expect(looksLikeXes('  <?xml version="1.0"?><log/>')).toBe(true);
     expect(looksLikeXes('case_id,activity')).toBe(false);
+  });
+});
+
+describe('readCsvHeaders', () => {
+  it('lists the columns of the header row', () => {
+    expect(readCsvHeaders('case_id,activity,timestamp\nc,a,1\n')).toEqual([
+      'case_id',
+      'activity',
+      'timestamp',
+    ]);
+    expect(readCsvHeaders('﻿device; event ;"time stamp"\r\nd1;enter;1')).toEqual([
+      'device',
+      'event',
+      'time stamp',
+    ]);
+    expect(readCsvHeaders('')).toEqual([]);
+    expect(readCsvHeaders('"open')).toEqual([]);
   });
 });

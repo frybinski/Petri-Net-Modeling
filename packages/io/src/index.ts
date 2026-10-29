@@ -10,6 +10,7 @@ export {
 export {
   looksLikeXes,
   parseLogTime,
+  readCsvHeaders,
   readLog,
   type LogColumns,
   type ReadLogOptions,

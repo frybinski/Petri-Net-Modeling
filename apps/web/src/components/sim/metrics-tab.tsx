@@ -1,8 +1,11 @@
+import type { ReplayStats } from '@pnm/sim';
 import { en } from '../../i18n/en';
-import { formatSpan, formatWarmupClock } from '../../lib/sim-format';
+import { fitnessText, formatSpan, formatWarmupClock } from '../../lib/sim-format';
 import { openWarmupSetting } from '../../lib/sim-settings';
 import { useEditorStore } from '../../store/editor-store';
+import { useReplayStore } from '../../store/replay-store';
 import { useUiStore } from '../../store/ui-store';
+import { Button } from '../ui/button';
 import { NumberField } from '../ui/fields';
 import { Tooltip } from '../ui/tooltip';
 import { PanelSection } from './section';
@@ -77,6 +80,125 @@ function WarmupProgress({ time, warmup }: { time: number; warmup: number }) {
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
+/** Opens the analysis and checks the properties of the net on the log that is being replayed. */
+function checkReplayLog(): void {
+  useUiStore.getState().setRightTab('analyze');
+  // The analysis is a part of its own; it loads when it is first needed.
+  void import('../../store/analysis-store').then(({ useAnalysisStore }) => {
+    void useAnalysisStore.getState().checkOnLog();
+  });
+}
+
+/** Fitness of the log against the net, and what did not fit. */
+function ReplayCard({ stats }: { stats: ReplayStats }) {
+  const t = en.replay;
+  const bad = stats.missing > 0;
+  const guard = stats.guard > 0;
+  const strict = useReplayStore((s) => s.log?.strict === true);
+  return (
+    <section
+      className="flex flex-col gap-2 border-b border-border px-4 py-3"
+      aria-label={t.card}
+      data-testid="replay-card"
+    >
+      <div className="flex min-h-5 items-center justify-between gap-2">
+        <h3 className="m-0 text-[11px] font-semibold tracking-wide text-muted uppercase">
+          {t.card}
+        </h3>
+        <span className="text-[11px] text-muted tabular-nums" data-testid="replay-progress">
+          {t.stepOf(stats.processed, stats.total)}
+        </span>
+      </div>
+      <div
+        className="h-1 overflow-hidden rounded-full bg-surface-2"
+        role="progressbar"
+        aria-label={t.stepOf(stats.processed, stats.total)}
+        aria-valuemin={0}
+        aria-valuemax={stats.total}
+        aria-valuenow={stats.processed}
+      >
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-200"
+          style={{ width: stats.total === 0 ? '0%' : `${(stats.processed / stats.total) * 100}%` }}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Tooltip content={t.fitnessTip}>
+          <div className="flex min-w-0 flex-col rounded-lg border border-border bg-surface-2/50 px-2.5 py-2">
+            <span className="text-[11px] leading-4 font-medium text-muted">{t.fitness}</span>
+            <span
+              className={`truncate text-lg leading-6 font-semibold tabular-nums ${
+                stats.fitness !== null && stats.fitness < 1 ? 'text-danger' : ''
+              }`}
+              data-testid="replay-fitness"
+            >
+              {fitnessText(stats.fitness)}
+            </span>
+          </div>
+        </Tooltip>
+        <Tooltip content={t.createdTip}>
+          <div className="flex min-w-0 flex-col rounded-lg border border-border bg-surface-2/50 px-2.5 py-2">
+            <span className="text-[11px] leading-4 font-medium text-muted">{t.created}</span>
+            <span
+              className={`truncate text-lg leading-6 font-semibold tabular-nums ${bad ? 'text-danger' : ''}`}
+              data-testid="replay-created"
+            >
+              {stats.missing}
+            </span>
+          </div>
+        </Tooltip>
+        <Tooltip content={t.leftBehindTip}>
+          <div className="flex min-w-0 flex-col rounded-lg border border-border bg-surface-2/50 px-2.5 py-2">
+            <span className="text-[11px] leading-4 font-medium text-muted">{t.leftBehind}</span>
+            <span
+              className={`truncate text-lg leading-6 font-semibold tabular-nums ${stats.remaining > 0 ? 'text-danger' : ''}`}
+              data-testid="replay-left"
+            >
+              {stats.remaining}
+            </span>
+          </div>
+        </Tooltip>
+        <Tooltip content={t.skippedEventsTip}>
+          <div className="flex min-w-0 flex-col rounded-lg border border-border bg-surface-2/50 px-2.5 py-2">
+            <span className="text-[11px] leading-4 font-medium text-muted">{t.skippedEvents}</span>
+            <span
+              className={`truncate text-lg leading-6 font-semibold tabular-nums ${stats.ignored > 0 ? 'text-danger' : ''}`}
+              data-testid="replay-skipped"
+            >
+              {stats.ignored}
+            </span>
+          </div>
+        </Tooltip>
+      </div>
+      <p className="m-0 text-[11px] text-muted" data-testid="replay-open">
+        {t.openCases}: <span className="font-medium text-fg">{stats.openCases}</span>
+        {strict || guard ? (
+          <>
+            {' · '}
+            {t.guardsNotMet}:{' '}
+            <span
+              className={`font-medium ${guard ? 'text-danger' : 'text-fg'}`}
+              data-testid="replay-guard"
+            >
+              {stats.guard}
+            </span>
+          </>
+        ) : null}
+      </p>
+      <Tooltip content={t.checkLogTip}>
+        <Button
+          size="sm"
+          onClick={checkReplayLog}
+          className="self-start"
+          data-testid="replay-check"
+        >
+          {t.checkLog}
+        </Button>
+      </Tooltip>
+    </section>
+  );
+}
+
 /** Throughput, cycle time, queues and the use of resources. */
 export function MetricsTab() {
   const net = useEditorStore((s) => s.net);
@@ -105,6 +227,7 @@ export function MetricsTab() {
 
   return (
     <div className="flex flex-col" data-testid="metrics-tab">
+      {metrics.replay ? <ReplayCard stats={metrics.replay} /> : null}
       {warming ? <WarmupProgress time={time} warmup={warmup} /> : null}
       <section className="flex flex-col gap-2 border-b border-border px-4 py-3">
         <div className="grid grid-cols-3 gap-1.5">

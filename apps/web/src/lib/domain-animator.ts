@@ -83,6 +83,8 @@ export class DomainAnimator {
   private instant = false;
   /** Bundles processed since the model was set, for the tests and the status of the canvas. */
   bundles = 0;
+  /** Deviations of a replay seen since the model was set, for the tests and the status of the canvas. */
+  deviations = 0;
 
   /** Sets the net and its view (or `null` if there is none to draw) and snaps to the state. */
   setModel(net: PetriNet, view: DomainView | null, state: LayoutState): void {
@@ -152,6 +154,7 @@ export class DomainAnimator {
     this.layout = after;
     this.receivedAt = now;
     this.bundles += 1;
+    for (const event of events) if (event.type === 'deviation') this.deviations += 1;
   }
 
   /** Simulation seconds at `now`: the time of the latest state plus what has passed since. */

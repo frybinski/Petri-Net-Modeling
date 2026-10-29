@@ -36,6 +36,8 @@ export interface HoverCardModel {
   rate?: number;
   /** While simulating: firings of a transition that are under way. */
   running?: number;
+  /** Tokens that a replay of an event log had to create on the place. */
+  created?: number;
   /** Error messages of the element. */
   errors: string[];
 }
@@ -49,6 +51,8 @@ interface HoverCardInput {
   enabled?: ReadonlyMap<Id, BindingResult> | undefined;
   /** Firings of the transition that are under way (simulation of a timed net). */
   running?: number | undefined;
+  /** Tokens a replay created, by place. */
+  createdTokens?: Readonly<Record<Id, number>> | undefined;
 }
 
 /** What the hover card of a node shows. Returns null for elements without a card (notes). */
@@ -59,6 +63,7 @@ export function buildHoverCard({
   diagnostics,
   enabled,
   running,
+  createdTokens,
 }: HoverCardInput): HoverCardModel | null {
   const errors = diagnostics
     .filter((d) => d.severity === 'error' && d.elementId === id)
@@ -77,6 +82,7 @@ export function buildHoverCard({
       tokens: json ? tokens.slice(0, MAX_CARD_TOKENS).map((t) => tokenLabel(t, 60)) : [],
       moreTokens: json ? Math.max(0, tokens.length - MAX_CARD_TOKENS) : 0,
       ...(place.capacity !== undefined && { capacity: place.capacity }),
+      ...((createdTokens?.[id] ?? 0) > 0 && { created: createdTokens![id] }),
       variables: [],
       errors,
     };

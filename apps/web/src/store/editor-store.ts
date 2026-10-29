@@ -64,15 +64,19 @@ import {
   initialMarking,
   isTimedNet,
   type Breakpoints,
+  type LiveEvent,
   type MetricsSnapshot,
   type RunningView,
+  type SimEvent,
   type SimResult,
   type TokenMeta,
   type SimulationClient,
 } from '@pnm/sim';
 import { create } from 'zustand';
 import { en } from '../i18n/en';
+import { installLiveApi, removeLiveApi } from '../lib/live-api';
 import { chainPosition } from '../lib/placement';
+import type { ReplayLog } from '../lib/replay-log';
 import { createSimulationClientForEditor } from '../lib/sim-client';
 import { getViewApi } from '../lib/view-api';
 import {
@@ -83,12 +87,19 @@ import {
   publishSimEvents,
   publishSimJump,
 } from './sim-log';
+import { useReplayStore } from './replay-store';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
 export type Mode = 'edit' | 'simulate';
 
 export type SimSpeed = 1 | 2 | 5 | 10 | 30 | 60 | 'max';
+
+/** Where the events of the simulation come from: the engine, a recorded log, or a live feed. */
+export type SimSource = 'engine' | 'log' | 'live';
+
+/** A place that got a token created by a replay has a red ring for this long (milliseconds). */
+export const DEVIATION_RING_MS = 1000;
 
 /** The speeds offered by the simulation controls. */
 export const SIM_SPEEDS: readonly SimSpeed[] = [1, 2, 5, 10, 30, 60, 'max'];
@@ -210,6 +221,14 @@ export interface EditorState {
   simNotice: string | null;
   /** The simulation ignores durations and arrival rates (the replay of an analysis trace). */
   simUntimed: boolean;
+  /** Where the events come from. */
+  simSource: SimSource;
+  /** The name of the log that is replayed (source `log`). */
+  simSourceName: string | null;
+  /** The feed of the live source has ended. */
+  simFeedClosed: boolean;
+  /** Places that just got a created token (replay), with a number that tells the flashes apart. */
+  simDeviationRing: Record<Id, number>;
   /** The recorded firing sequence that is being played, if any. */
   replay: ReplayState | null;
   replayPlaying: boolean;
@@ -306,6 +325,16 @@ export interface EditorState {
   // Simulation
   /** Starts the simulation; `untimed` ignores durations and arrival rates. Resolves when it is ready. */
   startSimulation(options?: { untimed?: boolean }): Promise<void>;
+  /** Replays an event log on the net instead of running the engine. */
+  startLogReplay(log: ReplayLog): Promise<void>;
+  /** Starts a replay that is fed with events while it runs (`window.pnm.live`, the paste field). */
+  startLiveFeed(): Promise<void>;
+  /** Adds events to the live feed. Rejects if the source is not live or the feed has ended. */
+  pushLiveEvents(events: LiveEvent[]): Promise<void>;
+  /** Ends the feed of the live source. */
+  closeLiveFeed(): Promise<void>;
+  /** Switches the source of the simulation (restarts it); `log` asks for a file if none is loaded. */
+  setSimSource(source: SimSource): void;
   stopSimulation(): void;
   /** Fires a transition: directly if it has one binding, otherwise opens the binding list. */
   fireTransition(id: Id): void;
@@ -404,6 +433,10 @@ function idleSimulation() {
     simIdle: false,
     simNotice: null as string | null,
     simUntimed: false,
+    simSource: 'engine' as SimSource,
+    simSourceName: null as string | null,
+    simFeedClosed: false,
+    simDeviationRing: {} as Record<Id, number>,
     replay: null as ReplayState | null,
     replayPlaying: false,
   };
@@ -433,6 +466,8 @@ const runtime: {
   starting: boolean;
   /** A click on a transition during `starting`: it is carried out with the first answer. */
   pendingClick: Id | null;
+  /** Numbers the red rings of created tokens, so that an old timeout does not end a newer ring. */
+  ringNonce: number;
 } = {
   client: null,
   session: 0,
@@ -444,6 +479,7 @@ const runtime: {
   replayTimer: undefined,
   starting: false,
   pendingClick: null,
+  ringNonce: 0,
 };
 
 function clearPlayTimer(): void {
@@ -478,6 +514,18 @@ function disposeRuntime(): void {
   runtime.pendingClick = null;
   runtime.client?.dispose();
   runtime.client = null;
+  removeLiveApi();
+}
+
+/** The places on which a replay created a token in these events. */
+function createdTokenPlaces(events: readonly SimEvent[]): Id[] {
+  const places = new Set<Id>();
+  for (const event of events) {
+    if (event.type === 'deviation' && event.kind === 'missing' && event.placeId !== undefined) {
+      places.add(event.placeId);
+    }
+  }
+  return [...places];
 }
 
 function toEnabledMap(entries: NonNullable<SimResult['view']['enabled']>): Map<Id, BindingResult> {
@@ -487,6 +535,17 @@ function toEnabledMap(entries: NonNullable<SimResult['view']['enabled']>): Map<I
       { bindings: entry.bindings, truncated: entry.truncated, diagnostics: [] },
     ]),
   );
+}
+
+let logFileRequest: (() => void) | null = null;
+
+/** Registers what asks the person for an event log file (the file chooser of the page). */
+export function registerLogFileRequest(request: (() => void) | null): void {
+  logFileRequest = request;
+}
+
+function requestLogFile(): void {
+  logFileRequest?.();
 }
 
 export const useEditorStore = create<EditorState>()((set, get) => {
@@ -532,6 +591,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     disposeRuntime();
     eventLog.clear();
     clearArchive();
+    // A log is mapped to the transitions of one net.
+    useReplayStore.getState().clear();
     set({
       net,
       // A different object than the net makes the document count as changed.
@@ -602,8 +663,17 @@ export const useEditorStore = create<EditorState>()((set, get) => {
                 reached: null,
               }
             : replay;
+    // A replay that had to create a token lets the place flash for a moment.
+    const created = options.truncate || options.reset ? [] : createdTokenPlaces(events);
+    let ring = state.simDeviationRing;
+    if (options.truncate || options.reset) ring = {};
+    else if (created.length > 0) {
+      runtime.ringNonce += 1;
+      ring = { ...ring, ...Object.fromEntries(created.map((id) => [id, runtime.ringNonce])) };
+    }
     set({
       ...(replay !== null && { replay: replayAfter }),
+      simDeviationRing: ring,
       simMarking: view.marking,
       simMeta: view.meta,
       ...(view.enabled && {
@@ -630,9 +700,28 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       get().setPlaying(false);
       set({ selection: [stop.elementId] });
       notify('info', en.simulation.breakpointHit(nameOfElement(get().net, stop.elementId)));
-    } else if (idle && get().simPlaying) {
+    } else if (idle && get().simPlaying && get().simSource !== 'live') {
+      // A live feed that has nothing to play just waits for the next event.
       get().setPlaying(false);
-      notify('info', get().simTimed ? en.simulation.finished : en.messages.noEnabled);
+      notify(
+        'info',
+        get().simSource === 'log'
+          ? en.replay.finished
+          : get().simTimed
+            ? en.simulation.finished
+            : en.messages.noEnabled,
+      );
+    }
+    if (created.length > 0) {
+      const nonce = runtime.ringNonce;
+      setTimeout(() => {
+        const rings = get().simDeviationRing;
+        const gone = created.filter((id) => rings[id] === nonce);
+        if (gone.length === 0) return;
+        const rest = { ...rings };
+        for (const id of gone) delete rest[id];
+        set({ simDeviationRing: rest });
+      }, DEVIATION_RING_MS);
     }
   };
 
@@ -721,6 +810,83 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         Math.max(0, delay - (performance.now() - started)),
       );
     }
+  };
+
+  /** Starts a simulation whose events come from `source`: the engine, a log or a live feed. */
+  const launch = (config: {
+    source: SimSource;
+    sourceName?: string;
+    simNet: PetriNet;
+    timed: boolean;
+    untimed: boolean;
+    speed: SimSpeed;
+    init: (client: SimulationClient) => Promise<SimResult>;
+  }): Promise<void> => {
+    const { net, simBreakpoints } = get();
+    disposeRuntime();
+    archiveRun(net);
+    eventLog.clear();
+    const client = createSimulationClientForEditor();
+    runtime.client = client;
+    const { simNet, timed, untimed } = config;
+    // Breakpoints on elements that no longer exist are dropped.
+    const known = new Set([...net.places, ...net.transitions].map((n) => n.id));
+    const breakpoints: Breakpoints = {
+      transitions: simBreakpoints.transitions.filter((id) => known.has(id)),
+      places: Object.fromEntries(
+        Object.entries(simBreakpoints.places).filter(([id]) => known.has(id)),
+      ),
+    };
+    set({
+      ...idleSimulation(),
+      mode: 'simulate',
+      tool: 'select',
+      toolSticky: false,
+      arcSource: null,
+      renamingId: null,
+      dragPositions: null,
+      simMarking: initialMarking(simNet),
+      simTimed: timed,
+      simUntimed: untimed,
+      simSource: config.source,
+      simSourceName: config.sourceName ?? null,
+      simSpeed: config.speed,
+      simBreakpoints: breakpoints,
+      computing: true,
+    });
+    runtime.pending = 1;
+    runtime.starting = true;
+    runtime.pendingClick = null;
+    const session = runtime.session;
+    const hasBreakpoints =
+      breakpoints.transitions.length > 0 || Object.keys(breakpoints.places).length > 0;
+    return config
+      .init(client)
+      .then(async (result) => {
+        if (hasBreakpoints) await client.setBreakpoints(breakpoints, { enabled: false });
+        return result;
+      })
+      .then(
+        (result) => {
+          if (session !== runtime.session) return;
+          runtime.pending -= 1;
+          runtime.starting = false;
+          apply(result, { reset: true });
+          if (runtime.pending === 0) set({ computing: false });
+          // A click that came in before the engine had answered counts now.
+          const click = runtime.pendingClick;
+          runtime.pendingClick = null;
+          if (click !== null) get().fireTransition(click);
+        },
+        (error: unknown) => {
+          if (session !== runtime.session) return;
+          runtime.pending -= 1;
+          runtime.starting = false;
+          runtime.pendingClick = null;
+          set({ computing: false });
+          notify('error', error instanceof Error ? error.message : String(error));
+        },
+      );
   };
 
   return {
@@ -1116,71 +1282,86 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
 
     startSimulation(options = {}) {
-      const { net, simBreakpoints } = get();
-      disposeRuntime();
-      archiveRun(net);
-      eventLog.clear();
-      const client = createSimulationClientForEditor();
-      runtime.client = client;
+      const { net } = get();
       const untimed = options.untimed === true;
       const simNet = untimed ? withoutTime(net) : net;
       const timed = isTimedNet(simNet);
-      // Breakpoints on elements that no longer exist are dropped.
-      const known = new Set([...net.places, ...net.transitions].map((n) => n.id));
-      const breakpoints: Breakpoints = {
-        transitions: simBreakpoints.transitions.filter((id) => known.has(id)),
-        places: Object.fromEntries(
-          Object.entries(simBreakpoints.places).filter(([id]) => known.has(id)),
-        ),
-      };
-      set({
-        ...idleSimulation(),
-        mode: 'simulate',
-        tool: 'select',
-        toolSticky: false,
-        arcSource: null,
-        renamingId: null,
-        dragPositions: null,
-        simMarking: initialMarking(simNet),
-        simTimed: timed,
-        simUntimed: untimed,
-        simSpeed: timed ? 10 : 1,
-        simBreakpoints: breakpoints,
-        computing: true,
+      return launch({
+        source: 'engine',
+        simNet,
+        timed,
+        untimed,
+        speed: timed ? 10 : 1,
+        init: (client) => client.init(simNet, undefined),
       });
-      runtime.pending = 1;
-      runtime.starting = true;
-      runtime.pendingClick = null;
-      const session = runtime.session;
-      const hasBreakpoints =
-        breakpoints.transitions.length > 0 || Object.keys(breakpoints.places).length > 0;
-      return client
-        .init(simNet, undefined)
-        .then(async (result) => {
-          if (hasBreakpoints) await client.setBreakpoints(breakpoints, { enabled: false });
-          return result;
-        })
-        .then(
-          (result) => {
-            if (session !== runtime.session) return;
-            runtime.pending -= 1;
-            runtime.starting = false;
-            apply(result, { reset: true });
-            if (runtime.pending === 0) set({ computing: false });
-            // A click that came in before the engine had answered counts now.
-            const click = runtime.pendingClick;
-            runtime.pendingClick = null;
-            if (click !== null) get().fireTransition(click);
-          },
-          (error: unknown) => {
-            if (session !== runtime.session) return;
-            runtime.pending -= 1;
-            runtime.starting = false;
-            runtime.pendingClick = null;
-            set({ computing: false });
-            notify('error', error instanceof Error ? error.message : String(error));
-          },
-        );
+    },
+    startLogReplay(log) {
+      const { net } = get();
+      // A replay has a clock whatever the net says; a log is long, so it starts fast.
+      return launch({
+        source: 'log',
+        sourceName: log.fileName,
+        simNet: net,
+        timed: true,
+        untimed: false,
+        speed: 60,
+        init: (client) =>
+          client.initReplay(net, {
+            events: log.events,
+            options: {
+              mapping: log.mapping,
+              completeOnly: log.completeOnly,
+              ...(log.strict && { strict: true }),
+            },
+          }),
+      });
+    },
+    async startLiveFeed() {
+      const { net } = get();
+      await launch({
+        source: 'live',
+        simNet: net,
+        timed: true,
+        untimed: false,
+        speed: 10,
+        init: (client) =>
+          client.initReplay(net, {
+            events: [],
+            options: { mapping: {}, autoMap: true },
+            live: true,
+          }),
+      });
+      if (get().simSource !== 'live') return;
+      installLiveApi({
+        push: (events) => get().pushLiveEvents(events),
+        close: () => get().closeLiveFeed(),
+      });
+      // Events are to be shown as they arrive.
+      get().setPlaying(true);
+    },
+    async pushLiveEvents(events) {
+      const { simSource, simFeedClosed } = get();
+      if (simSource !== 'live') throw new Error(en.replay.notLive);
+      if (simFeedClosed) throw new Error(en.replay.feedClosed);
+      const ok = await command((client) => client.push(events));
+      if (!ok) throw new Error(en.replay.pushFailed);
+    },
+    async closeLiveFeed() {
+      if (get().simSource !== 'live' || get().simFeedClosed) return;
+      const ok = await command((client) => client.closeFeed());
+      if (ok) set({ simFeedClosed: true });
+    },
+    setSimSource(source) {
+      if (get().mode !== 'simulate' || get().simSource === source) return;
+      if (source === 'engine') {
+        void get().startSimulation();
+      } else if (source === 'live') {
+        void get().startLiveFeed();
+      } else {
+        const log = useReplayStore.getState().log;
+        if (log !== null) void get().startLogReplay(log);
+        else requestLogFile();
+      }
     },
     stopSimulation() {
       disposeRuntime();

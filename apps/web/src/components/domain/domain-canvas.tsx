@@ -254,6 +254,8 @@ export function DomainCanvas() {
     frames.current += 1;
     canvas.dataset['frames'] = String(frames.current);
     canvas.dataset['bundles'] = String(animator.bundles);
+    canvas.dataset['deviations'] = String(animator.deviations);
+    canvas.dataset['redFlashes'] = String(animator.anim.flashes.filter((f) => f.deviation).length);
     // The loop runs while the simulation plays or something moves, otherwise it rests.
     if (useEditorStore.getState().simPlaying || animator.isAnimating(now)) {
       schedulePaintRef.current();

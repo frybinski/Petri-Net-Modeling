@@ -25,6 +25,8 @@ export interface PlaceNodeData extends Record<string, unknown> {
   bottleneck?: 'warn' | 'crit';
   /** Pause when the place holds this many tokens. */
   breakpoint?: number;
+  /** A replay just created a token on the place (a red ring for a moment). */
+  deviation?: boolean;
 }
 
 export interface TransitionNodeData extends Record<string, unknown> {

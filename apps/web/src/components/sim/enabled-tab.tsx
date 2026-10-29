@@ -59,6 +59,36 @@ function Summary() {
   );
 }
 
+/** In a replay nothing is fired by hand: the panel says where in the log the replay is. */
+function ReplaySummary() {
+  const source = useEditorStore((s) => s.simSource);
+  const stats = useEditorStore((s) => s.simMetrics?.replay);
+  const idle = useEditorStore((s) => s.simIdle);
+  const closed = useEditorStore((s) => s.simFeedClosed);
+  const t = en.replay;
+  const text =
+    source === 'live'
+      ? closed
+        ? t.liveClosed
+        : idle || (stats?.processed ?? 0) >= (stats?.total ?? 0)
+          ? `${t.liveWaiting} ${t.liveTaken(stats?.processed ?? 0)}`
+          : t.liveTaken(stats?.processed ?? 0)
+      : stats && stats.total > 0 && stats.processed >= stats.total
+        ? t.replayDone(stats.total)
+        : stats
+          ? t.stepOf(stats.processed, stats.total)
+          : t.replaying;
+  return (
+    <p
+      className="m-0 rounded-md bg-surface-2 px-2.5 py-1.5 text-sm font-medium text-muted"
+      data-testid="replay-summary"
+      aria-live="polite"
+    >
+      {text}
+    </p>
+  );
+}
+
 function EnabledList() {
   const net = useEditorStore((s) => s.net);
   const enabled = useEditorStore((s) => s.enabled);
@@ -424,16 +454,21 @@ function Problems() {
 /** What can be fired now, and the controls that change a running simulation. */
 export function EnabledTab() {
   const timed = useEditorStore((s) => s.simTimed);
+  const replaying = useEditorStore((s) => s.simSource !== 'engine');
   return (
     <>
       <section className="flex flex-col gap-2 border-b border-border px-4 py-3">
-        <Summary />
-        {timed ? <p className="m-0 text-[11px] text-muted">{en.simulation.timedHint}</p> : null}
+        {replaying ? <ReplaySummary /> : <Summary />}
+        {replaying ? (
+          <p className="m-0 text-[11px] text-muted">{en.replay.replaying}</p>
+        ) : timed ? (
+          <p className="m-0 text-[11px] text-muted">{en.simulation.timedHint}</p>
+        ) : null}
       </section>
       <Problems />
-      <EnabledList />
-      {timed ? <Arrivals /> : null}
-      <Resources />
+      {replaying ? null : <EnabledList />}
+      {timed && !replaying ? <Arrivals /> : null}
+      {replaying ? null : <Resources />}
       <Breakpoints />
       <Marking />
       <History />

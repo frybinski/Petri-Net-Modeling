@@ -39,6 +39,7 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
     renaming,
     bottleneck,
     breakpoint,
+    deviation,
   } = data;
   const drop = useDropState(id);
   const dots = !json && tokens > 0 && tokens <= MAX_TOKEN_DOTS;
@@ -65,6 +66,9 @@ function PlaceNodeView({ id, data, selected }: NodeProps<PlaceFlowNode>) {
             data-level={bottleneck}
             data-testid="bottleneck-ring"
           />
+        ) : null}
+        {deviation ? (
+          <circle className="pn-deviation" r={HALF + 8} data-testid="deviation-ring" />
         ) : null}
         <circle className="pn-halo" r={HALF + 1.5} />
         <circle className="pn-body" r={HALF - NODE_STROKE / 2} strokeWidth={NODE_STROKE} />

@@ -6,15 +6,27 @@ import { SIM_SPEEDS, useEditorStore, type SimSpeed } from '../../store/editor-st
 import { Button } from '../ui/button';
 import { Tooltip } from '../ui/tooltip';
 import { SectionTitle } from './section';
+import { SourceDetails, SourceSwitch } from './source-section';
 
 const shortcut = (id: string): string => shortcutText(commandById(id));
 
-function StatusPill({ playing, finished }: { playing: boolean; finished: boolean }) {
-  const [label, tone] = playing
-    ? [en.simulation.statusPlaying, 'bg-accent-soft text-accent']
-    : finished
-      ? [en.simulation.statusFinished, 'bg-warn-soft text-warn']
-      : [en.simulation.statusPaused, 'bg-surface-2 text-muted'];
+function StatusPill({
+  playing,
+  finished,
+  waiting,
+}: {
+  playing: boolean;
+  finished: boolean;
+  /** A live feed that has played everything that arrived waits for the next event. */
+  waiting: boolean;
+}) {
+  const [label, tone] = waiting
+    ? [en.replay.statusWaiting, 'bg-warn-soft text-warn']
+    : playing
+      ? [en.simulation.statusPlaying, 'bg-accent-soft text-accent']
+      : finished
+        ? [en.simulation.statusFinished, 'bg-warn-soft text-warn']
+        : [en.simulation.statusPaused, 'bg-surface-2 text-muted'];
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}
@@ -71,6 +83,8 @@ export function SimControls() {
   const computing = useEditorStore((s) => s.computing);
   const idle = useEditorStore((s) => s.simIdle);
   const enabledCount = useEditorStore((s) => s.enabled.size);
+  const source = useEditorStore((s) => s.simSource);
+  const untimedRun = useEditorStore((s) => s.simUntimed);
   const togglePlaying = useEditorStore((s) => s.togglePlaying);
   const stepNext = useEditorStore((s) => s.stepNext);
   const stepRandom = useEditorStore((s) => s.stepRandom);
@@ -86,8 +100,19 @@ export function SimControls() {
     >
       <div className="flex min-h-5 items-center justify-between gap-2">
         <SectionTitle>{en.simulation.title}</SectionTitle>
-        <StatusPill playing={playing} finished={idle && !playing} />
+        <StatusPill
+          playing={playing}
+          finished={idle && !playing && source !== 'live'}
+          waiting={idle && source === 'live'}
+        />
       </div>
+
+      {untimedRun ? null : (
+        <>
+          <SourceSwitch />
+          <SourceDetails />
+        </>
+      )}
 
       {timed ? (
         <div className="flex items-end justify-between gap-3">

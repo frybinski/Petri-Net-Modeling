@@ -17,6 +17,7 @@ export const en = {
     open: 'Open…',
     save: 'Save',
     import: 'Import…',
+    replayLog: 'Replay event log…',
     exportTitle: 'Export',
     exportImage: 'Image…',
     exportPnml: 'PNML…',
@@ -329,6 +330,131 @@ export const en = {
     addPlaceBreakpoint: 'Add place breakpoint',
     timedHint:
       'This net uses time. Transitions start as soon as they are enabled and finish after their duration.',
+  },
+  replay: {
+    source: 'Source',
+    sourceGroup: 'Source of the events',
+    engine: 'Engine',
+    engineTip: 'Run the simulation engine',
+    log: 'Log',
+    logTip: 'Replay an event log (CSV or XES) on the net',
+    live: 'Live',
+    liveTip: 'Show events as they arrive',
+    finished: 'The event log has been replayed to its end.',
+    notLive: 'The live source is not active.',
+    feedClosed: 'The live feed has been closed.',
+    pushFailed: 'The events could not be added.',
+    logTitle: 'Event log',
+    logSummary: (events: number, cases: number, span: string) =>
+      `${events.toLocaleString('en')} ${events === 1 ? 'event' : 'events'}, ${cases.toLocaleString('en')} ${cases === 1 ? 'case' : 'cases'}, ${span}`,
+    skipped: (n: number) =>
+      n === 1
+        ? '1 activity is not mapped and skipped'
+        : `${n} activities are not mapped and skipped`,
+    changeMapping: 'Change mapping…',
+    openAnother: 'Open another log…',
+    noLog: 'No event log yet.',
+    chooseLog: 'Open an event log…',
+    dropHint: 'Drop an event log (CSV or XES) on this panel to replay it.',
+    dropFile: 'Drop an event log to replay it',
+    readFailed: (name: string) => `Could not read ${name}`,
+    // The dialog
+    dialogTitle: 'Replay an event log',
+    file: 'File',
+    columnsTitle: 'Columns',
+    columnsHint:
+      'Which column holds what. Leave a column on “Find it” to look for the usual names.',
+    columnCase: 'Case',
+    columnActivity: 'Activity',
+    columnTime: 'Time',
+    columnLifecycle: 'Lifecycle',
+    guess: 'Find it',
+    none: 'None',
+    previewTitle: 'Preview',
+    previewEvents: (events: number, cases: number, span: string) =>
+      `${events.toLocaleString('en')} ${events === 1 ? 'event' : 'events'} in ${cases.toLocaleString('en')} ${cases === 1 ? 'case' : 'cases'}, spanning ${span}`,
+    timeZero: (iso: string) => `Time 0 is ${iso.replace('T', ' ').replace(/\.000Z$/, 'Z')}`,
+    unreadable: 'The file cannot be used as an event log.',
+    mappingTitle: 'Activities and transitions',
+    mappingHint:
+      'Each activity of the log is matched to a transition. Activities without one are skipped and counted as deviations.',
+    activity: 'Activity',
+    events: 'Events',
+    transition: 'Transition',
+    skipOption: 'Skip (no transition)',
+    matched: 'Matched by name',
+    notMapped: 'No transition: skipped',
+    unmappedNote: (n: number) =>
+      n === 0
+        ? 'Every activity is mapped.'
+        : n === 1
+          ? '1 activity has no transition and will be skipped.'
+          : `${n} activities have no transition and will be skipped.`,
+    optionsTitle: 'Options',
+    completeOnly: 'Events without a start',
+    completeZero: 'Take no time',
+    completeSpan: 'Start when the previous event of the case ended',
+    completeHint: 'What to do with an end that has no start in the log.',
+    timeOrigin: 'Time 0',
+    originFirst: 'The first event',
+    originNet: 'Start time of the net',
+    originCustom: 'Another time…',
+    originCustomLabel: 'Time (ISO 8601 or Unix seconds)',
+    originHint: 'The start time of the net gives the same times as the run that wrote the log.',
+    checkGuards: 'Check the guards',
+    checkGuardsHint: 'Report an activity whose guard the tokens of the case do not satisfy.',
+    cancel: 'Cancel',
+    start: 'Replay',
+    // The live source
+    liveTitle: 'Live feed',
+    pasteLabel: 'Paste events',
+    pastePlaceholder: 'C-1,Scannen\nC-1,Sortieren,start\nC-2,Scannen,complete,12.5',
+    pasteHint:
+      'One event per line: case, activity, then optionally start or complete and the time in seconds since the feed was opened. Without a time the event happens now.',
+    addEvents: 'Add events',
+    closeFeed: 'Close feed',
+    feedClosedNote: 'The feed is closed. What has arrived is still played.',
+    added: (n: number) => (n === 1 ? '1 event added' : `${n} events added`),
+    skippedLines: (n: number) => (n === 1 ? '1 line skipped' : `${n} lines skipped`),
+    nothingToAdd: 'There are no events in the text.',
+    consoleHint: 'From the browser console:',
+    consoleExample:
+      'window.pnm.live.push([{ case: "C-1", activity: "Scannen", lifecycle: "complete" }])',
+    // The panel
+    stepOf: (done: number, total: number) =>
+      `Event ${Math.min(done, total).toLocaleString('en')} of ${total.toLocaleString('en')}`,
+    replayDone: (total: number) =>
+      `Replay finished: all ${total.toLocaleString('en')} events were taken.`,
+    replaying: 'Replaying the event log. Transitions are not fired by hand.',
+    liveWaiting: 'Waiting for events.',
+    liveTaken: (n: number) => `Live: ${n.toLocaleString('en')} events taken.`,
+    liveClosed: 'The feed is closed.',
+    statusWaiting: 'Waiting',
+    // The key figures
+    card: 'Replay',
+    fitness: 'Fitness',
+    fitnessTip:
+      'Token replay fitness: 1 − ½ · created / taken − ½ · left behind / put. 100 % means the log fits the net.',
+    created: 'Tokens created',
+    createdTip: 'Tokens that an activity needed and did not find; they were created.',
+    leftBehind: 'Left behind',
+    leftBehindTip: 'Tokens that finished cases did not take.',
+    skippedEvents: 'Skipped',
+    skippedEventsTip: 'Events whose activity is not mapped.',
+    guardsNotMet: 'Guards not met',
+    openCases: 'Cases open',
+    checkLog: 'Check properties on this log',
+    checkLogTip:
+      'Opens the analysis and checks the properties of the net on the events replayed so far',
+    noFitness: 'No event yet.',
+    // The trace and the net
+    kinds: {
+      missing: 'Token created',
+      ignored: 'Skipped',
+      guard: 'Guard not met',
+    },
+    createdAt: (n: number) =>
+      n === 1 ? '1 token created for the log' : `${n} tokens created for the log`,
   },
   timing: {
     title: 'Timing',

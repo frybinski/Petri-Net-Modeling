@@ -1,5 +1,7 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { FileUp } from 'lucide-react';
+import { useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { en } from '../i18n/en';
+import { openFileGuarded } from '../lib/files';
 import { useEditorStore } from '../store/editor-store';
 import { useUiStore, type SimTab } from '../store/ui-store';
 import { EnabledTab } from './sim/enabled-tab';
@@ -60,7 +62,12 @@ function Tabs({ active, onSelect }: { active: SimTab; onSelect: (tab: SimTab) =>
   );
 }
 
+function hasFiles(event: DragEvent): boolean {
+  return [...event.dataTransfer.types].includes('Files');
+}
+
 export function SimulationPanel() {
+  const [dropActive, setDropActive] = useState(false);
   const tab = useUiStore((s) => s.simTab);
   const setTab = useUiStore((s) => s.setSimTab);
   const timed = useEditorStore((s) => s.simTimed);
@@ -70,9 +77,41 @@ export function SimulationPanel() {
   return (
     <aside
       aria-label={en.simulation.title}
-      className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-border bg-surface max-md:hidden"
+      className={`relative flex w-72 shrink-0 flex-col overflow-y-auto border-l border-border bg-surface max-md:hidden ${
+        dropActive ? 'outline-2 -outline-offset-2 outline-dashed outline-accent' : ''
+      }`}
       data-testid="simulation-panel"
+      // An event log dropped on the panel is replayed; the rest of the page opens nets.
+      onDragOver={(event) => {
+        if (!hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDropActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        setDropActive(false);
+      }}
+      onDrop={(event) => {
+        if (!hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDropActive(false);
+        const file = event.dataTransfer.files[0];
+        if (file) openFileGuarded(file);
+      }}
     >
+      {dropActive ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-accent-soft/80 text-accent"
+          data-testid="sim-drop-overlay"
+        >
+          <span className="flex items-center gap-2 px-4 text-center text-sm font-medium">
+            <FileUp size={18} aria-hidden="true" />
+            {en.replay.dropFile}
+          </span>
+        </div>
+      ) : null}
       <SimControls />
       <ReplayBar />
       <Tabs active={active} onSelect={setTab} />
