@@ -8,6 +8,9 @@
   "bin": {
     "pnm": "./dist/pnm.js"
   },
+  "exports": {
+    "./lib": "./src/lib/index.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json && jiti scripts/run-build.ts",
     "typecheck": "tsc -p tsconfig.json",

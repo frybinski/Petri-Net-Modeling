@@ -1,22 +1,10 @@
-import { hasErrors, validate, type Marking, type PetriNet, type Token } from '@pnm/core';
-import { parseEventLogCsv, EventLogParseError } from '@pnm/io';
+import { hasErrors, validate, type Marking, type PetriNet } from '@pnm/core';
 import {
   DEFAULT_MAX_STATES,
   DEFAULT_MAX_TIME_MS,
-  activityLabels,
-  buildStateSpace,
-  checkLog,
-  checkProperties,
-  compileProperty,
-  endActivities,
-  parseDeclare,
-  parseLtlf,
-  parseProperties,
   propertyMeaning,
   propertyText,
   propertyTitle,
-  tracesFromRows,
-  LtlfSyntaxError,
   type CheckResult,
   type ConformanceResult,
   type FinalStates,
@@ -26,6 +14,15 @@ import { numberOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError, UsageError } from '../errors';
 import { makeStyle, plural } from '../format';
 import type { Io } from '../io';
+import {
+  assertSpecsValid,
+  collectSpecs,
+  logCheckJson,
+  parseFinalMarkings,
+  runLogCheck,
+  runStateSpaceCheck,
+  stateSpaceCheckJson,
+} from '../lib/check';
 import { loadNet, reportImportWarnings } from '../net-file';
 
 export const CHECK_HELP = `Usage: pnm check <net> [--declare <t>]... [--ltlf <f>]... [options]
@@ -58,19 +55,6 @@ Exit status: 0 all properties hold, 1 a property is violated or cannot be verifi
 was cut off), or the net has errors, 2 wrong usage (unreadable property, unknown activity).
 `;
 
-/** Resolves a place by id or name. */
-function placeId(net: PetriNet, key: string): string {
-  const byId = net.places.find((p) => p.id === key);
-  if (byId) return byId.id;
-  const byName = net.places.filter((p) => p.name === key);
-  if (byName.length === 1 && byName[0]) return byName[0].id;
-  throw new UsageError(
-    byName.length > 1
-      ? `--final: the place name "${key}" is ambiguous; use the id.`
-      : `--final: the net has no place "${key}".`,
-  );
-}
-
 async function readMarkings(io: Io, net: PetriNet, file: string): Promise<Marking[]> {
   let json: unknown;
   try {
@@ -78,68 +62,7 @@ async function readMarkings(io: Io, net: PetriNet, file: string): Promise<Markin
   } catch (error) {
     throw new UsageError(`--final: ${file} cannot be read as JSON (${(error as Error).message}).`);
   }
-  const list = Array.isArray(json) ? json : [json];
-  return list.map((entry, index): Marking => {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-      throw new UsageError(`--final: entry ${index + 1} of ${file} must be an object.`);
-    }
-    const marking: Marking = {};
-    for (const [key, value] of Object.entries(entry)) {
-      const id = placeId(net, key);
-      if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
-        if (value > 0) marking[id] = Array.from({ length: value }, () => 1);
-      } else if (Array.isArray(value)) {
-        if (value.length > 0) marking[id] = value as Token[];
-      } else {
-        throw new UsageError(`--final: "${key}" must be a token count or a list of tokens.`);
-      }
-    }
-    return marking;
-  });
-}
-
-function collectSpecs(
-  net: PetriNet,
-  declares: readonly string[],
-  ltlfs: readonly string[],
-  io: Io,
-  path: string,
-): PropertySpec[] {
-  const specs: PropertySpec[] = [];
-  declares.forEach((text, index) => {
-    try {
-      const parsed = parseDeclare(text);
-      specs.push({
-        id: `declare-${index + 1}`,
-        kind: 'declare',
-        template: parsed.template,
-        activities: parsed.activities,
-        ...(parsed.n !== undefined && { n: parsed.n }),
-      });
-    } catch (error) {
-      throw new UsageError(`--declare "${text}": ${(error as Error).message}`);
-    }
-  });
-  ltlfs.forEach((formula, index) => {
-    try {
-      parseLtlf(formula);
-    } catch (error) {
-      if (error instanceof LtlfSyntaxError) {
-        throw new UsageError(`--ltlf "${formula}": ${error.message}`);
-      }
-      throw error;
-    }
-    specs.push({ id: `ltlf-${index + 1}`, kind: 'ltlf', formula });
-  });
-  if (specs.length > 0) return specs;
-  const stored = parseProperties(net.properties);
-  for (const message of stored.errors) io.err(`${path}: warning: ${message}\n`);
-  if (stored.properties.length === 0) {
-    throw new UsageError(
-      'No properties to check. Give --declare or --ltlf, or store properties in the net.',
-    );
-  }
-  return stored.properties;
+  return parseFinalMarkings(net, json, '--final');
 }
 
 function describeCounterexample(result: CheckResult, net: PetriNet): string[] {
@@ -165,10 +88,6 @@ function describeCounterexample(result: CheckResult, net: PetriNet): string[] {
     ...steps.map((line) => `  ${line}`),
     `ends in: ${marking === '' ? '(empty marking)' : marking}`,
   ];
-}
-
-function finalName(final: FinalStates): string {
-  return final === 'deadlock' || final === 'all' ? final : 'markings';
 }
 
 export async function checkCommand(io: Io, args: readonly string[]): Promise<number> {
@@ -207,19 +126,9 @@ export async function checkCommand(io: Io, args: readonly string[]): Promise<num
     throw new CommandError(`${path}: the net has errors; fix them before checking (pnm validate).`);
   }
 
-  const specs = collectSpecs(net, values.declare ?? [], values.ltlf ?? [], io, path);
-  const { labels } = activityLabels(net);
-  // Typos and templates with the wrong number of activities are usage errors, not verdicts.
-  const faulty = specs
-    .map((spec) => ({ spec, compiled: compileProperty(spec, labels) }))
-    .filter(({ compiled }) => compiled.error !== null && !compiled.tooLarge);
-  if (faulty.length > 0) {
-    throw new UsageError(
-      faulty
-        .map(({ spec, compiled }) => `${propertyText(spec)}: ${compiled.error ?? ''}`)
-        .join('\n'),
-    );
-  }
+  const { specs, warnings } = collectSpecs(net, values.declare ?? [], values.ltlf ?? []);
+  for (const message of warnings) io.err(`${path}: warning: ${message}\n`);
+  assertSpecsValid(net, specs);
   const style = makeStyle(io.color);
 
   if (values.log !== undefined) {
@@ -229,27 +138,17 @@ export async function checkCommand(io: Io, args: readonly string[]): Promise<num
     } catch (error) {
       throw new CommandError(`${values.log}: cannot be read (${(error as Error).message})`);
     }
-    let rows;
-    try {
-      rows = parseEventLogCsv(text);
-    } catch (error) {
-      if (error instanceof EventLogParseError)
-        throw new CommandError(`${values.log}: ${error.message}`);
-      throw error;
-    }
-    const ends = endActivities(net);
-    const skipOpen = values['include-open'] !== true && ends.length > 0;
-    const result = checkLog(tracesFromRows(rows), specs, {
-      ...(skipOpen && { endActivities: ends }),
-      activities: labels,
+    const run = runLogCheck(net, specs, text, {
+      includeOpen: values['include-open'] === true,
+      label: values.log,
     });
-    const ok = result.properties.every((p) => p.error === undefined && p.violatingCount === 0);
     if (values.json === true) {
-      io.out(`${JSON.stringify(logJson(path, values.log, specs, result, skipOpen), null, 2)}\n`);
+      const { mode, ...rest } = logCheckJson(specs, run);
+      io.out(`${JSON.stringify({ file: path, mode, log: values.log, ...rest }, null, 2)}\n`);
     } else {
-      io.out(logText(net, values.log, specs, result, skipOpen, style));
+      io.out(logText(net, values.log, specs, run.result, run.skipOpen, style));
     }
-    return ok ? 0 : 1;
+    return run.ok ? 0 : 1;
   }
 
   let final: FinalStates = 'deadlock';
@@ -259,57 +158,11 @@ export async function checkCommand(io: Io, args: readonly string[]): Promise<num
         ? values.final
         : { markings: await readMarkings(io, net, values.final) };
   }
-  const space = await buildStateSpace(net, {
-    maxStates: states,
-    maxTimeMs: timeMs,
-    ...(typeof final === 'object' && { final }),
-  });
-  const results = await checkProperties(net, space, specs, { final });
-  const ok = results.every((r) => r.verdict === 'holds');
+  const run = await runStateSpaceCheck(net, specs, { final, states, timeMs });
+  const { space, results, ok } = run;
   if (values.json === true) {
-    io.out(
-      `${JSON.stringify(
-        {
-          file: path,
-          mode: 'state-space',
-          final: finalName(final),
-          states: space.states.length,
-          edges: space.edges.length,
-          complete: !space.truncated,
-          ...(space.reason !== undefined && { reason: space.reason }),
-          ok,
-          properties: results.map((r, i) => {
-            const spec = specs[i]!;
-            return {
-              id: r.id,
-              property: propertyText(spec),
-              meaning: propertyMeaning(spec),
-              verdict: r.verdict,
-              explanation: r.explanation,
-              vacuous: r.vacuous,
-              infiniteRuns: r.infiniteRuns,
-              warnings: r.warnings,
-              ...(r.counterexample && {
-                counterexample: {
-                  steps: r.counterexample.steps.map((s, k) => ({
-                    transition: r.counterexample?.activities[k],
-                    ...(s.binding !== undefined && { binding: s.binding }),
-                  })),
-                  marking: Object.fromEntries(
-                    Object.entries(r.counterexample.marking).map(([id, tokens]) => [
-                      net.places.find((p) => p.id === id)?.name ?? id,
-                      tokens,
-                    ]),
-                  ),
-                },
-              }),
-            };
-          }),
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    const { mode, ...rest } = stateSpaceCheckJson(net, specs, run);
+    io.out(`${JSON.stringify({ file: path, mode, ...rest }, null, 2)}\n`);
   } else {
     const lines: string[] = [
       style.bold(
@@ -372,32 +225,4 @@ function logText(
     if (p.violatingCount > 5) lines.push(`         ... and ${p.violatingCount - 5} more`);
   });
   return `${lines.join('\n')}\n`;
-}
-
-function logJson(
-  file: string,
-  log: string,
-  specs: readonly PropertySpec[],
-  result: ConformanceResult,
-  skipOpen: boolean,
-): unknown {
-  return {
-    file,
-    mode: 'log',
-    log,
-    cases: result.cases,
-    open: result.open,
-    skippedOpen: skipOpen,
-    ok: result.properties.every((p) => p.violatingCount === 0),
-    properties: result.properties.map((p, i) => ({
-      id: p.id,
-      property: propertyText(specs[i]!),
-      total: p.total,
-      satisfied: p.satisfied,
-      ratio: p.ratio,
-      violatingCount: p.violatingCount,
-      activation: p.activation,
-      violating: p.violating.map((v) => ({ caseId: v.caseId, activities: v.activities })),
-    })),
-  };
 }

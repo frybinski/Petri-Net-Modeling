@@ -1,9 +1,8 @@
 import type { PetriNet } from '@pnm/core';
-import { layoutNet } from '@pnm/layout';
-import { GRID_SIZE, snap } from '@pnm/layout/geometry';
 import { choiceOption, numberOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError } from '../errors';
 import type { Io } from '../io';
+import { laidOutNet } from '../lib/layout';
 import { describeNet, formatOfName, loadNet, reportImportWarnings, serialize } from '../net-file';
 
 export const LAYOUT_HELP = `Usage: pnm layout <net> [-o <file>] [--direction RIGHT|DOWN] [--spacing <n>]
@@ -30,25 +29,15 @@ export async function layoutCommand(io: Io, args: readonly string[]): Promise<nu
   const loaded = await loadNet(io, path);
   reportImportWarnings(io, path, loaded);
   const { net } = loaded;
-  let raw;
+  let laidOut: PetriNet;
   try {
-    raw = await layoutNet(net, {
+    laidOut = await laidOutNet(net, {
       ...(direction !== undefined && { direction }),
       ...(spacing !== undefined && { spacing }),
     });
   } catch (error) {
     throw new CommandError(`${path}: the layout failed (${(error as Error).message})`);
   }
-  const place = (id: string, fallback: { x: number; y: number }): { x: number; y: number } => {
-    const p = raw[id];
-    return p ? { x: snap(p.x, GRID_SIZE / 2), y: snap(p.y, GRID_SIZE / 2) } : fallback;
-  };
-  const laidOut: PetriNet = {
-    ...net,
-    places: net.places.map((p) => ({ ...p, position: place(p.id, p.position) })),
-    transitions: net.transitions.map((t) => ({ ...t, position: place(t.id, t.position) })),
-    arcs: net.arcs.map(({ points: _points, ...arc }) => arc),
-  };
   const output = values.output ?? '-';
   await io.writeText(output, serialize(laidOut, formatOfName(output)));
   io.err(`${path}: laid out ${describeNet(laidOut)}${output !== '-' ? `; wrote ${output}` : ''}\n`);
