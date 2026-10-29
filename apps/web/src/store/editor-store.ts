@@ -75,7 +75,14 @@ import { en } from '../i18n/en';
 import { chainPosition } from '../lib/placement';
 import { createSimulationClientForEditor } from '../lib/sim-client';
 import { getViewApi } from '../lib/view-api';
-import { archiveRun, clearArchive, eventLog, publishSimEvents, publishSimJump } from './sim-log';
+import {
+  LOG_LIMIT,
+  archiveRun,
+  clearArchive,
+  eventLog,
+  publishSimEvents,
+  publishSimJump,
+} from './sim-log';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
@@ -555,7 +562,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     const { events, view } = result;
     if (options.reset) eventLog.clear();
     else if (options.truncate) eventLog.truncateAfter(view.eventCount);
-    eventLog.push(events);
+    // The log keeps the latest 200 000 events; the first time it drops older ones, say so once.
+    if (eventLog.push(events)) notify('info', en.trace.droppedToast(LOG_LIMIT));
 
     const state = get();
     let history = options.reset

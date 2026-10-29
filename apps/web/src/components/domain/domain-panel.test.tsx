@@ -84,6 +84,22 @@ describe('generated view in the panel', () => {
     expect(screen.getByTestId('origin-user')).toHaveTextContent('0 user');
   });
 
+  it('says that the panel edits the station when a resource place with cells is selected', async () => {
+    open('smart-office');
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-panel');
+    store().select(['o_desks']);
+    expect(await screen.findByTestId('domain-slots-hint')).toHaveTextContent('Arbeiten');
+    expect(screen.getByTestId('domain-entry-ref')).toHaveTextContent('transitions.o_work');
+    // A place that draws itself has no such note.
+    store().select(['o_foyer']);
+    await waitFor(() => {
+      expect(screen.queryByTestId('domain-slots-hint')).toBeNull();
+    });
+  });
+
   it('reports a view that does not follow the schema', async () => {
     const user = userEvent.setup();
     open('parcel-center');

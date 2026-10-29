@@ -259,6 +259,8 @@ function EntrySection({ view, locked }: { view: DomainView; locked: boolean }) {
   let json: unknown;
   let origin: DomainView['provenance'][string] | undefined;
   let missing = false;
+  /** The station whose card carries the cells of the selected resource place. */
+  let stationOfCells: string | undefined;
   if (decor !== null && view.decor?.[decor]) {
     json = view.decor[decor];
   } else if (id !== undefined) {
@@ -285,12 +287,20 @@ function EntrySection({ view, locked }: { view: DomainView; locked: boolean }) {
       json = entry;
       missing = entry === undefined;
     }
+    if (isPlace && entry && 'kind' in entry && entry.kind === 'slots') {
+      stationOfCells = net.transitions.find((t) => t.id === entry.of)?.name ?? entry.of;
+    }
   }
   if (json !== undefined || missing) {
     body = missing ? (
       <p className="m-0 text-xs text-muted">{en.domain.entryMissing}</p>
     ) : (
       <>
+        {stationOfCells !== undefined ? (
+          <p className="m-0 text-[11px] text-muted" data-testid="domain-slots-hint">
+            {en.domain.slotsHint(stationOfCells)}
+          </p>
+        ) : null}
         {editing ? (
           <p className="m-0 font-mono text-[11px] text-muted" data-testid="domain-entry-ref">
             {editing.section === 'decor'

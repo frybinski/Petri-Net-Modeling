@@ -153,6 +153,16 @@ function SettingsForm() {
           <p className="m-0 text-[11px] text-muted">{en.llm.baseUrlHint}</p>
         </div>
 
+        {insecureFromSecurePage(draft.baseUrl) ? (
+          <p
+            className="m-0 rounded-md bg-surface-2 px-2.5 py-2 text-[11px] leading-4 text-warn"
+            role="status"
+            data-testid="llm-https-hint"
+          >
+            {en.llm.httpsHint}
+          </p>
+        ) : null}
+
         {draft.preset === 'ollama' ? (
           <p
             className="m-0 rounded-md bg-surface-2 px-2.5 py-2 text-[11px] leading-4 text-muted"
@@ -312,6 +322,18 @@ function SettingsForm() {
 }
 
 /** The dialog for the language model server; mounted once, it renders while it is open. */
+/**
+ * True for an `http://` address on a page that is served over HTTPS: browsers may refuse such a
+ * request (mixed content), which is the case for the deployed app and a local provider.
+ */
+export function insecureFromSecurePage(baseUrl: string): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    /^http:\/\//i.test(baseUrl.trim())
+  );
+}
+
 export function LlmSettingsDialog() {
   const open = useLlmStore((s) => s.settingsOpen);
   return open ? <SettingsForm /> : null;

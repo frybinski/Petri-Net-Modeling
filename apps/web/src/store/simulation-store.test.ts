@@ -1,8 +1,9 @@
 import { createEmptyNet, type PetriNet } from '@pnm/core';
+import type { SimEvent } from '@pnm/sim';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setSimulationClientFactory } from '../lib/sim-client';
 import { useEditorStore } from './editor-store';
-import { eventLog, onSimEvents } from './sim-log';
+import { LOG_LIMIT, eventLog, onSimEvents } from './sim-log';
 import { useUiStore } from './ui-store';
 
 const store = () => useEditorStore.getState();
@@ -345,5 +346,42 @@ describe('document changes stop the simulation', () => {
     expect(store().mode).toBe('edit');
     expect(store().simPlaying).toBe(false);
     expect(eventLog.length).toBe(0);
+  });
+});
+
+describe('the limit of the event log', () => {
+  const event = (id: number): SimEvent => ({ id, type: 'idle', t: id }) as SimEvent;
+
+  it('tells once that older events are dropped, and again after a reset', () => {
+    eventLog.clear();
+    const batch = Array.from({ length: LOG_LIMIT }, (_, i) => event(i));
+    expect(eventLog.push(batch)).toBe(false);
+    // One more event is over the limit: the oldest are dropped and the caller hears about it.
+    expect(eventLog.push([event(LOG_LIMIT)])).toBe(true);
+    expect(eventLog.dropped).toBeGreaterThan(0);
+    expect(eventLog.length).toBeLessThanOrEqual(LOG_LIMIT);
+    // From then on it keeps quiet, however often it drops.
+    let again = false;
+    for (let i = 0; i < 40_000; i += 1000) {
+      again ||= eventLog.push(Array.from({ length: 1000 }, (_, k) => event(LOG_LIMIT + 1 + i + k)));
+    }
+    expect(again).toBe(false);
+    eventLog.clear();
+    expect(eventLog.push(batch)).toBe(false);
+    expect(eventLog.push([event(LOG_LIMIT)])).toBe(true);
+    eventLog.clear();
+  });
+
+  it('shows one toast when a simulation fills the log', async () => {
+    store().startSimulation();
+    await settled();
+    // Fill the log from the outside, then let the engine add an event.
+    eventLog.push(
+      Array.from({ length: LOG_LIMIT }, (_, i) => ({ id: -i - 1, type: 'idle', t: 0 }) as SimEvent),
+    );
+    await store().stepRandom();
+    await settled();
+    const toasts = useUiStore.getState().toasts.filter((t) => /event log is full/.test(t.message));
+    expect(toasts).toHaveLength(1);
   });
 });

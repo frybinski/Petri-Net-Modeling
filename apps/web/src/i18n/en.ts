@@ -389,6 +389,8 @@ export const en = {
     },
     showing: (shown: number, total: number) => `Latest ${shown} of ${total} events`,
     dropped: (n: number) => `${n} older events were dropped.`,
+    droppedToast: (limit: number) =>
+      `The event log is full: it keeps the latest ${limit.toLocaleString('en')} events, older ones are dropped. The key figures are not affected.`,
     noMatch: 'No event matches the filter.',
     exportCsv: 'Export CSV',
     exportXes: 'Export XES',
@@ -595,6 +597,8 @@ export const en = {
     remove: 'Remove domain view',
     entry: 'Entry of the selection',
     entryNone: 'Select a place, transition or arc to see its entry.',
+    slotsHint: (station: string) =>
+      `The cells of this resource sit on the card of ${station}. This section edits that station, which is what moves and resizes.`,
     entryMissing: 'The view has no entry for this element.',
     json: 'JSON',
     jsonHint: 'Edit the view as text. Apply checks it and replaces the view in one undo step.',
@@ -791,6 +795,8 @@ export const en = {
       object: 'JSON object only',
       none: 'Plain text, no format request',
     } as Record<string, string>,
+    httpsHint:
+      'This page is served over HTTPS, and a browser may block requests from it to an http:// address, such as a local model server. Run the app locally (pnpm dev, then open http://localhost:5173) or use a provider with an https:// address.',
     ollamaHint:
       'A browser may only call Ollama if the server allows this page as an origin. Start it with OLLAMA_ORIGINS set to this site (for example OLLAMA_ORIGINS="http://localhost:5173" ollama serve), or to * for local use.',
     privacy:
