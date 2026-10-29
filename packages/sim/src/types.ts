@@ -177,9 +177,6 @@ export interface ReplaySnapshot {
   guardNoted: boolean;
   /** Number of cases that have started. */
   seen: number;
-  /** Starts and completes that belong to an activity another case of the log already carried out. */
-  absorbedStarts: Record<string, number>;
-  skipCompletes: Record<string, number>;
 }
 
 export interface EnabledView {
