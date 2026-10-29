@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-28 · Status: in Umsetzung (M0–M4 und D1–D4 fertig) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-29 · Status: Version 1.0.0 (M0–M5 und D1–D4 fertig; D5 und M6 offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -132,12 +132,12 @@ Das Format ist gleichzeitig Speicherformat, API-Vertrag und Eingabe für die CLI
 
 Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 
-### M0 · Projektgerüst (1 Woche)
+### M0 · Projektgerüst (1 Woche) · fertig (0.1.0)
 - Monorepo, Linting (ESLint, Prettier), TypeScript-Konfiguration, Vitest, CI.
 - Leere Web-App mit Canvas, die startet und deployt wird.
 - README mit Zielbild und Entwicklungsanleitung.
 
-### M1 · Editor für Stellen/Transitions-Netze (2–3 Wochen)
+### M1 · Editor für Stellen/Transitions-Netze (2–3 Wochen) · fertig (0.1.0)
 - Stellen, Transitionen, Kanten anlegen, verschieben, löschen, benennen.
 - Kantengewichte, Anfangsmarkierung, Kapazitäten.
 - Pan/Zoom, Mehrfachauswahl, Ausrichten, Raster, Minimap.
@@ -145,7 +145,7 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Automatisches Layout (ELK), Speichern/Laden als JSON (Datei + IndexedDB).
 - Strukturvalidierung (Bipartitheit, verwaiste Kanten, doppelte Namen).
 
-### M2 · Höhere Netze: Typen, Inschriften, Wächter (3 Wochen)
+### M2 · Höhere Netze: Typen, Inschriften, Wächter (3 Wochen) · fertig (0.2.0)
 - Typverwaltung (JSON Schema) mit Editor und Vorschau.
 - Inschriften- und Wächtereditor mit Syntaxhervorhebung, Fehlern und
   Variablenvervollständigung.
@@ -176,16 +176,16 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Domänenbeschreibung, Schema und Beispielen, Reparaturschleife, Auffüllen,
   Herkunft je Eintrag. Das Netz bestimmt das Verhalten, die Abbildung nur das
   Aussehen (neuro-symbolische Arbeitsteilung).
-- D4 Bearbeiten: JSON-Editor mit Live-Prüfung, Ziehen in der Ansicht, Erkennen
+- D4 Bearbeiten (fertig, 0.8.0; siehe `docs/domain-view.md`): JSON-Editor mit Live-Prüfung, Ziehen in der Ansicht, Erkennen
   veralteter Abbildungen mit „Ergänzen".
 
-### M4 · Austausch und Export (1–2 Wochen, nach D4)
+### M4 · Austausch und Export (1–2 Wochen, nach D4) · fertig (0.9.0)
 - PNML-Import/-Export (P/T-Netze standardkonform, höhere Netze über
   Toolspecific-Erweiterung).
 - SVG- und PNG-Export, TikZ-Export passend zu den Dissertationsstilen.
 - CLI: `pnm validate`, `pnm simulate --steps`, `pnm export --format`.
 
-### M5 · Analyse (3 Wochen)
+### M5 · Analyse (3 Wochen) · fertig (1.0.0)
 - Erreichbarkeitsgraph (beschränkt, mit Abbruchkriterium), Anzeige als Graph.
 - Für die Skelett-P/T-Struktur: Stellen- und Transitionsinvarianten,
   Beschränktheit, Lebendigkeit, Verklemmungen.
@@ -193,10 +193,10 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Erreichbarkeitsgraphen. Anschluss an Beitrag B3 der Dissertation.
 - Web Worker für rechenintensive Analysen, damit die Oberfläche flüssig bleibt.
 
-### D5 · Kopplung an echte Daten (optional)
+### D5 · Kopplung an echte Daten (optional) · offen
 - Replay eines Event Logs oder externe Ereignisquelle auf demselben Ereignisstrom.
 
-### M6 · Backend, Teilen, Schnittstellen (optional, 3 Wochen)
+### M6 · Backend, Teilen, Schnittstellen (optional, 3 Wochen) · offen
 - Server (Node, Fastify) mit Projektablage, Versionen, Freigabelinks.
 - REST/JSON-API für Lesen, Validieren, Simulieren und Analysieren.
 - Echtzeit-Zusammenarbeit (Yjs) als Erweiterung.
@@ -245,8 +245,14 @@ Petri-Net-Modeling/
 | E5 | Backend von Anfang an oder erst ab M6? | erst ab M6, Local-first |
 | E6 | Lizenz | MIT oder Apache-2.0 |
 
-## 8. Nächste Schritte
+## 8. Stand und nächste Schritte
 
-1. Offene Entscheidungen E1–E6 bestätigen oder anpassen.
-2. M0 umsetzen: Monorepo, CI, leere App mit Canvas, Deployment.
-3. M1 starten mit dem Kernmodell für Stellen/Transitions-Netze und dem Editor.
+Version 1.0.0 schließt M0 bis M5 und D1 bis D4 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
+
+Offen sind die beiden optionalen Bausteine:
+
+1. **D5 · Kopplung an echte Daten:** Replay eines Event Logs oder einer externen Ereignisquelle auf demselben
+   Ereignisstrom (die Analyse spielt Abläufe schon in der Simulation ab, der Weg von außen fehlt noch).
+2. **M6 · Backend, Teilen, Schnittstellen:** Server für Projektablage und Freigabelinks, REST-API, Schlüsselverwaltung
+   für den LLM-Anbieter (löst die Einschränkung zum Schlüssel im Browser) und Zusammenarbeit in Echtzeit.

@@ -1,6 +1,6 @@
 {
   "name": "@pnm/layout",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Automatic layout for Petri nets using ELK",
   "license": "MIT",

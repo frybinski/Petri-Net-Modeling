@@ -1,6 +1,6 @@
 {
   "name": "@pnm/cli",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Command line for Petri nets: validate, simulate, analyze, check, export, import, layout, domain view",
   "license": "MIT",
