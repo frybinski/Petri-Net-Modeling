@@ -285,6 +285,51 @@ describe('the client filter', () => {
     });
     expect(response.status).toBe(200);
   });
+
+  describe('the warning about a forwarding header that is not believed', () => {
+    const warnings = (logs: { entries(): Array<Record<string, unknown>> }) =>
+      logs.entries().filter((e) => e['msg'] === 'forwarded header ignored');
+
+    it('is logged once, with the peer and the hint, and without the header', async () => {
+      const { url, logs } = await start();
+      for (let i = 0; i < 3; i += 1) {
+        const response = await fetch(`${url}/api/health`, {
+          headers: { 'X-Forwarded-For': '198.51.100.77, 10.1.2.3' },
+        });
+        expect(response.status).toBe(200);
+      }
+      const found = warnings(logs);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatchObject({ level: 'warn', peer: '127.0.0.1' });
+      expect(String(found[0]?.['hint'])).toContain('PNM_TRUSTED_PROXIES');
+      expect(logs.lines.join('\n')).not.toContain('198.51.100.77');
+      expect(logs.lines.join('\n')).not.toContain('10.1.2.3');
+    });
+
+    it('is not logged for requests without the header or with an empty one', async () => {
+      const { url, logs } = await start();
+      await fetch(`${url}/api/health`);
+      await fetch(`${url}/api/health`, { headers: { 'X-Forwarded-For': ' ' } });
+      expect(warnings(logs)).toHaveLength(0);
+    });
+
+    it('is not logged when the peer is a trusted proxy', async () => {
+      const { url, logs } = await start({ PNM_TRUSTED_PROXIES: '127.0.0.1' });
+      await fetch(`${url}/api/health`, { headers: { 'X-Forwarded-For': '198.51.100.7' } });
+      expect(warnings(logs)).toHaveLength(0);
+    });
+
+    it('is logged again by a new process, not by the next request', async () => {
+      const first = await start();
+      await fetch(`${first.url}/api/health`, { headers: { 'X-Forwarded-For': '198.51.100.7' } });
+      expect(warnings(first.logs)).toHaveLength(1);
+      await first.stop();
+      running = undefined;
+      const second = await start();
+      await fetch(`${second.url}/api/health`, { headers: { 'X-Forwarded-For': '198.51.100.7' } });
+      expect(warnings(second.logs)).toHaveLength(1);
+    });
+  });
 });
 
 describe('basic auth', () => {

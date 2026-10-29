@@ -56,6 +56,8 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
   const router = new Router();
   const allowed = parseNetList(config.allowedNets);
   const trusted = parseNetList(config.trustedProxies);
+  // Set once the warning about a forwarding header from an untrusted peer was logged.
+  let warnedForwardedFor = false;
   const auth = createBasicAuth(config.basicAuth);
   const files = createStaticFiles(config.webDir);
   const publicHost = new URL(config.publicUrl).host;
@@ -166,11 +168,18 @@ export async function createApp(config: Config, deps: AppDeps = {}): Promise<App
     try {
       applySecurityHeaders(res, contentSecurityPolicy(await files.scriptHashes()));
 
-      const found = clientAddress(
-        req.socket.remoteAddress,
-        header(req, 'x-forwarded-for'),
-        trusted,
-      );
+      const forwardedFor = header(req, 'x-forwarded-for');
+      const found = clientAddress(req.socket.remoteAddress, forwardedFor, trusted);
+      if (!warnedForwardedFor && !found.forwarded && (forwardedFor ?? '').trim() !== '') {
+        // Right for a client that sends the header itself, but also how an ingress looks when
+        // PNM_TRUSTED_PROXIES is missing: the filter then sees the ingress, not the clients, and
+        // the private ranges of PNM_ALLOWED_NETS let everybody in. Said once, without the header.
+        warnedForwardedFor = true;
+        logger.warn('forwarded header ignored', {
+          peer: found.peer === '' ? 'unknown' : found.peer,
+          hint: 'The request carries X-Forwarded-For, but its peer is not in PNM_TRUSTED_PROXIES, so the header is ignored and the peer counts as the client. Behind an ingress, set PNM_TRUSTED_PROXIES to its address range.',
+        });
+      }
       const client = found.address ?? found.peer;
       if (!isAllowed(found, allowed)) {
         logger.warn('denied', { client: client === '' ? 'unknown' : client });
