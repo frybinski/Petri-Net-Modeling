@@ -62,3 +62,55 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Builds deploy/Dockerfile on every push and pull request without pushing it, so that a
+      # change that breaks the image is seen here and not when a release is made.
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          load: true
+          push: false
+          tags: pnm:ci
+          build-args: |
+            VERSION=ci
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the container
+        run: |
+          docker run -d --name pnm \
+            -p 8080:8080 \
+            -e PNM_PUBLIC_URL=http://localhost:8080 \
+            -e PNM_ALLOWED_NETS=0.0.0.0/0,::/0 \
+            --read-only --tmpfs /tmp --cap-drop ALL \
+            pnm:ci
+
+      - name: Wait for the health check of the image
+        run: |
+          for i in $(seq 1 40); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' pnm)"
+            echo "health: ${status}"
+            if [ "${status}" = "healthy" ]; then exit 0; fi
+            if [ "${status}" = "unhealthy" ]; then break; fi
+            sleep 3
+          done
+          docker logs pnm
+          exit 1
+
+      - name: Smoke test with curl
+        run: deploy/smoke-test.sh http://localhost:8080
+
+      - name: Show the log if something failed
+        if: failure()
+        run: docker logs pnm || true

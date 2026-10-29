@@ -1,0 +1,23 @@
+# What the image build does not need to see. The Dockerfile copies the manifests first and the
+# rest of the tree after the packages are installed, so keeping local build output out of the
+# context also keeps the layer cache stable.
+.git
+.gitlab-ci.yml
+.github
+**/node_modules
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/blob-report
+**/.turbo
+**/.vite
+**/*.tsbuildinfo
+**/.DS_Store
+**/*.log
+.env
+.env.*
+!deploy/.env.example
+docs/images
+docs/mockups
+docs/eval

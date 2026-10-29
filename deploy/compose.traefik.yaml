@@ -1,0 +1,30 @@
+# Labels for a Traefik (version 3) that reads the Docker labels of its services.
+# Add it to the main file:
+#
+#   docker compose -f compose.yaml -f compose.traefik.yaml up -d
+#
+# or set COMPOSE_FILE=compose.yaml:compose.traefik.yaml in .env. Needs PNM_HOST in .env, the host
+# name that users type (it needs a DNS entry that points to the host).
+#
+# This is a template: the names of the entrypoint and of the certificate resolver depend on the
+# static configuration of the Traefik at the host. Ask whoever runs it, or look at the labels of
+# another service that is published the same way (docker inspect <container>).
+#
+# Traefik 2 calls the middleware ipwhitelist instead of ipallowlist.
+
+services:
+  pnm:
+    labels:
+      - traefik.enable=true
+      # The network over which Traefik reaches the service (the same as PNM_INGRESS_NETWORK).
+      - traefik.docker.network=${PNM_INGRESS_NETWORK}
+      - traefik.http.routers.pnm.rule=Host(`${PNM_HOST:?Set PNM_HOST in .env, for example pnm.example.org}`)
+      - traefik.http.routers.pnm.entrypoints=${PNM_TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.pnm.tls=true
+      # Uncomment if the Traefik obtains the certificates itself (name from its static config):
+      # - traefik.http.routers.pnm.tls.certresolver=${PNM_TRAEFIK_CERTRESOLVER}
+      - traefik.http.routers.pnm.middlewares=pnm-kit
+      # Only the networks of the KIT. This is the same list as PNM_ALLOWED_NETS (a second fence;
+      # the server checks the address of the client as well). Confirm the ranges before use.
+      - traefik.http.middlewares.pnm-kit.ipallowlist.sourcerange=${PNM_TRAEFIK_SOURCE_RANGE:-129.13.0.0/16,141.3.0.0/16,141.52.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      - traefik.http.services.pnm.loadbalancer.server.port=8080

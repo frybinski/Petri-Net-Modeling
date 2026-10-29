@@ -1,0 +1,72 @@
+# Petri Net Modeling on the GPU host: the image from the registry, behind the ingress of the host.
+#
+#   cp .env.example .env      # then edit .env
+#   docker compose pull
+#   docker compose up -d
+#
+# The service publishes no port. It joins the Docker network that the ingress uses to reach its
+# services (PNM_INGRESS_NETWORK), and the ingress passes the requests on to http://pnm:8080. TLS
+# ends in the ingress.
+#
+# Optional parts are separate files, added with -f or, better, with COMPOSE_FILE in the .env file:
+#   compose.traefik.yaml         labels for a Traefik that reads Docker labels
+#   compose.ollama-network.yaml  also join the Docker network of Open WebUI / Ollama
+# See README.md.
+
+name: pnm
+
+services:
+  pnm:
+    image: ${PNM_IMAGE:?Set PNM_IMAGE in .env, for example registry.example.org/group/petri-net-modeling}:${PNM_VERSION:?Set PNM_VERSION in .env, for example 1.2.0}
+    restart: unless-stopped
+    environment:
+      PNM_PUBLIC_URL: ${PNM_PUBLIC_URL:?Set PNM_PUBLIC_URL in .env, for example https://pnm.example.org}
+      PNM_SERVER_NAME: ${PNM_SERVER_NAME:-}
+      PNM_LLM_BASE_URL: ${PNM_LLM_BASE_URL:-}
+      PNM_LLM_API_KEY: ${PNM_LLM_API_KEY:-}
+      PNM_LLM_MODELS: ${PNM_LLM_MODELS:-}
+      PNM_LLM_DEFAULT_MODEL: ${PNM_LLM_DEFAULT_MODEL:-}
+      PNM_LLM_TIMEOUT: ${PNM_LLM_TIMEOUT:-}
+      PNM_ALLOWED_NETS: ${PNM_ALLOWED_NETS:-}
+      PNM_TRUSTED_PROXIES: ${PNM_TRUSTED_PROXIES:-}
+      PNM_BASIC_AUTH: ${PNM_BASIC_AUTH:-}
+      PNM_MAX_BODY: ${PNM_MAX_BODY:-}
+      PNM_WORKERS: ${PNM_WORKERS:-}
+      PNM_JOB_TIMEOUT: ${PNM_JOB_TIMEOUT:-}
+      PNM_WORKER_MEMORY: ${PNM_WORKER_MEMORY:-}
+      PNM_MAX_VERSIONS: ${PNM_MAX_VERSIONS:-}
+      PNM_TRASH_DAYS: ${PNM_TRASH_DAYS:-}
+    volumes:
+      - pnm-data:/data
+    networks:
+      - ingress
+    # Not published: only the ingress reaches the service, over the network above.
+    expose:
+      - '8080'
+    # host.docker.internal lets the container reach a service on the host itself, for example an
+    # Ollama that listens on the host: PNM_LLM_BASE_URL=http://host.docker.internal:11434/v1
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # Hardening: the image needs no write access outside /data and /tmp and no capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${PNM_MEMORY_LIMIT:-2g}
+    cpus: ${PNM_CPUS:-2}
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+networks:
+  ingress:
+    name: ${PNM_INGRESS_NETWORK:?Set PNM_INGRESS_NETWORK in .env to the Docker network of the ingress}
+    external: true
+
+volumes:
+  pnm-data:

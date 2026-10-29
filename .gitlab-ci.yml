@@ -1,0 +1,131 @@
+# GitLab CI for the mirror of Petri-Net-Modeling on gitlab.kit.edu ("Weg 2" of docs/plan/M6_Umsetzungsplan.md).
+#
+# The repository is developed on GitHub and mirrored to KIT GitLab (Settings > Repository >
+# Mirroring repositories > Pull). This pipeline checks every push that arrives through the mirror
+# and builds the container image from deploy/Dockerfile:
+#
+#   branches and merge requests   lint, format, typecheck, tests, build, and the image is built
+#                                 without being pushed (a broken Dockerfile shows up at once)
+#   tags v<version>               the same, and then the image is pushed to the container registry
+#                                 of the project as  $CI_REGISTRY_IMAGE:<version>,
+#                                 $CI_REGISTRY_IMAGE:<version>-<short sha> and, for a release
+#                                 (no hyphen in the version), $CI_REGISTRY_IMAGE:latest
+#
+# The image is built with kaniko: it needs no privileged runner and no Docker daemon. The registry
+# login is the job token of the pipeline, so no secret has to be stored in GitLab for this. The
+# server takes the image by its version (PNM_VERSION in deploy/.env), never "latest".
+#
+# Variables (Settings > CI/CD > Variables, all optional):
+#   NODE_IMAGE      base image for the tests and for the image (default node:22-alpine); set it to
+#                   ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22-alpine if Docker Hub is not
+#                   reachable from the runners or rate limits the pulls
+#   KANIKO_IMAGE    the kaniko executor image (default gcr.io/kaniko-project/executor:v1.23.2-debug)
+#
+# The same file is checked by apps/server/test/pipelines.test.ts, because GitLab itself is not
+# available where the repository is developed. After the mirror is set up, run CI lint in GitLab
+# (Build > Pipeline editor > Validate) once.
+
+stages:
+  - check
+  - image
+  - publish
+
+variables:
+  NODE_IMAGE: node:22-alpine
+  KANIKO_IMAGE: gcr.io/kaniko-project/executor:v1.23.2-debug
+  # The packages are cached between pipelines of the same branch.
+  PNPM_STORE: $CI_PROJECT_DIR/.pnpm-store
+  GIT_DEPTH: '20'
+
+workflow:
+  rules:
+    # A branch with an open merge request runs as a merge request pipeline only.
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+check:
+  stage: check
+  image: $NODE_IMAGE
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+  before_script:
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE"
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm lint
+    - pnpm format:check
+    - pnpm typecheck
+    - pnpm test
+    - pnpm test:scripts
+    - pnpm build
+
+# Builds the image without pushing it, on every branch and merge request.
+image-build:
+  stage: image
+  needs: [check]
+  image:
+    name: $KANIKO_IMAGE
+    entrypoint: ['']
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+  script:
+    - >
+      /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/deploy/Dockerfile"
+      --build-arg "NODE_IMAGE=$NODE_IMAGE"
+      --build-arg "VERSION=dev"
+      --build-arg "REVISION=$CI_COMMIT_SHORT_SHA"
+      --no-push
+
+# Builds the image from a tag v<version> and pushes it to the registry of the project.
+image-publish:
+  stage: publish
+  needs: [check]
+  image:
+    name: $KANIKO_IMAGE
+    entrypoint: ['']
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+  script:
+    - |
+      VERSION="${CI_COMMIT_TAG#v}"
+      # The tag must name the version in package.json, as in the release workflow of GitHub.
+      PACKAGE_VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' package.json | head -n 1)"
+      if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+        echo "The tag $CI_COMMIT_TAG is not the version in package.json ($PACKAGE_VERSION). Change the version first, then tag." >&2
+        exit 1
+      fi
+      DESTINATIONS="--destination $CI_REGISTRY_IMAGE:$VERSION --destination $CI_REGISTRY_IMAGE:$VERSION-$CI_COMMIT_SHORT_SHA"
+      # Only a release (a version without a hyphen) is also "latest".
+      case "$VERSION" in *-*) ;; *) DESTINATIONS="$DESTINATIONS --destination $CI_REGISTRY_IMAGE:latest" ;; esac
+      # The login is the job token of this pipeline.
+      mkdir -p /kaniko/.docker
+      AUTH="$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')"
+      printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$CI_REGISTRY" "$AUTH" > /kaniko/.docker/config.json
+      /kaniko/executor \
+        --context "$CI_PROJECT_DIR" \
+        --dockerfile "$CI_PROJECT_DIR/deploy/Dockerfile" \
+        --build-arg "NODE_IMAGE=$NODE_IMAGE" \
+        --build-arg "VERSION=$VERSION" \
+        --build-arg "REVISION=$CI_COMMIT_SHA" \
+        $DESTINATIONS
+      {
+        echo "Image pushed:"
+        echo "  $CI_REGISTRY_IMAGE:$VERSION"
+        echo "Put PNM_IMAGE=$CI_REGISTRY_IMAGE and PNM_VERSION=$VERSION in deploy/.env on the server."
+      } | tee image.txt
+  artifacts:
+    paths:
+      - image.txt
+    expire_in: 90 days

@@ -1,0 +1,147 @@
+name: Image
+
+# "Weg 1" of docs/plan/M6_Umsetzungsplan.md: build the container image of the server from
+# deploy/Dockerfile and push it to the container registry of KIT GitLab. A tag `v<version>`
+# starts it, and so does a manual run.
+#
+# It does nothing until the repository is set up for it (Settings > Secrets and variables > Actions):
+#
+#   variable KIT_REGISTRY_IMAGE   the image without a tag, for example
+#                                 registry.gitlab.kit.edu/<group>/<project>/petri-net-modeling
+#   secret   KIT_REGISTRY_USER    the user name of a GitLab deploy token
+#   secret   KIT_REGISTRY_TOKEN   its token (scope write_registry)
+#
+# Without the variable the job is skipped. This way needs a registry that GitHub's runners can
+# reach from the internet; where it is only reachable inside the KIT network, use the mirror and
+# .gitlab-ci.yml ("Weg 2") instead. The registry host is taken from KIT_REGISTRY_IMAGE.
+#
+# The tests and the build run first, as in the release workflow; the image is built once more
+# inside the Dockerfile, which is the build that counts.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      push:
+        description: 'Push the image (otherwise it is only built)'
+        type: boolean
+        default: false
+      version:
+        description: 'Version to build (default: the version in package.json)'
+        type: string
+        required: false
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Test, build and push the image
+    if: ${{ vars.KIT_REGISTRY_IMAGE != '' }}
+    runs-on: ubuntu-latest
+    env:
+      KIT_REGISTRY_IMAGE: ${{ vars.KIT_REGISTRY_IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Find the version and the tags
+        id: version
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif [ -n "${INPUT_VERSION}" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${package_version}"
+          fi
+          if [ "${version}" != "${package_version}" ]; then
+            echo "::error::The version ${version} is not the version in package.json (${package_version}). Change the version first, then tag."
+            exit 1
+          fi
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          tags="${KIT_REGISTRY_IMAGE}:${version},${KIT_REGISTRY_IMAGE}:${version}-${short_sha}"
+          # Versions with a hyphen (1.2.0-rc.1) are pre-releases and are not "latest".
+          case "${version}" in *-*) ;; *) tags="${tags},${KIT_REGISTRY_IMAGE}:latest" ;; esac
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tags=${tags}" >> "${GITHUB_OUTPUT}"
+          echo "registry=${KIT_REGISTRY_IMAGE%%/*}" >> "${GITHUB_OUTPUT}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${INPUT_PUSH}" = "true" ]; then
+            echo "push=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "push=false" >> "${GITHUB_OUTPUT}"
+          fi
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUSH: ${{ inputs.push }}
+
+      - name: Check the credentials
+        if: ${{ steps.version.outputs.push == 'true' }}
+        run: |
+          if [ -z "${KIT_REGISTRY_USER}" ] || [ -z "${KIT_REGISTRY_TOKEN}" ]; then
+            echo "::error::The secrets KIT_REGISTRY_USER and KIT_REGISTRY_TOKEN are not set (a GitLab deploy token with write_registry)."
+            exit 1
+          fi
+        env:
+          KIT_REGISTRY_USER: ${{ secrets.KIT_REGISTRY_USER }}
+          KIT_REGISTRY_TOKEN: ${{ secrets.KIT_REGISTRY_TOKEN }}
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:scripts
+      - run: pnpm build
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the registry
+        if: ${{ steps.version.outputs.push == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.version.outputs.registry }}
+          username: ${{ secrets.KIT_REGISTRY_USER }}
+          password: ${{ secrets.KIT_REGISTRY_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: ${{ steps.version.outputs.push == 'true' }}
+          tags: ${{ steps.version.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Say which image it is
+        run: |
+          {
+            echo "### Image"
+            echo
+            if [ "${PUSH}" = "true" ]; then echo "Pushed:"; else echo "Built, not pushed:"; fi
+            echo
+            echo '```'
+            echo "${TAGS}" | tr ',' '\n'
+            echo '```'
+            echo
+            echo "On the server: \`PNM_IMAGE=${KIT_REGISTRY_IMAGE}\` and \`PNM_VERSION=${VERSION}\` in \`deploy/.env\`."
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
+        env:
+          PUSH: ${{ steps.version.outputs.push }}
+          TAGS: ${{ steps.version.outputs.tags }}
+          VERSION: ${{ steps.version.outputs.version }}
