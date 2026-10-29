@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-29 · Status: Version 1.1.0 (M0–M5 und D1–D5 fertig; M6 offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-29 · Status: Version 1.2.0 (M0–M6 und D1–D5 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -81,7 +81,7 @@ sich als Sonderfall (Typ „Einheit", Inschriften sind Zahlen).
 │  packages/layout    Automatisches Layout (ELK)                │
 ├──────────────────────────────────────────────────────────────┤
 │  apps/cli           Kommandozeile (validate, simulate, export)│
-│  apps/server (M6)   Persistenz · Teilen · schwere Analysen    │
+│  apps/server (M6)   Auslieferung · LLM-Vermittler · API · Projekte │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -197,12 +197,17 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Replay eines Event Logs (CSV, XES) oder einer Live-Quelle auf demselben Ereignisstrom: `docs/replay.md`,
   `docs/adr/0015-event-log-replay.md`, Plan `docs/plan/D5_Umsetzungsplan.md`.
 
-### M6 · Backend, Teilen, Schnittstellen (optional, 3 Wochen) · offen
-- Server (Node, Fastify) mit Projektablage, Versionen, Freigabelinks.
-- REST/JSON-API für Lesen, Validieren, Simulieren und Analysieren.
-- Echtzeit-Zusammenarbeit (Yjs) als Erweiterung.
-- Schnittstelle für LLM-Verarbeitungsketten: Netz als JSON hinein,
-  Validierungs- und Analyseergebnis heraus (neuro-symbolische Arbeitsteilung).
+### M6 · Backend, Teilen, Schnittstellen · fertig (1.2.0)
+- Server (Node, `node:http` statt Fastify, keine Laufzeitabhängigkeit) in `apps/server`: liefert die App aus, vermittelt
+  LLM-Anfragen an Ollama oder Open WebUI mit einem Schlüssel, der nur dem Server bekannt ist, bietet die Funktionen der
+  Kommandozeile als HTTP-Schnittstelle (in Worker-Threads mit hartem Zeit- und Speicherlimit) und speichert Projekte mit
+  Versionen, Freigabelinks und Papierkorb als Dateien. Siehe `docs/server.md`, `docs/adr/0016-server.md`, Plan
+  `docs/plan/M6_Umsetzungsplan.md`.
+- Betrieb: Image aus `deploy/Dockerfile`, gebaut von GitLab CI aus einem Spiegel des Repositorys (oder von GitHub Actions),
+  Docker Compose hinter dem vorhandenen Ingress des AIFB-Servers, nur aus dem KIT-Netz; Anleitung `deploy/README.md`.
+- Web-App im Server-Modus: Öffnen und Speichern auf dem Server, Versionen, Teilen, Konflikterkennung, Freigabeseiten,
+  Voreinstellung „Server (Ollama)“ ohne Schlüssel im Browser.
+- Nicht Teil von M6: Echtzeit-Zusammenarbeit (Yjs), Konten, „Run on server“ in der App (siehe `docs/limitations.md`).
 
 ## 5. Projektstruktur
 
@@ -248,14 +253,15 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.1.0 schließt M0 bis M5 und D1 bis D5 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.2.0 schließt M0 bis M6 und D1 bis D5 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
-D5 ist mit 1.1.0 fertig: Event Logs und Live-Zuflüsse laufen als zweite Quelle der Simulation durch Netzansicht,
-Domänenansicht, Trace, Kennzahlen und Konformitätsprüfung (`docs/replay.md`). Eine Brücke von einem fremden Prozess in die
-Seite (WebSocket, `postMessage`) bleibt offen.
+M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im KIT-Netz aus, vermittelt LLM-Anfragen, bietet
+die Schnittstelle für Werkzeuge und speichert Projekte; die Einschränkungen 8, 22 und 23 sind im Server-Modus behoben. Zum
+Betrieb am AIFB fehlen die Antworten der Betreiber (Ingress, Netznamen, Hostname, GitLab-Gruppe) und die Einrichtung nach
+`deploy/README.md`.
 
-Offen ist der optionale Baustein:
+Offen sind optionale Bausteine:
 
-1. **M6 · Backend, Teilen, Schnittstellen:** Server für Projektablage und Freigabelinks, REST-API, Schlüsselverwaltung
-   für den LLM-Anbieter (löst die Einschränkung zum Schlüssel im Browser) und Zusammenarbeit in Echtzeit.
+1. **Echtzeit-Zusammenarbeit** im selben Netz (Yjs) und Konten, falls Projekte privat sein sollen.
+2. Eine Brücke von einem fremden Prozess in die Seite für die Live-Quelle der Wiedergabe (WebSocket, `postMessage`).

@@ -1,6 +1,6 @@
 {
   "name": "@pnm/server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Server for a shared installation: web app, LLM proxy, HTTP API over the command line functions, project store with versions and share links",
   "license": "MIT",

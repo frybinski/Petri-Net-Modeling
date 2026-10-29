@@ -2,6 +2,70 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.2.0: Server
+
+Milestone M6. The tool can run on a server for a group: it serves the web app, passes language model requests on with a
+key that only the server knows, offers the functions of the command line over HTTP, and stores projects with versions
+and share links. The app on GitHub Pages and local use are unchanged; the server functions appear only when the app is
+served by a server. The file format stays `1.0`. How it works is in [docs/server.md](docs/server.md), how to set it up in
+[deploy/README.md](deploy/README.md), why it is built this way in [ADR 0016](docs/adr/0016-server.md), the plan in
+[docs/plan/M6_Umsetzungsplan.md](docs/plan/M6_Umsetzungsplan.md).
+
+### Added
+
+- **Server (`apps/server`, `@pnm/server`).** A program on `node:http` with a small router and no runtime dependency,
+  bundled with esbuild to `dist/server.js`. It is configured by `PNM_*` variables (checked at the start, all problems
+  listed), logs one JSON line per request without content, stops gracefully on SIGTERM, and has the commands
+  `check-config` and `hash-password`.
+- **Web app delivery** with cache headers (immutable hashed assets, `no-cache` for `index.html`), gzip, a content security
+  policy, `nosniff`, `Referrer-Policy`, `frame-ancestors 'none'`, and the SPA fallback. The page `/s/<token>` is the app.
+- **Who may use it.** `PNM_ALLOWED_NETS` checks the client address (loopback always passes); `X-Forwarded-For` counts only
+  from `PNM_TRUSTED_PROXIES`, read from the right. Optional passwords for the instance (`PNM_BASIC_AUTH`, scrypt), a check of
+  the `Host` header against DNS rebinding, `application/json` and the `Origin` for every change.
+- **LLM proxy.** `POST /llm/v1/chat/completions` and `GET /llm/v1/models` are passed to `PNM_LLM_BASE_URL` (Open WebUI at
+  `…/api`, Ollama at `…/v1`) with the key added and never returned or logged, only the usual request fields, an optional
+  list of models, streaming, two requests at a time with a queue of ten and 429 beyond it, a time limit of 180 s, and one
+  log line per request with model, duration, token counts and status. Everything else below `/llm/` is 404.
+- **Interface for tools.** `/api/v1/validate`, `simulate`, `replay`, `analyze`, `check`, `convert`, `layout`,
+  `domain/check`, `domain/generic` and `domain/generate`, with the results of `pnm … --json` (compared with the command
+  line in the tests), a pool of `worker_threads` with a hard time limit (the thread is ended), a memory limit, a queue
+  and 504/503/422 answers, one error format, and `GET /api/v1/openapi.json` (checked against the routes).
+- **Project store.** `GET/POST /api/v1/projects`, `GET/PUT/DELETE /api/v1/projects/<id>`, versions, share links (read, or
+  read and write, renewable, removable), a trash for 30 days. Versions are immutable files; saves are atomic and need
+  `If-Match` (409 with the current version, 428 without); old versions are thinned out beyond `PNM_MAX_VERSIONS`; a crash
+  at any point leaves the project readable.
+- **Web app in server mode.** Detection by `GET /api/health`; _File > Open from server_, _Save to server_ (`Ctrl+S`; the
+  file is `Ctrl+Shift+S`), _Versions_ (with the element counts compared with the editor), _Share_, the trash, a conflict
+  dialog on 409, the status bar with the server and the project, share pages `/s/<token>` (read-only blocks saving to the
+  project and offers a copy), and the LLM preset _Server (Ollama)_ with no key field and the models of the server.
+- **Deployment.** `deploy/Dockerfile` (two stages, non-root, port 8080, health check), `deploy/compose.yaml` (image from the
+  registry with a fixed version, no published port, external network of the ingress, read-only root, no capabilities),
+  overlays for Traefik labels and for the network of Open WebUI, `deploy/compose.local.yaml` with a stand-in for the model
+  server, `deploy/.env.example`, `deploy/smoke-test.sh`, and `deploy/README.md` (registry login, `.env`, ingress entries for
+  Traefik and nginx, update and rollback, backup, the service account and key rotation, the GitLab mirror, troubleshooting).
+- **Pipelines.** `.gitlab-ci.yml` for the mirror in KIT GitLab (checks, image with kaniko, push of `<version>`,
+  `<version>-<sha>` and `latest` on tags), `.github/workflows/image.yml` as the alternative that pushes from GitHub (does
+  nothing unless `KIT_REGISTRY_IMAGE` is set), and a job in `ci.yml` that builds the image on every push and pull request
+  and runs `deploy/smoke-test.sh` against the container.
+- **Tests.** 250 tests for the server (configuration, filter, static files, proxy against the fake model server, every
+  endpoint against the command line, pool with timeout and memory limit, store with a failing disk, pipeline files), 60
+  for the app (client, actions, dialogs, share page, language model preset), and a Playwright project that runs the real
+  server process with the built app (11 tests: policy, saving, versions, two people and a conflict, links, trash, model).
+
+### Changed
+
+- The commands of `pnm` call the new library `apps/cli/src/lib` (exported as `@pnm/cli/lib`) and only read arguments and
+  print. The output of 190 command runs on the examples is identical to 1.1.0.
+- `buildCli` takes the output file as an argument.
+- `Ctrl+S` saves to the server when the app has one (to the file otherwise); `Ctrl+Shift+S` always saves to the file.
+- Limitations 8, 22 and 23 are fixed in server mode (see [docs/limitations.md](docs/limitations.md)).
+- All packages are at version 1.2.0.
+
+### Fixed
+
+- Found by running the real app under the content security policy: the fonts that the build inlines as `data:` URIs
+  needed `font-src data:`.
+
 ## 1.1.0: Replay of event logs
 
 Increment D5. The simulation gets a second source: an event log (CSV or XES, from this tool or from others) or a live

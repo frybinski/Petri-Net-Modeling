@@ -4,17 +4,19 @@ An index of everything in `docs/`. The README in the repository root is the firs
 
 ## Using the tool
 
-| Document                         | What it is                                                                                                             |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [format.md](format.md)           | The `.pn.json` format, types, inscriptions, evaluation rules, validation codes, the P/T firing rule and PNML.          |
-| [expressions.md](expressions.md) | A short guide to guards and inscriptions (JSONata) for modelers.                                                       |
-| [simulation.md](simulation.md)   | Durations, resources, arrivals, cases, key figures, the event log and its export, controls and limits.                 |
-| [replay.md](replay.md)           | Replay of event logs (CSV, XES) and live feeds on a net: formats, mapping, rules, fitness, deviations, live API.       |
-| [domain-view.md](domain-view.md) | The domain view: the mapping and its rules, drawing, animation, editing in place and generation by a language model.   |
-| [analysis.md](analysis.md)       | Structure, invariants, state space, coverability, DECLARE and LTLf properties, counterexamples, event logs and limits. |
-| [tikz.md](tikz.md)               | The TikZ export for LaTeX: styles, options and what the output looks like.                                             |
-| [cli.md](cli.md)                 | The command line `pnm`: install from a release or build, every command with its options and exit statuses.             |
-| [limitations.md](limitations.md) | What 1.1.0 does not do, with the reason for each limitation and the way forward.                                       |
+| Document                                   | What it is                                                                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| [format.md](format.md)                     | The `.pn.json` format, types, inscriptions, evaluation rules, validation codes, the P/T firing rule and PNML.          |
+| [expressions.md](expressions.md)           | A short guide to guards and inscriptions (JSONata) for modelers.                                                       |
+| [simulation.md](simulation.md)             | Durations, resources, arrivals, cases, key figures, the event log and its export, controls and limits.                 |
+| [replay.md](replay.md)                     | Replay of event logs (CSV, XES) and live feeds on a net: formats, mapping, rules, fitness, deviations, live API.       |
+| [domain-view.md](domain-view.md)           | The domain view: the mapping and its rules, drawing, animation, editing in place and generation by a language model.   |
+| [analysis.md](analysis.md)                 | Structure, invariants, state space, coverability, DECLARE and LTLf properties, counterexamples, event logs and limits. |
+| [tikz.md](tikz.md)                         | The TikZ export for LaTeX: styles, options and what the output looks like.                                             |
+| [cli.md](cli.md)                           | The command line `pnm`: install from a release or build, every command with its options and exit statuses.             |
+| [server.md](server.md)                     | The server: web app, language model proxy, HTTP interface, project store, security, settings and what the app adds.    |
+| [../deploy/README.md](../deploy/README.md) | Setting up the server with Docker Compose: registry, ingress, update, backup, key rotation, troubleshooting.           |
+| [limitations.md](limitations.md)           | What 1.2.0 does not do, with the reason for each limitation and the way forward.                                       |
 
 ## Decisions
 
@@ -38,6 +40,7 @@ consequences.
 | [0013](adr/0013-analysis-and-verification.md)              | An explicit state space, Karp-Miller, exact invariants and DECLARE/LTLf by automata.      |
 | [0014](adr/0014-parts-load-on-demand.md)                   | Parts that most sessions never open (analysis, domain view, exports, LLM) load on demand. |
 | [0015](adr/0015-event-log-replay.md)                       | An event log is replayed as a simulation: token replay, deviations as events.             |
+| [0016](adr/0016-server.md)                                 | A small server on node:http: files, threads with hard limits, a positive-list proxy.      |
 
 ## Plans
 
@@ -56,6 +59,7 @@ The plans of the increments, in German, written before the work and kept as the 
 | [M5](plan/M5_Umsetzungsplan.md)                                    | Analysis and verification.                                                                                             |
 | [Release 1.0](plan/Release-1.0_Umsetzungsplan.md)                  | The limitations, the consolidation and the release workflow of 1.0.0.                                                  |
 | [D5](plan/D5_Umsetzungsplan.md)                                    | Replay of event logs and live feeds: the simulation with a second source.                                              |
+| [M6](plan/M6_Umsetzungsplan.md)                                    | The server next to Ollama: proxy, interface, project store, image, Compose and ingress.                                |
 
 ## Material
 

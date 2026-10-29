@@ -1,9 +1,11 @@
 # Known limitations
 
-What 1.1.0 does not do, and why. Each entry was found during development and decided in the release step: what could
+What 1.2.0 does not do, and why. Each entry was found during development and decided in the release step: what could
 be fixed cheaply was fixed (see the [changelog](../CHANGELOG.md)), what could not is listed here with the reason and,
 where there is one, the way forward. The numbers are those of the [release plan](plan/Release-1.0_Umsetzungsplan.md)
-(in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md).
+(in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md), those
+of the server (S1 to S7) from the [plan of M6](plan/M6_Umsetzungsplan.md). Entries 8, 22 and 23 are **fixed in server
+mode**: they remain for the app on GitHub Pages and for local use, and say what the server changes.
 
 ## Editor and interface
 
@@ -25,6 +27,10 @@ a little or move the nodes apart; nothing is lost. Below 40 % the names fade out
 inscription is checked by JSONata between evaluation steps. A single long native operation, such as a pathological
 regular expression in `$match` or `$replace`, runs to its end. Evaluating the expressions in a Worker would remove the
 limit and is a candidate for a later release (see [ADR 0005](adr/0005-jsonata-expressions.md)).
+
+_Fixed in server mode:_ the calls of the [server](server.md#computations-in-threads) (`simulate`, `replay`, `analyze`,
+`check`) run in worker threads with a hard time limit (`PNM_JOB_TIMEOUT`); a thread that does not finish is ended and the
+call answers 504, so a pathological expression cannot block the service. The editor in the browser is unchanged.
 
 **An arc straight above its own guard pill still passes behind it (2, the part that stays).** Arcs keep clear of the
 guard pills of other transitions and bend away from the pill of the transition they belong to when the angle allows it
@@ -111,9 +117,16 @@ browser to call an `http://` address, such as a local Ollama or LM Studio server
 is the case. Run the app locally (`pnpm dev`, then `http://localhost:5173`) or use a provider with an `https://`
 address.
 
+_Fixed in server mode:_ the preset _Server (Ollama)_ uses the address of the server that serves the page (`/llm/v1`), so
+the browser calls its own origin and the server calls the model server.
+
 **API keys are stored in the browser (23).** The key of the LLM provider is kept in `localStorage`, apart from the other
 settings, and never in a net, an export or a log. Anyone who can use the browser profile can read it. The settings say
-so. A small server that keeps the key and forwards the requests is the plan for the next milestone (M6).
+so.
+
+_Fixed in server mode:_ the key is in the configuration of the server (`PNM_LLM_API_KEY`), the preset _Server (Ollama)_ has
+no key field, and the browser never sends a key to the server. A key that someone typed for another provider stays in that
+browser as before.
 
 ## Interchange, command line and analysis
 
@@ -133,9 +146,41 @@ bindings, so deadlocks, boundedness, liveness and properties are exact. Siphons,
 invariants hold for the skeleton and say something about the JSON net only where the skeleton is a faithful picture of
 it.
 
-## Not in 1.1.0
+## Server
 
-- A server for the LLM key and for sharing nets (M6).
+The [server](server.md) (M6) has its own limits. The numbers are those of the [plan of M6](plan/M6_Umsetzungsplan.md).
+
+**There are no accounts (S1).** Whoever reaches the server sees, changes and deletes every project; deleted projects
+stay in the trash for 30 days. The protection is the network (firewall, ingress, `PNM_ALLOWED_NETS`) and, if wanted, one
+password for the whole instance (`PNM_BASIC_AUTH`). A share link works without that password and is not a lock once someone
+can list the projects. Nothing records who saved a version. A login per person would be a user model; it was left out on
+purpose ([ADR 0016](adr/0016-server.md)).
+
+**No real-time co-editing, and conflicts are not merged (S2).** A save based on an old version is refused (409) and the
+person reloads or saves a copy. Two people who edit at the same time do not see each other. Merging or co-editing (Yjs)
+would need a document model for it.
+
+**One instance per data folder (S3).** The server keeps the index of the projects in memory and locks per project inside the
+process; two instances on one volume would overwrite each other's versions. A restart takes about a second.
+
+**The size of one project is one request (S4).** A net travels as one JSON body (up to `PNM_MAX_BODY`, 10 MB), and saving
+or opening parses it in the main thread of the server. A very large net, or very many people saving at once, delays other
+requests for the duration of the parse. The computations of the interface (not the saves) run in threads.
+
+**The thresholds are fixed numbers (S5).** Two threads, a queue of 16 jobs, 60 s and 512 MB per job, two language model
+requests at a time with ten waiting: sized for a group of a few dozen. They are variables; there is no adaptive scaling.
+
+**The interface for the app's own analyses is not built (S6).** The plan mentions an optional _Run on server_ in the app
+for analyses with a large limit. The analysis in the browser runs in a worker as before; the interface is for tools
+(`POST /api/v1/analyze` with a higher `states`).
+
+**The content security policy has `'unsafe-eval'` (S7).** Ajv, which checks the token types of JSON nets, compiles its
+validators with `new Function`. The policy allows only scripts of the own origin, so this is no way for foreign code to run,
+but it is weaker than a policy without it. Removing it needs standalone validators or another library for JSON Schema.
+
+## Not in 1.2.0
+
+- Accounts, private projects, and an audit trail on the server.
 - Co-editing and a second user in the same net.
 - Colored nets with their own inscription language beyond JSON nets and JSONata.
 - A `pnm` package on a registry: the command line comes as a file with each release.

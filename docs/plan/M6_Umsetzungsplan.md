@@ -330,3 +330,26 @@ bzw. Variablen der Pipeline und der Ingress-Eintrag.
 6. Web-App im Server-Modus.
 7. Tests, Playwright, Robustheit.
 8. Doku, ADR, README, CHANGELOG.
+
+## 9. Stand der Umsetzung (1.2.0)
+
+Umgesetzt ist alles in den Abschnitten 1 bis 3, 5 und 6; Abnahme siehe 7. Abweichungen und Ergänzungen gegenüber dem Plan:
+
+- **Optionales Docker-Netz zu Open WebUI** liegt in `deploy/compose.ollama-network.yaml` (mit `-f` oder `COMPOSE_FILE`
+  hinzuzunehmen), nicht in `compose.yaml`: Compose kann ein externes Netz nicht bedingt einbinden. `extra_hosts` steht
+  immer in `compose.yaml`, es schadet nicht.
+- **`Host`-Prüfung (`PNM_ALLOWED_HOSTS`)** gegen DNS-Rebinding, **`Origin`-Prüfung** und `application/json` für alle
+  Änderungen sind ergänzt (Abschnitt 1.2); in der Sicherheitsrichtlinie ist `'unsafe-eval'` nötig (Ajv) und `font-src data:`
+  (die Schriftarten, die der Build einbettet); beides hat der Lauf der echten App unter der Richtlinie gezeigt.
+- **Filter für Modelle, Zeitlimit und Warteschlange** sind Variablen (`PNM_LLM_TIMEOUT`, `PNM_LLM_CONCURRENCY`,
+  `PNM_LLM_QUEUE`, `PNM_LLM_MAX_BODY`); es werden nur bekannte Felder der Anfrage weitergereicht (Open WebUI nähme sonst
+  Werkzeuge und Dateien an). `PNM_SERVER_NAME` ist ergänzt (Anzeige in der Statusleiste).
+- **`PNM_BASIC_AUTH`** hat das Format `user:scrypt:<salt>:<hash>`; `node server.js hash-password <user>` erzeugt den Eintrag.
+- **Schnittstelle:** zusätzlich `/api/v1/trash`, `/api/v1/trash/<id>/restore`, `/api/v1/shared/<token>` (Lesen und Schreiben
+  über Freigabe) und `?format=` bei `convert`; `simulate` liefert Protokolle nur bis 200 000 Ereignisse.
+- **Gemeinsamer Code:** die Befehle der Kommandozeile rufen jetzt `apps/cli/src/lib` auf, das der Server mitbenutzt (der
+  Plan nannte „die Befehlsimplementierungen wiederverwenden“).
+- **„Run on server“ in der App** (Abschnitt 3, optional) ist nicht gebaut; die Analyse mit großem Limit steht Werkzeugen
+  über die Schnittstelle offen.
+- **GitLab-Pull-Mirror** gibt es nur in GitLab Premium; für eine Instanz ohne diese Funktion beschreibt `deploy/README.md`
+  die Alternativen (Push von GitHub, oder Weg 1).

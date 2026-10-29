@@ -9,13 +9,13 @@ Every [release](https://github.com/frybinski/Petri-Net-Modeling/releases) carrie
 `pnm-<version>.js`, and its SHA-256 sum. Node 22 is all it needs:
 
 ```sh
-# download pnm-1.1.0.js and pnm-1.1.0.js.sha256 from the page of the release, then
-sha256sum --check pnm-1.1.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.1.0.js.sha256
-node pnm-1.1.0.js --help
-node pnm-1.1.0.js validate my-net.pn.json
+# download pnm-1.2.0.js and pnm-1.2.0.js.sha256 from the page of the release, then
+sha256sum --check pnm-1.2.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.2.0.js.sha256
+node pnm-1.2.0.js --help
+node pnm-1.2.0.js validate my-net.pn.json
 ```
 
-The file starts with a shebang, so `chmod +x pnm-1.1.0.js` lets you call it as `./pnm-1.1.0.js`; put it on the `PATH`
+The file starts with a shebang, so `chmod +x pnm-1.2.0.js` lets you call it as `./pnm-1.2.0.js`; put it on the `PATH`
 under the name `pnm` to use the examples below as they are written. `pnm --version` prints the version.
 
 **Build it yourself.** In a clone of the repository:
