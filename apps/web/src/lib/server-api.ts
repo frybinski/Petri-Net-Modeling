@@ -114,6 +114,18 @@ export function isHealth(value: unknown): value is ServerHealth {
   );
 }
 
+/** The name of the `<meta>` tag with which the server marks the page it delivers (apps/server). */
+export const SERVER_MARKER_NAME = 'pnm-server';
+
+/**
+ * True if the page was delivered by the server of the app: the server adds a marker to `index.html`.
+ * Without it (GitHub Pages, the dev server, a local file) the app does not ask for `api/health` at
+ * all, so that no request ends in a 404 that the browser reports as an error.
+ */
+export function pageMarkedByServer(doc: Document = document): boolean {
+  return doc.querySelector(`meta[name="${SERVER_MARKER_NAME}"]`) !== null;
+}
+
 /**
  * Asks the address the app comes from whether a server is there. Anything that is not the answer
  * of the server (a 404, an HTML page that stands in for every path, a timeout) is "no server".

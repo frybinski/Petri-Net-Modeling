@@ -1,5 +1,6 @@
 import { createEmptyNet, serializeNet, type PetriNet } from '@pnm/core';
 import { vi } from 'vitest';
+import { SERVER_MARKER_NAME } from '../lib/server-api';
 
 /**
  * An in-memory stand-in for the server, behind `fetch`: the health check, the projects with
@@ -113,6 +114,11 @@ export function createFakeServer(options: FakeServerOptions = {}): FakeServer {
       p.versions.push({ version: p.versions.length + 1, savedAt: now(), net });
     },
     install() {
+      // The server marks the page it delivers; the app asks for the health only then.
+      const marker = document.createElement('meta');
+      marker.name = SERVER_MARKER_NAME;
+      marker.content = '1.2.0';
+      document.head.append(marker);
       vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = new URL(
           typeof input === 'string' ? input : input.toString(),
@@ -132,6 +138,7 @@ export function createFakeServer(options: FakeServerOptions = {}): FakeServer {
       });
     },
     restore() {
+      document.querySelector(`meta[name="${SERVER_MARKER_NAME}"]`)?.remove();
       vi.unstubAllGlobals();
     },
   };

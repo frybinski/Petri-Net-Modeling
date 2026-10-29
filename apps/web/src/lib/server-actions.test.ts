@@ -18,6 +18,7 @@ import {
   startServerMode,
 } from './server-actions';
 import { SETTINGS_KEY } from './llm-settings';
+import { SERVER_MARKER_NAME } from './server-api';
 
 const editor = () => useEditorStore.getState();
 const server = () => useServerStore.getState();
@@ -61,12 +62,29 @@ describe('detecting the server', () => {
     expect(server().health?.name).toBe('aifb-test');
   });
 
-  it('stays off where there is none', async () => {
+  it('stays off where the page was not delivered by a server, and asks nothing', async () => {
     fake.restore();
-    vi.stubGlobal('fetch', async () => new Response('nope', { status: 404 }));
+    const fetchSpy = vi.fn(async () => new Response('nope', { status: 404 }));
+    vi.stubGlobal('fetch', fetchSpy);
     await detectServer();
     expect(server().status).toBe('absent');
     expect(server().health).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('stays off where a marked page gets no answer of a server', async () => {
+    fake.restore();
+    const marker = document.createElement('meta');
+    marker.name = SERVER_MARKER_NAME;
+    document.head.append(marker);
+    try {
+      vi.stubGlobal('fetch', async () => new Response('nope', { status: 404 }));
+      await detectServer();
+      expect(server().status).toBe('absent');
+      expect(server().health).toBeNull();
+    } finally {
+      marker.remove();
+    }
   });
 
   it('makes the server the language model when nothing was chosen, without storing it', () => {
@@ -289,13 +307,30 @@ describe('the page of a share link', () => {
 });
 
 describe('without a server', () => {
-  it('does nothing at the start but ask', async () => {
+  it('does nothing at the start, and not even ask, on a page that no server delivered', async () => {
     fake.restore();
     const spy = vi.fn(async () => new Response('not found', { status: 404 }));
     vi.stubGlobal('fetch', spy);
     server().setHealth(null);
     await startServerMode();
     expect(server().status).toBe('absent');
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('asks once, and only once, on a marked page that gets no answer', async () => {
+    fake.restore();
+    const marker = document.createElement('meta');
+    marker.name = SERVER_MARKER_NAME;
+    document.head.append(marker);
+    try {
+      const spy = vi.fn(async () => new Response('not found', { status: 404 }));
+      vi.stubGlobal('fetch', spy);
+      server().setHealth(null);
+      await startServerMode();
+      expect(server().status).toBe('absent');
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      marker.remove();
+    }
   });
 });

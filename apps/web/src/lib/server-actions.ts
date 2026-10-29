@@ -9,6 +9,7 @@ import { guardUnsaved, saveNet } from './files';
 import {
   ServerError,
   fetchHealth,
+  pageMarkedByServer,
   serverApi,
   shareTokenOf,
   type ProjectInfo,
@@ -52,7 +53,8 @@ function reasonOf(error: unknown): string {
  * up for it. Nothing else happens when there is none.
  */
 export async function detectServer(): Promise<void> {
-  const health = await fetchHealth();
+  // Only a page that the server delivered carries its marker; elsewhere nothing is requested.
+  const health = pageMarkedByServer() ? await fetchHealth() : null;
   server().setHealth(health);
   useLlmStore.getState().adoptServer(health);
 }

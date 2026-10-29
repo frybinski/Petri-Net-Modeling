@@ -2,9 +2,11 @@ import { createEmptyNet } from '@pnm/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeServer } from '../test/fake-server';
 import {
+  SERVER_MARKER_NAME,
   ServerError,
   fetchHealth,
   isHealth,
+  pageMarkedByServer,
   serverApi,
   serverLlmBaseUrl,
   serverUrl,
@@ -13,6 +15,29 @@ import {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('the marker of the server in the page', () => {
+  it('is found only where the server put it', () => {
+    expect(pageMarkedByServer()).toBe(false);
+    const fake = createFakeServer();
+    fake.install();
+    expect(pageMarkedByServer()).toBe(true);
+    expect(document.querySelector(`meta[name="${SERVER_MARKER_NAME}"]`)).not.toBeNull();
+    fake.restore();
+    expect(pageMarkedByServer()).toBe(false);
+  });
+
+  it('can be looked for in another document', () => {
+    const other = new DOMParser().parseFromString(
+      `<html><head><meta name="${SERVER_MARKER_NAME}" content="1.2.0"></head><body></body></html>`,
+      'text/html',
+    );
+    expect(pageMarkedByServer(other)).toBe(true);
+    expect(pageMarkedByServer(new DOMParser().parseFromString('<p>x</p>', 'text/html'))).toBe(
+      false,
+    );
+  });
 });
 
 describe('finding out whether there is a server', () => {
