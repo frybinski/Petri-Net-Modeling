@@ -1,5 +1,5 @@
 import type { PetriNet } from '@pnm/core';
-import { createSimulation, type SimEvent } from '@pnm/sim';
+import { createSimulation, type SimEvent, type Simulation } from '@pnm/sim';
 import {
   applyEvents,
   EMPTY_ANIMATION,
@@ -29,6 +29,8 @@ export interface RunOptions {
   wallStep?: number;
   animation?: Omit<AnimationOptions, 'context'>;
   seed?: number;
+  /** The simulation to run instead of the engine, for example a replay of an event log. */
+  simulation?: (net: PetriNet) => Simulation;
   /** Called after every bundle. */
   onBundle?: (bundle: SimEvent[], anim: AnimationState, layout: TokenLayout, now: number) => void;
 }
@@ -42,7 +44,9 @@ export async function runAnimated(
   view: DomainView,
   options: RunOptions,
 ): Promise<RunResult> {
-  const sim = createSimulation(net, options.seed === undefined ? {} : { seed: options.seed });
+  const sim =
+    options.simulation?.(net) ??
+    createSimulation(net, options.seed === undefined ? {} : { seed: options.seed });
   const context = layoutContext(net, view);
   const animation: AnimationOptions = {
     context,
