@@ -89,17 +89,24 @@ jobs:
             release-notes.md
           retention-days: 14
 
-      - name: Create the release
+      - name: Create or update the release
         if: ${{ github.event_name == 'push' || inputs.dry_run == false }}
         run: |
           flags=""
           if [ "${PRERELEASE}" = "true" ]; then flags="--prerelease"; fi
-          # A tag that was pushed must exist; by hand the tag is created at this commit.
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then flags="${flags} --verify-tag"; else flags="${flags} --target ${GITHUB_SHA}"; fi
-          gh release create "v${VERSION}" release-assets/* \
-            --title "${VERSION}" \
-            --notes-file release-notes.md \
-            ${flags}
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            # The release exists (for example created by hand on GitHub): attach the files and set the notes.
+            gh release upload "v${VERSION}" release-assets/* --clobber
+            if [ "${PRERELEASE}" = "true" ]; then edit_flags="--prerelease"; else edit_flags="--prerelease=false"; fi
+            gh release edit "v${VERSION}" --title "${VERSION}" --notes-file release-notes.md ${edit_flags}
+          else
+            # A tag that was pushed must exist; by hand the tag is created at this commit.
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then flags="${flags} --verify-tag"; else flags="${flags} --target ${GITHUB_SHA}"; fi
+            gh release create "v${VERSION}" release-assets/* \
+              --title "${VERSION}" \
+              --notes-file release-notes.md \
+              ${flags}
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
