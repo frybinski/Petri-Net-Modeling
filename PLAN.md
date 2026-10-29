@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-28 · Status: in Umsetzung (M0–M3, D1 und D2 fertig, nächster Schritt D3) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-28 · Status: in Umsetzung (M0–M4 und D1–D4 fertig) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
