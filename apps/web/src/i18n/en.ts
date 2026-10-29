@@ -386,6 +386,7 @@ export const en = {
       idle: 'Idle',
       breakpoint: 'Breakpoint',
       warning: 'Warning',
+      deviation: 'Deviation',
     },
     showing: (shown: number, total: number) => `Latest ${shown} of ${total} events`,
     dropped: (n: number) => `${n} older events were dropped.`,

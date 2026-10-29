@@ -18,6 +18,7 @@ const TYPES: SimEventType[] = [
   'marking-edited',
   'breakpoint',
   'warning',
+  'deviation',
   'idle',
 ];
 
@@ -68,6 +69,7 @@ const BADGE: Record<SimEventType, string> = {
   idle: 'bg-surface-2 text-muted',
   breakpoint: 'bg-danger-soft text-danger',
   warning: 'bg-warn-soft text-warn',
+  deviation: 'bg-danger-soft text-danger',
 };
 
 function nameOf(net: PetriNet, id: Id | undefined): string {

@@ -7,6 +7,14 @@ export {
   toXes,
   type EventLogRow,
 } from './event-log';
+export {
+  looksLikeXes,
+  parseLogTime,
+  readLog,
+  type LogColumns,
+  type ReadLogOptions,
+  type ReadLogResult,
+} from './read-log';
 export * from './pnml';
 export {
   XmlParseError,

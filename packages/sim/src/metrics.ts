@@ -1,4 +1,5 @@
 import { placeRoles, type Id, type PetriNet, type PlaceRole } from '@pnm/core';
+import type { ReplayStats } from './replay/types';
 import type { SimEvent, TokenRef } from './types';
 
 export interface PlaceStats {
@@ -39,6 +40,8 @@ export interface MetricsSnapshot {
   /** Mean time from the arrival of a case to its first token in a sink (seconds). */
   meanCycleTime: number | null;
   maxCycleTime: number | null;
+  /** Fitness and deviations; only a replay of an event log has them. */
+  replay?: ReplayStats;
 }
 
 /** Everything `Metrics` needs to continue from an earlier point. Cheap to take. */
@@ -166,6 +169,8 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
       accrue(event.t);
       switch (event.type) {
         case 'spawn': {
+          // Tokens that a replay creates for a new case.
+          for (const ref of event.tokens ?? []) add(ref.placeId, 1);
           if (!caseIndex.has(event.caseId)) {
             caseIndex.set(event.caseId, caseOrder.length);
             caseOrder.push(event.caseId);
@@ -194,6 +199,10 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
         }
         case 'marking-edited':
           add(event.placeId, event.delta);
+          break;
+        case 'deviation':
+          // The token that the replay had to create is taken by the `start` that follows.
+          if (event.kind === 'missing' && event.placeId !== undefined) add(event.placeId, 1);
           break;
         default:
           break;

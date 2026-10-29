@@ -66,8 +66,11 @@ export class EventLogParseError extends Error {
   }
 }
 
-/** Splits RFC 4180 text into records of fields; handles quotes, doubled quotes and CR LF. */
-function csvRecords(text: string): string[][] {
+/**
+ * Splits RFC 4180 text into records of fields; handles quotes, doubled quotes and CR LF. The
+ * fields are separated by `delimiter` (default a comma).
+ */
+export function csvRecords(text: string, delimiter = ','): string[][] {
   const records: string[][] = [];
   let record: string[] = [];
   let field = '';
@@ -102,7 +105,7 @@ function csvRecords(text: string): string[][] {
     if (char === '"' && field === '') {
       quoted = true;
       started = true;
-    } else if (char === ',') {
+    } else if (char === delimiter) {
       started = true;
       endField();
     } else if (char === '\n' || char === '\r') {
