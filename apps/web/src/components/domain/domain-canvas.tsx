@@ -492,6 +492,24 @@ export function DomainCanvas() {
         const current = viewport.current;
         setViewport(zoomAround(current, 1 / current.zoom, width / 2, height / 2));
       },
+      reveal: ([x, y, w, h]) => {
+        // Pan by as little as it takes to bring the rectangle into the view, clear of the edges.
+        const margin = 48;
+        const { width, height } = size.current;
+        const current = viewport.current;
+        const shift = (low: number, high: number, extent: number): number => {
+          if (high - low > extent - 2 * margin) return margin - low;
+          if (low < margin) return margin - low;
+          if (high > extent - margin) return extent - margin - high;
+          return 0;
+        };
+        const dx = shift(current.x + x * current.zoom, current.x + (x + w) * current.zoom, width);
+        const dy = shift(current.y + y * current.zoom, current.y + (y + h) * current.zoom, height);
+        if (dx !== 0 || dy !== 0) {
+          userZoomed.current = true;
+          setViewport({ ...current, x: current.x + dx, y: current.y + dy });
+        }
+      },
       cancelDrag: () => cancelEditRef.current(),
     });
     return () => {

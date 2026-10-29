@@ -438,8 +438,9 @@ describe('simulation of JSON nets', () => {
     store().startSimulation();
     expect(store().computing).toBe(true);
     expect(store().enabled.size).toBe(0);
-    store().fireTransition(t); // ignored while computing
+    store().fireTransition(t); // kept until the first answer, then it opens the list
     expect(store().simHistory).toHaveLength(0);
+    expect(store().picker).toBeNull();
     await settled();
     expect(
       store()
@@ -447,7 +448,7 @@ describe('simulation of JSON nets', () => {
         ?.bindings.map((b) => b.binding),
     ).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
 
-    store().fireTransition(t); // several bindings: opens the list instead of firing
+    // Several bindings: the kept click opened the list instead of firing.
     expect(store().picker).toBe(t);
     expect(store().simHistory).toHaveLength(0);
     store().fireBindingAt(t, 1);

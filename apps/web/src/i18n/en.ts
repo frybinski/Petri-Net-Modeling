@@ -493,6 +493,9 @@ export const en = {
     title: 'Keyboard shortcuts',
     close: 'Close',
     mouseTitle: 'Mouse',
+    tabTitle: 'About the Tab key',
+    tabNote:
+      'With one node selected, Tab adds the next node and connects it (Shift+Tab the previous one), so the keyboard does not move the focus on. Press Esc to deselect; then Tab moves the focus as usual. In the domain view, in Edit layout, Tab walks through the entries.',
     mouse: [
       ['Double-click an element', 'Rename it, or edit an arc'],
       ['Double-click a tool', 'Keep it active (Esc stops)'],
@@ -527,6 +530,8 @@ export const en = {
     },
   },
   domain: {
+    deleteInspect:
+      'Delete does nothing here: the picture shows the net. Switch to Edit layout to hide an entry, or delete the element in the net view.',
     exportImage: 'Export image…',
     exportImageTip: 'Save the domain view as a PNG image',
     title: 'Domain view',

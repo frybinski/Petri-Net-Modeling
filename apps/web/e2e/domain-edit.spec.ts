@@ -407,3 +407,39 @@ async function viewJson(page: Page): Promise<ViewJson> {
   const saved = JSON.parse(await readFile(path, 'utf8')) as { domainView: ViewJson };
   return saved.domainView;
 }
+
+test('Tab walks through the entries and Enter opens the label; Delete never removes a net element', async ({
+  page,
+}) => {
+  const canvas = await openEditor(page);
+  // Both views are shown, so that the net can be counted.
+  await page.getByTestId('view-both').click();
+  const nodes = await page.evaluate(() => document.querySelectorAll('.react-flow__node').length);
+  expect(nodes).toBeGreaterThan(5);
+  await page.getByTestId('view-domain').click();
+  await canvas.focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('domain-entry')).toBeAttached();
+  const first = await entry(page);
+  await page.keyboard.press('Tab');
+  expect(await entry(page)).not.toEqual(first);
+  await page.keyboard.press('Shift+Tab');
+  expect(await entry(page)).toEqual(first);
+  // The picture still has the focus: Tab did not move it on.
+  await expect(canvas).toBeFocused();
+
+  // Enter edits the label of an entry that has one (a place of the parcel center).
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('domain-label-input')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Inspect mode: Delete explains and leaves the net alone.
+  await page.getByTestId('domain-mode-inspect').click();
+  await canvas.focus();
+  await page.keyboard.press('Delete');
+  await expect(page.getByTestId('toast-info')).toContainText('Edit layout');
+  await page.getByTestId('view-both').click();
+  await expect
+    .poll(() => page.evaluate(() => document.querySelectorAll('.react-flow__node').length))
+    .toBe(nodes);
+});

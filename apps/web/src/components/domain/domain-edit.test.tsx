@@ -265,6 +265,10 @@ describe('the shortcut help', () => {
     expect(list).toHaveTextContent('Edit the layout of the domain view');
     expect(list).toHaveTextContent('Move the selected entry in the domain view');
     expect(list).toHaveTextContent('Hide the selected entry in the domain view');
+    expect(list).toHaveTextContent('Select the next entry in the domain view');
+    expect(list).toHaveTextContent('Edit the label of the selected entry in the domain view');
+    // Why Tab does not move the focus with a node selected.
+    expect(screen.getByTestId('tab-help')).toHaveTextContent('Esc');
     const mouse = screen.getByTestId('mouse-help');
     expect(mouse).toHaveTextContent('Drag in "Edit layout"');
     expect(mouse).toHaveTextContent('Shift+drag a corner handle');

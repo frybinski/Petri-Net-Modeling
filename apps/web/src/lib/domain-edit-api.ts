@@ -18,6 +18,10 @@ export interface DomainEditApi {
   nudgeSelected(dx: number, dy: number): boolean;
   /** Opens the label of the entry for editing, if it has one. */
   startLabel(entry: EntryRef): void;
+  /** True if Tab (`1`) or Shift+Tab (`-1`) has a next entry to select. */
+  canStep(direction: 1 | -1): boolean;
+  /** Selects the next (`1`) or previous (`-1`) entry and brings it into view. */
+  step(direction: 1 | -1): boolean;
 }
 
 let current: DomainEditApi | null = null;

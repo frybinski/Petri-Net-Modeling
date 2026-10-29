@@ -23,6 +23,15 @@ const MOUSE = (
   </section>
 );
 
+const TAB_NOTE = (
+  <section className="mt-6" data-testid="tab-help">
+    <h3 className="mt-0 mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">
+      {en.shortcuts.tabTitle}
+    </h3>
+    <p className="m-0 text-xs text-muted">{en.shortcuts.tabNote}</p>
+  </section>
+);
+
 export function ShortcutsDialog() {
   const open = useUiStore((s) => s.shortcutsOpen);
   const setOpen = useUiStore((s) => s.setShortcutsOpen);
@@ -60,6 +69,7 @@ export function ShortcutsDialog() {
                 ))}
             </dl>
             {group === 'tools' ? MOUSE : null}
+            {group === 'editing' ? TAB_NOTE : null}
           </section>
         ))}
       </div>
