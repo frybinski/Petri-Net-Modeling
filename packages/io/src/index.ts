@@ -9,3 +9,4 @@ export {
   type XmlElement,
   type XmlNode,
 } from './xml';
+export { toTikz, texEscape, TIKZ_MAX_DOTS, type TikzOptions } from './tikz';
