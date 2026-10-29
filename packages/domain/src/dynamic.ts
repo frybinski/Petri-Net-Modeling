@@ -1,6 +1,7 @@
 import type { Id } from '@pnm/core';
 import {
   FLASH_MS,
+  motionEnd,
   sampleSprites,
   shownCount,
   type AnimationState,
@@ -27,7 +28,7 @@ import {
   type Thresholds,
 } from './status';
 import type { LayoutContext, LayoutFiring, TokenLayout } from './token-layout';
-import { isPathPlace } from './token-layout';
+import { firingKey, isPathPlace } from './token-layout';
 
 export interface DynamicOptions {
   /** Wall-clock milliseconds, the clock of the animation state. */
@@ -99,6 +100,17 @@ export function buildDynamicScene(
   const simTime = options.simTime ?? layout.time;
   const now = options.now;
   const stations = stationInfos(net, view, layout.counts, layout.running, context, thresholds);
+
+  // Firings whose case is still on its way to the slot: the slot is taken, nobody is there yet.
+  const arriving = new Set<number>();
+  for (const firing of layout.running) {
+    const moving = anim.motions.some(
+      (motion) =>
+        now < motionEnd(motion) &&
+        firing.caseIds.some((c) => motion.tokenId === firingKey(firing.firingId, c)),
+    );
+    if (moving) arriving.add(firing.firingId);
+  }
 
   // Which transition's slots are drawn by a resource place.
   const slotPlaceOf = new Map<Id, Id>();
@@ -214,6 +226,10 @@ export function buildDynamicScene(
     const id = transition.id;
     const firings = runningAt.get(id) ?? [];
     const busySlots = new Set(firings.map((f) => f.slot));
+    // The slots of firings that wait for their case to arrive.
+    const reservedSlots = new Set(
+      firings.filter((f) => arriving.has(f.firingId)).map((f) => f.slot),
+    );
     const info = stations.get(id);
     const slots: readonly Point[] = 'slots' in entry ? (entry.slots ?? []) : [];
     const claimed = slotPlaceOf.get(id);
@@ -324,9 +340,11 @@ export function buildDynamicScene(
     let free = claimed !== undefined ? (layout.counts.get(claimed) ?? 0) : 0;
     slots.forEach((slot, index) => {
       const busy = busySlots.has(index);
+      const reserved = reservedSlots.has(index);
       if (claimed !== undefined) {
         let state: CellState = 'off';
-        if (busy) state = 'busy';
+        if (reserved) state = 'reserved';
+        else if (busy) state = 'busy';
         else if (free > 0) {
           state = 'free';
           free -= 1;
@@ -350,15 +368,17 @@ export function buildDynamicScene(
           x: slot[0],
           y: slot[1],
           r: 14,
-          fill: 'okSoft',
-          stroke: 'ok',
+          ...(reserved
+            ? { stroke: 'ok' as const, hatch: true, dash: [4, 3] as [number, number] }
+            : { fill: 'okSoft' as const, stroke: 'ok' as const }),
           lineWidth: 1.5,
         });
       }
     });
     for (const firing of firings) {
       const slot = slots[firing.slot];
-      if (!slot) continue;
+      // No progress before the case has arrived: the ring starts with the arrival.
+      if (!slot || arriving.has(firing.firingId)) continue;
       const span = firing.end - firing.start;
       const value = span > 0 ? Math.min(1, Math.max(0, (simTime - firing.start) / span)) : 1;
       if (style === 'slot' || style === 'machine') {

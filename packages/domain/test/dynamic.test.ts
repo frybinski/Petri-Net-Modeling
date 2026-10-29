@@ -24,6 +24,7 @@ import {
   type DomainView,
   type DrawCommand,
   type LayoutState,
+  type Point,
 } from '../src';
 import { runAnimated } from './animated-run';
 import { smallNet, smallView } from './helpers';
@@ -128,6 +129,66 @@ describe('buildDynamicScene', () => {
     // The ring runs with the simulation time, not with the time of the layout.
     const later = build({ marking: {}, running: [{ ...firing, slot: 1 }] }, 15);
     expect(later.layers.tokens.find((c) => c.op === 'ring')).toMatchObject({ value: 0.75 });
+  });
+
+  describe('a slot that waits for its case', () => {
+    const slots: Point[] = [
+      [340, 200],
+      [370, 200],
+    ];
+    const moving = {
+      ...EMPTY_ANIMATION,
+      motions: [
+        {
+          tokenId: 'f1:C-1',
+          eventId: 1,
+          from: [100, 200] as Point,
+          to: [370, 200] as Point,
+          startedAt: 1000,
+          duration: 300,
+        },
+      ],
+    };
+    /** The scene with the firing on slot 1; `withCells` gives the station a resource place that draws its slots. */
+    const build = (now: number, withCells: boolean, anim = moving) => {
+      const shaped = structuredClone(view);
+      shaped.transitions['work'] = { kind: 'station', box: [320, 160, 100, 80], slots };
+      if (!withCells) delete shaped.places['res'];
+      return buildDynamicScene(
+        layoutContext(net, shaped),
+        buildStaticScene(net, shaped),
+        layoutTokens(net, shaped, { time: 0, marking: {}, running: [{ ...firing, slot: 1 }] }),
+        anim,
+        { now, simTime: 5 },
+      );
+    };
+    type Built = ReturnType<typeof build>;
+    const cells = (s: Built) => s.layers.tokens.flatMap((c) => (c.op === 'cell' ? [c.state] : []));
+    const rings = (s: Built) => s.layers.tokens.filter((c) => c.op === 'ring');
+    const hatched = (s: Built) =>
+      s.layers.transitions.filter((c) => c.op === 'circle' && c.hatch === true);
+
+    it('shows the cell as reserved, without a ring, until the case has arrived', () => {
+      const during = build(1100, true);
+      expect(cells(during)).toEqual(['off', 'reserved']);
+      expect(rings(during)).toEqual([]);
+      // The moment the move has ended the cell is busy and the ring runs.
+      const after = build(1300, true);
+      expect(cells(after)).toEqual(['off', 'busy']);
+      expect(rings(after)).toHaveLength(1);
+    });
+
+    it('hatches the plain mark of a slot without a resource place', () => {
+      expect(hatched(build(1100, false))).toHaveLength(1);
+      expect(rings(build(1100, false))).toEqual([]);
+      expect(hatched(build(1300, false))).toHaveLength(0);
+    });
+
+    it('has nothing to wait for when tokens jump (top speed, reduced motion)', () => {
+      const instant = build(1100, true, EMPTY_ANIMATION);
+      expect(cells(instant)).toEqual(['off', 'busy']);
+      expect(rings(instant)).toHaveLength(1);
+    });
   });
 
   it('marks a station busy with a green frame, full with an amber one and blocked with a red one', () => {

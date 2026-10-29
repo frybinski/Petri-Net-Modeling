@@ -36,7 +36,11 @@ export type Glyph =
   | 'cross';
 
 export type CellStyle = 'slot' | 'machine' | 'desk' | 'table';
-export type CellState = 'free' | 'busy' | 'off';
+/**
+ * `reserved`: a firing has taken the slot but its case is still on the way there (hatched, no
+ * progress yet).
+ */
+export type CellState = 'free' | 'busy' | 'reserved' | 'off';
 
 interface Base {
   layer: Layer;
@@ -82,6 +86,8 @@ export type DrawCommand = Base &
         dash?: [number, number];
         alpha?: number;
         shadow?: boolean;
+        /** Fill with diagonal hatching in the `stroke` tone instead of a flat `fill`. */
+        hatch?: boolean;
       }
     | {
         op: 'text';

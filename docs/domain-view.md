@@ -284,14 +284,14 @@ firing. Pools, sources and sinks are numbers.
 **From event to picture.** The motion of a token is the difference between the layout before and after a bundle,
 linked through the events:
 
-| Event                          | What is shown                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                    |
-| `start`                        | The case moves from its place along the connector to the slot of the station. The slot turns busy and a progress ring fills. |
-| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                    |
-| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                |
-| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                       |
-| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                              |
+| Event                          | What is shown                                                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                             |
+| `start`                        | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills. |
+| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                             |
+| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                                                         |
+| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                                                                |
+| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                                                                       |
 
 Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
 of the chain; the others light up their station. A move follows the connector of the view (`arcs`, key

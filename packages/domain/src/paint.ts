@@ -171,6 +171,28 @@ function tracePath(ctx: Ctx, points: readonly Point[]): void {
   });
 }
 
+/** Fills the current path with diagonal lines (the path is left as it is). */
+function hatchPath(
+  ctx: Ctx,
+  color: string,
+  bounds: { x: number; y: number; w: number; h: number },
+): void {
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.1;
+  ctx.globalAlpha *= 0.7;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  const step = 5;
+  for (let k = -bounds.h; k <= bounds.w; k += step) {
+    ctx.moveTo(bounds.x + k, bounds.y + bounds.h);
+    ctx.lineTo(bounds.x + k + bounds.h, bounds.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 function setDash(ctx: Ctx, dash: [number, number] | undefined): void {
   ctx.setLineDash(dash ?? []);
 }
@@ -354,11 +376,20 @@ function drawCell(
   state: CellState,
   palette: ScenePalette,
 ): void {
-  const edge = state === 'busy' ? palette.ok : state === 'free' ? palette.ink2 : palette.inkMuted;
+  // A reserved cell is taken, but its case has not arrived: hatched, with a dashed edge.
+  const reserved = state === 'reserved';
+  const edge =
+    state === 'busy' || reserved ? palette.ok : state === 'free' ? palette.ink2 : palette.inkMuted;
   const fill =
-    state === 'busy' ? palette.okSoft : state === 'free' ? palette.surface : palette.surface2;
-  const lineWidth = state === 'busy' ? 2 : 1.2;
-  const dash: [number, number] | undefined = state === 'off' ? [3, 3] : undefined;
+    state === 'busy'
+      ? palette.okSoft
+      : state === 'free' || reserved
+        ? palette.surface
+        : palette.surface2;
+  const lineWidth = state === 'busy' || reserved ? 2 : 1.2;
+  const dash: [number, number] | undefined =
+    state === 'off' ? [3, 3] : reserved ? [4, 3] : undefined;
+  const bounds = { x: x - w / 2, y: y - h / 2, w, h };
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (style === 'table') {
@@ -377,13 +408,18 @@ function drawCell(
     ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
     ctx.fillStyle = fill;
     ctx.fill();
+    if (reserved) {
+      hatchPath(ctx, edge, bounds);
+      ctx.beginPath();
+      ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
+    }
     ctx.strokeStyle = edge;
     ctx.lineWidth = lineWidth;
     setDash(ctx, dash);
     ctx.stroke();
     setDash(ctx, undefined);
     if (state === 'off') cross(ctx, x, y, 7, palette.inkMuted);
-    else {
+    else if (!reserved) {
       ctx.fillStyle = state === 'busy' ? palette.ok : palette.ok;
       ctx.beginPath();
       ctx.arc(x - w / 2 + 9, y - h / 2 + 7, state === 'busy' ? 3.4 : 2.6, 0, Math.PI * 2);
@@ -404,6 +440,10 @@ function drawCell(
     roundRect(ctx, x - w / 2, y - h / 2, w, h, 3);
     ctx.fillStyle = fill;
     ctx.fill();
+    if (reserved) {
+      hatchPath(ctx, edge, bounds);
+      roundRect(ctx, x - w / 2, y - h / 2, w, h, 3);
+    }
     ctx.strokeStyle = edge;
     ctx.lineWidth = lineWidth;
     setDash(ctx, dash);
@@ -417,7 +457,7 @@ function drawCell(
     ctx.lineTo(x + 8, y - h / 2 + 6);
     ctx.stroke();
     if (state === 'off') cross(ctx, x, y + 2, 5, palette.inkMuted);
-    else {
+    else if (!reserved) {
       ctx.fillStyle = palette.ok;
       ctx.beginPath();
       ctx.arc(x + w / 2 - 6, y + h / 2 - 5, state === 'busy' ? 3.2 : 2.4, 0, Math.PI * 2);
@@ -426,9 +466,14 @@ function drawCell(
     return;
   }
   // slot and machine: a rounded cell.
-  roundRect(ctx, x - w / 2, y - h / 2, w, h, style === 'machine' ? 4 : 6);
+  const radius = style === 'machine' ? 4 : 6;
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, radius);
   ctx.fillStyle = fill;
   ctx.fill();
+  if (reserved) {
+    hatchPath(ctx, edge, bounds);
+    roundRect(ctx, x - w / 2, y - h / 2, w, h, radius);
+  }
   ctx.strokeStyle = edge;
   ctx.lineWidth = lineWidth;
   setDash(ctx, dash);
@@ -855,6 +900,16 @@ function paintCommand(
     case 'circle': {
       ctx.beginPath();
       ctx.arc(command.x, command.y, command.r, 0, Math.PI * 2);
+      if (command.hatch && command.stroke) {
+        hatchPath(ctx, palette[command.stroke], {
+          x: command.x - command.r,
+          y: command.y - command.r,
+          w: 2 * command.r,
+          h: 2 * command.r,
+        });
+        ctx.beginPath();
+        ctx.arc(command.x, command.y, command.r, 0, Math.PI * 2);
+      }
       if (command.fill) {
         if (command.shadow) shadowOn(ctx, palette, scale);
         ctx.fillStyle = palette[command.fill];
