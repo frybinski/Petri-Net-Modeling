@@ -6,7 +6,10 @@
 #
 # The service publishes no port. It joins the Docker network that the ingress uses to reach its
 # services (PNM_INGRESS_NETWORK), and the ingress passes the requests on to http://pnm:8080. TLS
-# ends in the ingress.
+# ends in the ingress. The server therefore sees the ingress as the peer of every request, so
+# PNM_TRUSTED_PROXIES (the address range of the ingress) is required: without it the address of the
+# ingress, which is in the private ranges that PNM_ALLOWED_NETS allows by default, would be taken
+# for the client and the filter would let everybody in.
 #
 # Optional parts are separate files, added with -f or, better, with COMPOSE_FILE in the .env file:
 #   compose.traefik.yaml         labels for a Traefik that reads Docker labels
@@ -28,7 +31,7 @@ services:
       PNM_LLM_DEFAULT_MODEL: ${PNM_LLM_DEFAULT_MODEL:-}
       PNM_LLM_TIMEOUT: ${PNM_LLM_TIMEOUT:-}
       PNM_ALLOWED_NETS: ${PNM_ALLOWED_NETS:-}
-      PNM_TRUSTED_PROXIES: ${PNM_TRUSTED_PROXIES:-}
+      PNM_TRUSTED_PROXIES: ${PNM_TRUSTED_PROXIES:?Set PNM_TRUSTED_PROXIES in .env to the address range of the ingress network, see deploy/README.md (step 3)}
       PNM_ALLOWED_HOSTS: ${PNM_ALLOWED_HOSTS:-}
       PNM_BASIC_AUTH: ${PNM_BASIC_AUTH:-}
       PNM_MAX_BODY: ${PNM_MAX_BODY:-}

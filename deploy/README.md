@@ -150,7 +150,7 @@ What to set in `.env` (every variable is explained in the file):
 | `PNM_LLM_BASE_URL`                        | `https://ollama-webui.aifb-bis-gpu01.aifb.kit.edu/api`                                                          |
 | `PNM_LLM_API_KEY`                         | the key of step 2                                                                                               |
 | `PNM_LLM_MODELS`, `PNM_LLM_DEFAULT_MODEL` | optional: the models users may use and the one the app proposes                                                 |
-| `PNM_TRUSTED_PROXIES`                     | the address range of the ingress in its network (see below)                                                     |
+| `PNM_TRUSTED_PROXIES`                     | **required:** the address range of the ingress in its network (see below)                                       |
 | `PNM_ALLOWED_NETS`                        | optional: the networks that may use the server. The default is the KIT range and the private ranges; confirm it |
 | `PNM_BASIC_AUTH`                          | optional: a password for the whole instance (see below)                                                         |
 
@@ -162,9 +162,17 @@ docker inspect <ingress container> --format '{{json .NetworkSettings.Networks}}'
 docker network inspect <network> --format '{{range .IPAM.Config}}{{.Subnet}} {{end}}' # its address range, e.g. 172.20.0.0/16
 ```
 
-`PNM_TRUSTED_PROXIES` is that address range. It matters: the server finds the address of a client in the header
-`X-Forwarded-For`, but only believes the header when the request comes from one of these addresses. Without it the server
-sees the address of the ingress for every request, and `PNM_ALLOWED_NETS` checks nothing useful.
+`PNM_TRUSTED_PROXIES` is that address range, and `compose.yaml` does not start without it. It matters: the server finds the
+address of a client in the header `X-Forwarded-For`, but only believes the header when the request comes from one of these
+addresses. Without it the server would see the address of the ingress for every request. That address is a Docker address
+(`172.16.0.0/12`, `10.0.0.0/8` or `192.168.0.0/16`), which is in the private ranges that `PNM_ALLOWED_NETS` allows by
+default, so the filter would let everybody in and not say so. The ingress has to do its part: it must put the address of
+the client into `X-Forwarded-For` (append it to the header, or replace the header with it) and never pass on a value that
+the client sent. The nginx snippets below append (`$proxy_add_x_forwarded_for`), Traefik replaces a header from an
+untrusted client unless its entry point trusts that client (`forwardedHeaders.trustedIPs` or `insecure`); for any other
+ingress, test it with `curl -H 'X-Forwarded-For: 1.2.3.4'` and look at the `"msg":"denied"` or `request` lines. If the
+server gets the header from an address that is not in `PNM_TRUSTED_PROXIES`, it logs one warning,
+`"msg":"forwarded header ignored"`, with that address and the hint to set the variable (once per start, not per request).
 
 If you want a password for the whole instance as well (share links keep working without it), make an entry and put it into
 `PNM_BASIC_AUTH`:
@@ -413,7 +421,7 @@ docker compose logs pnm | grep '"msg":"llm"' | tail
 | the container restarts, `docker compose logs pnm` shows "Invalid configuration" | a value in `.env` is wrong; the message names the variable. `docker compose run --rm pnm node server.js check-config` prints what the server understood (without secrets)                                                                                                                                                                                                       |
 | "Cannot write to PNM_DATA_DIR"                                                  | the volume or folder is not writable for the user `node` (uid 1000). A named volume takes the right owner on first use; for a bind mount run `chown -R 1000:1000 <folder>`                                                                                                                                                                                                      |
 | the ingress answers 502 or 504                                                  | the ingress does not reach `pnm:8080`: check that both are on `PNM_INGRESS_NETWORK` (`docker network inspect`), that the service name is `pnm`, and that the container is healthy                                                                                                                                                                                               |
-| `403 forbidden` for everybody                                                   | the address range is not in `PNM_ALLOWED_NETS`, or `PNM_TRUSTED_PROXIES` does not contain the ingress, so the server sees the ingress address instead of the client. The log line `"msg":"denied"` names the address it saw                                                                                                                                                     |
+| `403 forbidden` for everybody                                                   | the address range of the clients is not in `PNM_ALLOWED_NETS`. The log line `"msg":"denied"` names the address it saw. If that is the address of the ingress, `PNM_TRUSTED_PROXIES` does not contain it (see step 3)                                                                                                                                                            |
 | `403` only through the ingress                                                  | the filter of the ingress itself (`allow`/`deny`, `ipAllowList`) refuses; its log says which address it saw                                                                                                                                                                                                                                                                     |
 | `401` in the browser                                                            | `PNM_BASIC_AUTH` is set; sign in with the user and password of the entry                                                                                                                                                                                                                                                                                                        |
 | the app does not show server functions                                          | the page carries no `<meta name="pnm-server">` (view the source: something other than the container delivers the page, or a cached page is old, reload) or `GET /api/health` does not reach the server (the ingress sends `/api/` somewhere else)                                                                                                                               |
@@ -427,7 +435,8 @@ docker compose logs pnm | grep '"msg":"llm"' | tail
 | `504 timeout` from the API                                                      | a job needed more than `PNM_JOB_TIMEOUT` (60 s) and was stopped; use a smaller net or lower limits                                                                                                                                                                                                                                                                              |
 | `422 resource_limit`                                                            | a job needed more than `PNM_WORKER_MEMORY` (512 MB)                                                                                                                                                                                                                                                                                                                             |
 | share links open the wrong address                                              | `PNM_PUBLIC_URL`                                                                                                                                                                                                                                                                                                                                                                |
-| the ingress strips `X-Forwarded-For`                                            | the client filter then sees the ingress address; configure the ingress to add the header                                                                                                                                                                                                                                                                                        |
+| the log says `"msg":"forwarded header ignored"`                                 | the ingress is not in `PNM_TRUSTED_PROXIES` (the warning names the address of the ingress that the server saw): the filter then takes the ingress for the client, and its Docker address is in the private default ranges, so **everybody passes**. Put the address range into `PNM_TRUSTED_PROXIES` and restart                                                                |
+| the ingress strips `X-Forwarded-For`                                            | the client filter then sees the ingress address, which passes in the default ranges: configure the ingress to add the header                                                                                                                                                                                                                                                    |     |
 
 ## Security notes
 

@@ -48,8 +48,9 @@ guard cannot interrupt a regular expression (limitation 8).
   content and no person. A refused key is a 502 for the client and an error line for the operator, never a 401 that would
   ask a user to log in.
 - **The client address comes from `X-Forwarded-For` only from trusted proxies**, read from the right. A header from any
-  other peer is ignored. The default `PNM_TRUSTED_PROXIES` is empty (secure) and the operator names the network of the
-  ingress.
+  other peer is ignored. The server's default for `PNM_TRUSTED_PROXIES` is empty (a header is never believed), and since behind an
+  ingress an empty list makes the filter see only the ingress, `deploy/compose.yaml` requires the operator to name the
+  network of the ingress; the server logs a warning once when a header from an untrusted peer shows up.
 - **The browser is protected from other sites, not only the network from the internet.** Because the server sits inside a
   network and has no accounts, a page on the internet that the visitor opens could make the browser talk to it. So: bodies
   must be `application/json` (no simple cross-site request), a foreign `Origin` on a change is refused, the `Host` header

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
@@ -535,6 +536,95 @@ describe('deploy/compose.yaml', () => {
     // The port and the folders are those of the image; changing them would break the health check.
     expect(passed).not.toContain('PNM_PORT');
     expect(passed).not.toContain('PNM_DATA_DIR');
+  });
+});
+
+describe('PNM_TRUSTED_PROXIES in the Compose files', () => {
+  const environment = (file: string): Doc =>
+    ((load(file)['services'] as Record<string, Doc>)['pnm']?.['environment'] ?? {}) as Doc;
+
+  it('is required by compose.yaml: behind the ingress the filter would otherwise let everybody in', () => {
+    const value = String(environment('deploy/compose.yaml')['PNM_TRUSTED_PROXIES']);
+    expect(value).toMatch(/^\$\{PNM_TRUSTED_PROXIES:\?[^}]+\}$/);
+    expect(value).toContain('README.md');
+    expect(value).not.toContain(':-');
+  });
+
+  it('is not required by the standalone compose.local.yaml', () => {
+    const local = read('deploy/compose.local.yaml');
+    expect(local).not.toMatch(/PNM_TRUSTED_PROXIES:\?/);
+    expect(local).not.toContain('${PNM_TRUSTED_PROXIES');
+  });
+
+  it('is explained as required in .env.example', () => {
+    const example = read('deploy/.env.example');
+    expect(example).toMatch(/^PNM_TRUSTED_PROXIES=/m);
+    expect(example).toMatch(/required/i);
+  });
+
+  // `docker compose config` needs no running daemon, but the plugin must be installed.
+  const composeAvailable = ((): boolean => {
+    try {
+      execFileSync('docker', ['compose', 'version'], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  describe.skipIf(!composeAvailable)('docker compose config', () => {
+    const base = [
+      'PNM_IMAGE=registry.example.org/group/petri-net-modeling',
+      'PNM_VERSION=1.2.0',
+      'PNM_INGRESS_NETWORK=ingress-net',
+      'PNM_PUBLIC_URL=https://pnm.example.org',
+      'PNM_HOST=pnm.example.org',
+      'PNM_OLLAMA_NETWORK=ollama-net',
+    ];
+    const combinations: string[][] = [
+      ['compose.yaml'],
+      ['compose.yaml', 'compose.traefik.yaml'],
+      ['compose.yaml', 'compose.ollama-network.yaml'],
+      ['compose.yaml', 'compose.traefik.yaml', 'compose.ollama-network.yaml'],
+    ];
+
+    /** Runs `docker compose config` with only the variables of a file, not those of this shell. */
+    function config(files: string[], lines: string[]): string {
+      const dir = mkdtempSync(join(tmpdir(), 'pnm-compose-'));
+      try {
+        const envFile = join(dir, 'env');
+        writeFileSync(envFile, `${lines.join('\n')}\n`);
+        const args = ['compose', '--env-file', envFile];
+        for (const file of files) args.push('-f', join(REPO, 'deploy', file));
+        return execFileSync('docker', [...args, 'config'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { PATH: process.env['PATH'] ?? '', HOME: process.env['HOME'] ?? dir },
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+
+    for (const files of combinations) {
+      it(`${files.join(' + ')} is valid when the variable is set`, () => {
+        const out = config(files, [...base, 'PNM_TRUSTED_PROXIES=172.20.0.0/16']);
+        expect(out).toContain('PNM_TRUSTED_PROXIES: 172.20.0.0/16');
+      });
+
+      it(`${files.join(' + ')} is refused, with a message, when the variable is missing or empty`, () => {
+        for (const lines of [base, [...base, 'PNM_TRUSTED_PROXIES=']]) {
+          let message = '';
+          try {
+            config(files, lines);
+          } catch (error) {
+            message = String((error as { stderr?: unknown }).stderr ?? error);
+          }
+          expect(message).toContain('PNM_TRUSTED_PROXIES');
+          expect(message).toContain('README.md');
+        }
+      });
+    }
   });
 });
 

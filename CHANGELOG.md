@@ -47,11 +47,11 @@ served by a server. The file format stays `1.0`. How it works is in [docs/server
   `<version>-<sha>` and `latest` on tags), `.github/workflows/image.yml` as the alternative that pushes from GitHub (does
   nothing unless `KIT_REGISTRY_IMAGE` is set), and a job in `ci.yml` that builds the image on every push and pull request
   and runs `deploy/smoke-test.sh` against the container.
-- **Tests.** 259 tests for the server (configuration, filter, static files, proxy against the fake model server, every
+- **Tests.** 274 tests for the server (configuration, filter, static files, proxy against the fake model server, every
   endpoint against the command line, pool with timeout and memory limit, store with a failing disk, pipeline files), 67
   for the app (client, actions, dialogs, share page, language model preset), and a Playwright project that runs the real
   server process with the built app (11 tests: policy, saving, versions, two people and a conflict, links, trash, model).
-  In all: 2071 unit and component tests (1745 before), 23 tests of the release scripts and 116 Playwright tests (105
+  In all: 2086 unit and component tests (1745 before), 23 tests of the release scripts and 116 Playwright tests (105
   before). The web unit suite ran three times next to a full Playwright run without a failure.
 
 ### Changed
@@ -67,6 +67,11 @@ served by a server. The file format stays `1.0`. How it works is in [docs/server
 
 - Found by running the real app under the content security policy: the fonts that the build inlines as `data:` URIs
   needed `font-src data:`.
+- Found in the review: behind the ingress an empty `PNM_TRUSTED_PROXIES` made the filter see the Docker address of the
+  ingress for every request, and that address is in the private default ranges of `PNM_ALLOWED_NETS`, so everybody
+  passed. `deploy/compose.yaml` now requires the variable (`compose.local.yaml` is standalone and does not), the server
+  logs the warning `forwarded header ignored` once per start when `X-Forwarded-For` comes from a peer that is not a trusted
+  proxy, and the guide says that the ingress must set the header itself.
 
 ## 1.1.0: Replay of event logs
 

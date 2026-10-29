@@ -61,7 +61,7 @@ way). `deploy/.env.example` has them all with comments.
 | `PNM_DATA_DIR`          | Where the projects live. Must be writable for the user that runs the server.                                                                       | `/data`                                                                                                                        |
 | `PNM_MAX_BODY`          | Largest request (`10mb`, `512kb`).                                                                                                                 | `10mb`                                                                                                                         |
 | `PNM_ALLOWED_NETS`      | Networks (CIDR, commas) that may use the server. Loopback always may. `0.0.0.0/0,::/0` allows everyone.                                            | the KIT ranges `129.13.0.0/16, 141.3.0.0/16, 141.52.0.0/16` and the private ranges `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16` |
-| `PNM_TRUSTED_PROXIES`   | Addresses (CIDR, commas) of the ingress. `X-Forwarded-For` counts only from these.                                                                 | none                                                                                                                           |
+| `PNM_TRUSTED_PROXIES`   | Addresses (CIDR, commas) of the ingress. `X-Forwarded-For` counts only from these. `deploy/compose.yaml` requires it.                              | none                                                                                                                           |
 | `PNM_ALLOWED_HOSTS`     | Host names besides `PNM_PUBLIC_URL` and `localhost` that requests may use.                                                                         | none                                                                                                                           |
 | `PNM_BASIC_AUTH`        | Passwords for the whole instance: `user:scrypt:<salt>:<hash>`, commas between entries.                                                             | none                                                                                                                           |
 | `PNM_LLM_BASE_URL`      | The language model server up to its OpenAI path: `https://host/api` (Open WebUI) or `http://host:11434/v1` (Ollama). Empty switches the proxy off. | none                                                                                                                           |
@@ -92,6 +92,14 @@ Three layers, from the outside in:
    proxies, and the first address that is not one is the client (a client cannot forge entries to the right of its own).
    A request from outside gets 403, and the log has one `denied` line with the address it saw. Loopback always passes, for
    the health check of the container.
+
+   Behind an ingress `PNM_TRUSTED_PROXIES` must name the ingress (`deploy/compose.yaml` requires it). Without it the server
+   takes the address of the ingress for the client; a Docker address is in the private default ranges of
+   `PNM_ALLOWED_NETS`, so **every request passes** and nothing is denied. The ingress must set `X-Forwarded-For` to the
+   address of the client (append it or replace the header) and never pass on a value from the client. If a request carries
+   `X-Forwarded-For` from a peer that is not trusted, the server logs one warning per start (`forwarded header ignored`,
+   with the address of the peer and the hint, not the header) because that is what a missing `PNM_TRUSTED_PROXIES` looks like.
+
 3. **`PNM_BASIC_AUTH`** (optional): a password for everything except the health check, the files of the app, and the share
    links (the page `/s/<token>` and `/api/v1/shared/<token>`).
 

@@ -339,6 +339,10 @@ Umgesetzt ist alles in den Abschnitten 1 bis 3, 5 und 6; Abnahme siehe 7. Abweic
   markierte Seite fragt `GET /api/health` ab. Ohne die Marke (GitHub Pages, Vite-Entwicklungsserver, Datei) entsteht keine
   Anfrage, die mit 404 endet und als Konsolenfehler erscheint (der Test `domain-simulation` erwartet eine fehlerfreie
   Konsole). Mit `PNM_DEV_SERVER` setzt Vite die Marke selbst.
+- **`PNM_TRUSTED_PROXIES` ist in `deploy/compose.yaml` Pflicht** (`${PNM_TRUSTED_PROXIES:?…}`; `compose.local.yaml` bleibt
+  ohne): hinter dem Ingress sähe der Server sonst für jede Anfrage die Docker-Adresse des Ingress, die in den privaten
+  Vorgabebereichen von `PNM_ALLOWED_NETS` liegt, und der Filter ließe alle durch. Dazu warnt der Server einmal pro Start
+  (`forwarded header ignored`), wenn `X-Forwarded-For` von einem nicht vertrauten Peer kommt.
 - **Optionales Docker-Netz zu Open WebUI** liegt in `deploy/compose.ollama-network.yaml` (mit `-f` oder `COMPOSE_FILE`
   hinzuzunehmen), nicht in `compose.yaml`: Compose kann ein externes Netz nicht bedingt einbinden. `extra_hosts` steht
   immer in `compose.yaml`, es schadet nicht.
