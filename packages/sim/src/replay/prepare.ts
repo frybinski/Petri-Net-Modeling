@@ -12,6 +12,8 @@ export interface Item {
   attributes?: Record<string, string> | undefined;
   /** Starts only: the time of the `complete` that belongs to it in the log; unknown if absent. */
   end?: number | undefined;
+  /** Completes only: the activity started earlier than this time. */
+  old?: true;
 }
 
 /** The key under which the work of one case on one transition is tracked. */
@@ -69,10 +71,33 @@ export function prepareItems(
     const start = queue?.[head];
     if (start !== undefined) {
       start.end = item.time;
+      if (start.time < item.time) item.old = true;
       heads.set(key, head + 1);
     }
   }
-  return items;
+  return endsFirst(items);
+}
+
+/**
+ * At one time, the activities that end come before those that start, so that a resource that is
+ * given back is there for the next case, whatever order the tool that wrote the log used for
+ * events of different cases at the same time. Activities that start and end at that time, and
+ * the order within a case, stay as they are.
+ */
+function endsFirst(items: Item[]): Item[] {
+  const result: Item[] = [];
+  let from = 0;
+  while (from < items.length) {
+    let to = from + 1;
+    while (to < items.length && items[to]!.time === items[from]!.time) to += 1;
+    const group = items.slice(from, to);
+    result.push(
+      ...group.filter((item) => item.old === true),
+      ...group.filter((item) => item.old !== true),
+    );
+    from = to;
+  }
+  return result;
 }
 
 /** Adds the starts of completes that have none, at the end of the previous activity of the case. */

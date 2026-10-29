@@ -413,7 +413,7 @@ describe('resources and the order of events', () => {
     expect(replay.state.marking['out']).toHaveLength(2);
   });
 
-  it('events at one time are taken in the order of the log', async () => {
+  it('at one time the activities that end come first, so a resource is back for the next case', async () => {
     const free = [
       ...arrivals('a', 'b'),
       row('a', 'work', 1, 'start'),
@@ -423,7 +423,7 @@ describe('resources and the order of events', () => {
     ];
     const ok = createReplay(shop(), free, { mapping });
     expect(deviations(await playAll(ok))).toEqual([]);
-    // The same events with the start listed first: the machine is not back yet.
+    // Listed the other way round, as a tool may write them, the result is the same.
     const swapped = [
       free[0]!,
       free[1]!,
@@ -435,8 +435,31 @@ describe('resources and the order of events', () => {
       free[7]!,
     ];
     const late = createReplay(shop(), swapped, { mapping });
-    const found = deviations(await playAll(late));
-    expect(found.map((d) => d.kind)).toEqual(['missing']);
+    expect(deviations(await playAll(late))).toEqual([]);
+    expect(late.state.marking['out']).toHaveLength(2);
+  });
+
+  it('otherwise events at one time keep the order of the log, which is the order within a case', async () => {
+    const net = makeNet({
+      places: ['a', 'b', 'c'],
+      transitions: ['t1', 't2'],
+      arcs: [
+        ['a', 't1'],
+        ['t1', 'b'],
+        ['b', 't2'],
+        ['t2', 'c'],
+      ],
+    });
+    const steps = { t1: 't1', t2: 't2' };
+    const inOrder = [row('x', 't1', 5, 'complete'), row('x', 't2', 5, 'complete')];
+    expect(deviations(await playAll(createReplay(net, inOrder, { mapping: steps })))).toEqual([]);
+    // t2 before t1 at the same time: the case begins at t2, and t1 then has no token on `a`.
+    const reversed = [row('x', 't2', 5, 'complete'), row('x', 't1', 5, 'complete')];
+    const replay = createReplay(net, reversed, { mapping: steps });
+    const found = deviations(await playAll(replay));
+    expect(found.map((d) => [d.kind, d.placeId, d.transitionId])).toEqual([['missing', 'a', 't1']]);
+    expect(replay.state.marking['b']).toHaveLength(1);
+    expect(replay.state.marking['c']).toHaveLength(1);
   });
 
   it('with a seed the resource token is chosen at random, without it the oldest is taken', async () => {
