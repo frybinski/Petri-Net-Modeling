@@ -43,6 +43,12 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    // The release scripts run in Node and report on the console.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['packages/**/*.ts', '**/*.config.{js,ts}', 'apps/web/e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
