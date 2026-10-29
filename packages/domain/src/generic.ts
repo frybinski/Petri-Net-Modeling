@@ -6,7 +6,6 @@ import {
   type PlaceRole,
   type Position,
 } from '@pnm/core';
-import { layoutNet } from '@pnm/layout';
 import { distance, lerp, MIN_QUEUE_LENGTH, pathLength, rectCenter } from './geometry';
 import { netHash } from './hash';
 import {
@@ -563,6 +562,8 @@ export async function genericDomainViewWithLayout(
   const nodes = [...net.places, ...net.transitions];
   const spots = new Set(nodes.map((n) => `${n.position?.x}:${n.position?.y}`));
   if (nodes.length > 1 && spots.size === 1) {
+    // The layout engine is large: it is only fetched when a net without positions needs it.
+    const { layoutNet } = await import('@pnm/layout');
     const positions = await layoutNet(net, { direction: 'RIGHT' });
     const moved: PetriNet = {
       ...net,

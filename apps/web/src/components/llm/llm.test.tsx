@@ -105,8 +105,9 @@ afterEach(() => {
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
-  await user.click(screen.getByTestId('domain-generate-llm'));
-  expect(screen.getByTestId('llm-dialog')).toHaveAttribute('data-stage', 'form');
+  // The domain view and the dialog are loaded on demand.
+  await user.click(await screen.findByTestId('domain-generate-llm'));
+  expect(await screen.findByTestId('llm-dialog')).toHaveAttribute('data-stage', 'form');
 }
 
 async function waitForStage(stage: string) {

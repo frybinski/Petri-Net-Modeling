@@ -8,6 +8,8 @@ export const en = {
     untitled: 'Untitled net',
     netName: 'Net name',
     unsaved: 'Unsaved changes',
+    /** Shown for a moment while a part of the app that loads on demand arrives. */
+    loading: 'Loading…',
   },
   menu: {
     file: 'File',

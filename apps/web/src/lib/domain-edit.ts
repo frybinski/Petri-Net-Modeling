@@ -35,21 +35,14 @@ import { en } from '../i18n/en';
 import { useDomainEditStore } from '../store/domain-edit-store';
 import { useEditorStore } from '../store/editor-store';
 import { notify, useUiStore } from '../store/ui-store';
+import { domainEditActive, registerDomainEditApi } from './domain-edit-api';
 import { getDomainView } from './domain-view';
+
+export { domainEditActive };
 
 /** The grid for edits: 8 px when snapping is on in the editor, else whole pixels only. */
 export function gridStep(): number {
   return useUiStore.getState().snapToGrid ? GRID : 0;
-}
-
-/** True while handles show and edits apply: the mode "Edit layout" of a valid view. */
-export function domainEditActive(): boolean {
-  return (
-    useUiStore.getState().domainEdit &&
-    useUiStore.getState().viewMode !== 'net' &&
-    useEditorStore.getState().mode === 'edit' &&
-    getDomainView() !== null
-  );
 }
 
 /** The entry that the selection stands for: a piece of decor, or the entry of the one selected element. */
@@ -371,3 +364,12 @@ export function addSlotDefault(entry: EntryRef): boolean {
 export function removeSlotIndex(entry: EntryRef, index: number): boolean {
   return editView((view) => removeSlot(view, entry, index));
 }
+
+// The keyboard commands reach the editing of the view through this registration.
+registerDomainEditApi({
+  hasView: () => getDomainView() !== null,
+  selectedEntry: currentSelectedEntry,
+  deleteSelected: deleteSelectedEntry,
+  nudgeSelected,
+  startLabel: startLabelEdit,
+});

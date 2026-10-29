@@ -33,6 +33,8 @@ async function open() {
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByTestId('view-domain'));
+  // The domain view is loaded on demand.
+  await screen.findByTestId('domain-canvas');
   return user;
 }
 

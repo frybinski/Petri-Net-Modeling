@@ -2,13 +2,7 @@ import { deleteSelection } from './delete';
 import { chooseFile, openExportImage, saveNet } from './files';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
-import {
-  currentSelectedEntry,
-  deleteSelectedEntry,
-  domainEditActive,
-  nudgeSelected as nudgeDomainEntry,
-  startLabelEdit,
-} from './domain-edit';
+import { domainEditActive, getDomainEditApi } from './domain-edit-api';
 import { getDomainViewApi } from './domain-view-api';
 import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
@@ -159,10 +153,10 @@ function domainNudgeCommands(): Command[] {
     keys: [{ key }],
     display: 'Arrow keys',
     hidden,
-    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    when: (event) => focusOnDomainEdit(event) && getDomainEditApi()?.selectedEntry() != null,
     run: (event) => {
       const step = event?.shiftKey ? 8 : 1;
-      nudgeDomainEntry(dx * step, dy * step);
+      getDomainEditApi()?.nudgeSelected(dx * step, dy * step);
     },
   });
   return [
@@ -215,9 +209,9 @@ export const commands: Command[] = [
     group: 'editing',
     keys: [{ key: 'Delete' }, { key: 'Backspace' }],
     display: 'Del',
-    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    when: (event) => focusOnDomainEdit(event) && getDomainEditApi()?.selectedEntry() != null,
     run: () => {
-      deleteSelectedEntry();
+      getDomainEditApi()?.deleteSelected();
     },
   },
   {
@@ -292,8 +286,9 @@ export const commands: Command[] = [
     keys: [{ key: 'F2' }],
     run: () => {
       if (domainEditActive() && useUiStore.getState().viewMode === 'domain') {
-        const entry = currentSelectedEntry();
-        if (entry) startLabelEdit(entry);
+        const api = getDomainEditApi();
+        const entry = api?.selectedEntry();
+        if (api && entry) api.startLabel(entry);
         return;
       }
       const { selection, startRename } = editor();

@@ -266,8 +266,11 @@ describe('export', () => {
     const user = userEvent.setup();
     renderPanel();
     await user.click(screen.getByTestId('export-csv'));
+    // The export code is loaded on demand.
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/no events with a case/);
+    });
     expect(clicks).toHaveLength(0);
-    expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/no events with a case/);
   });
 
   it('downloads the event log as CSV with four columns', async () => {
@@ -276,7 +279,9 @@ describe('export', () => {
     await store().stepNext();
     renderPanel();
     await user.click(screen.getByTestId('export-csv'));
-    expect(clicks).toHaveLength(1);
+    await waitFor(() => {
+      expect(clicks).toHaveLength(1);
+    });
     expect(clicks[0]?.download).toBe('Shop-events.csv');
     const text = await blobs[0]!.text();
     const lines = text.trim().split('\n');
@@ -291,6 +296,9 @@ describe('export', () => {
     await store().stepNext();
     renderPanel();
     await user.click(screen.getByTestId('export-xes'));
+    await waitFor(() => {
+      expect(clicks).toHaveLength(1);
+    });
     expect(clicks[0]?.download).toBe('Shop-events.xes');
     const text = await blobs[0]!.text();
     expect(text).toContain('<log xes.version="1.0"');

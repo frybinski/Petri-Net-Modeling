@@ -8,8 +8,8 @@ import { en } from '../i18n/en';
 import { SPLIT_MAX, SPLIT_MIN, useUiStore } from '../store/ui-store';
 import { FlowCanvas } from './canvas/flow-canvas';
 import { DiagnosticsPanel } from './diagnostics-panel';
-import { DomainCanvas } from './domain/domain-canvas';
 import { EmptyHint } from './empty-hint';
+import { LazyDomainCanvas } from './lazy-parts';
 
 const KEY_STEP = 0.02;
 
@@ -97,7 +97,7 @@ export function Workspace({ children }: { children?: ReactNode }) {
       {viewMode === 'both' ? <Splitter container={container} /> : null}
       {viewMode !== 'net' ? (
         <div className="relative min-h-0 flex-1" data-testid="domain-pane">
-          <DomainCanvas />
+          <LazyDomainCanvas />
         </div>
       ) : null}
       {children}

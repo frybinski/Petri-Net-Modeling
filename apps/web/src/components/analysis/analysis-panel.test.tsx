@@ -448,7 +448,6 @@ describe('a state space with more than 500 states', () => {
     editor().loadNet(example('parcel-center'), null);
     useAnalysisStore.getState().setLimit(1000);
     renderPanel();
-    render(<StateSpaceDialogHost />);
     await user.click(screen.getByTestId('space-explore'));
     await screen.findByTestId('space-result');
     await user.click(screen.getByTestId('space-show-graph'));
@@ -469,7 +468,6 @@ describe('the state space graph', () => {
     const user = userEvent.setup();
     editor().loadNet(example('dining-philosophers-3'), null);
     renderPanel();
-    render(<StateSpaceDialogHost />);
     await analyzeAll(user);
     await user.click(screen.getByTestId('space-show-graph'));
     await waitFor(() => {
@@ -494,5 +492,3 @@ describe('the state space graph', () => {
     expect(useAnalysisStore.getState().graphOpen).toBe(false);
   });
 });
-
-import { StateSpaceDialog as StateSpaceDialogHost } from './state-space-dialog';
