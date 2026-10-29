@@ -73,8 +73,9 @@ the registry can stay inside the KIT network. The pipeline is `.gitlab-ci.yml` i
    The address of the registry is shown under _Deploy > Container registry_; the image will be at
    `<registry address>/<group>/<project>`, for example `registry.gitlab.kit.edu/<group>/petri-net-modeling`.
 4. **Runners.** The pipeline needs a runner with the Docker executor. It builds with kaniko and does not need a privileged
-   runner. If the runners cannot reach Docker Hub or `gcr.io`, set the variables `NODE_IMAGE` and `KANIKO_IMAGE` under
-   _Settings > CI/CD > Variables_ (for example `NODE_IMAGE=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22-alpine`).
+   runner. If the runners cannot reach Docker Hub or `gcr.io`, set the variables `NODE_IMAGE` (base of the container
+   image), `CHECK_IMAGE` (runs lint and tests, default `node:22-bookworm-slim`) and `KANIKO_IMAGE` under _Settings > CI/CD >
+   Variables_ (for example `NODE_IMAGE=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22-alpine`).
 5. **A release builds an image.** When a tag `v1.2.0` arrives through the mirror, the pipeline runs lint, format check,
    typecheck, tests and build, builds the image from `deploy/Dockerfile` and pushes it as
    `<registry>/<group>/<project>:1.2.0`, `:1.2.0-<short commit>` and `:latest` (not for pre-releases). The job log and the

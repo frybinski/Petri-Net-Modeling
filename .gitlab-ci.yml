@@ -16,9 +16,11 @@
 # server takes the image by its version (PNM_VERSION in deploy/.env), never "latest".
 #
 # Variables (Settings > CI/CD > Variables, all optional):
-#   NODE_IMAGE      base image for the tests and for the image (default node:22-alpine); set it to
+#   NODE_IMAGE      base image of the container image (default node:22-alpine); set it to
 #                   ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22-alpine if Docker Hub is not
 #                   reachable from the runners or rate limits the pulls
+#   CHECK_IMAGE     image that runs lint, tests and build (default node:22-bookworm-slim, the same
+#                   C library as the runners of GitHub; the container image itself uses alpine)
 #   KANIKO_IMAGE    the kaniko executor image (default gcr.io/kaniko-project/executor:v1.23.2-debug)
 #
 # The same file is checked by apps/server/test/pipelines.test.ts, because GitLab itself is not
@@ -32,6 +34,7 @@ stages:
 
 variables:
   NODE_IMAGE: node:22-alpine
+  CHECK_IMAGE: node:22-bookworm-slim
   KANIKO_IMAGE: gcr.io/kaniko-project/executor:v1.23.2-debug
   # The packages are cached between pipelines of the same branch.
   PNPM_STORE: $CI_PROJECT_DIR/.pnpm-store
@@ -48,7 +51,7 @@ workflow:
 
 check:
   stage: check
-  image: $NODE_IMAGE
+  image: $CHECK_IMAGE
   cache:
     key:
       files:
