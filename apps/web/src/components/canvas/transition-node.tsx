@@ -2,8 +2,7 @@ import type { NodeProps } from '@xyflow/react';
 import { Clock } from 'lucide-react';
 import { memo } from 'react';
 import { en } from '../../i18n/en';
-import { GUARD_LABEL_LENGTH } from '../../lib/flow-model';
-import { truncate } from '../../lib/inscriptions';
+import { guardPillText } from '../../lib/flow-model';
 import { NODE_STROKE, TRANSITION_HEIGHT, TRANSITION_WIDTH } from '@pnm/layout/geometry';
 import { Tooltip } from '../ui/tooltip';
 import { BindingPicker } from './binding-picker';
@@ -122,11 +121,11 @@ function TransitionNodeView({ id, data, selected }: NodeProps<TransitionFlowNode
       {guard ? (
         <Tooltip content={guard} side="top">
           <span
-            className="pn-detail pn-pill absolute bottom-full left-1/2 mb-2 -translate-x-1/2 font-mono text-[11px]"
+            className="pn-detail pn-pill pn-guard absolute bottom-full left-1/2 mb-2 -translate-x-1/2 font-mono text-[11px]"
             data-testid="guard-label"
             data-no-hovercard
           >
-            [ {truncate(guard, GUARD_LABEL_LENGTH)} ]
+            {guardPillText(guard)}
           </span>
         </Tooltip>
       ) : null}

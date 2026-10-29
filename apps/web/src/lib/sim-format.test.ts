@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { describeTiming, formatClock, formatSpan, timingOfKind } from './sim-format';
+import {
+  describeTiming,
+  formatClock,
+  formatSpan,
+  formatWarmupClock,
+  timingOfKind,
+} from './sim-format';
 
 describe('formatClock', () => {
   it('writes hours, minutes and seconds', () => {
@@ -44,5 +50,14 @@ describe('timing helpers', () => {
       kind: 'fixed',
       value: 10,
     });
+  });
+});
+
+describe('formatWarmupClock', () => {
+  it('writes minutes and seconds, and hours only when there are some', () => {
+    expect(formatWarmupClock(0)).toBe('0:00');
+    expect(formatWarmupClock(252)).toBe('4:12');
+    expect(formatWarmupClock(1200)).toBe('20:00');
+    expect(formatWarmupClock(3725)).toBe('1:02:05');
   });
 });

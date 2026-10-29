@@ -61,7 +61,8 @@ Click a row in the panel to select its places or transitions in the net.
   JSON nets (so markings that differ only in the order of equal tokens are one state).
 - An edge is one firing: transition and, in JSON nets, binding. Several bindings that lead to the same marking are
   several edges.
-- Limits: 20000 states and 10 s by default; the panel offers 1000 to 100000. A cut-off exploration is marked
+- Limits: 20000 states and 10 s by default; the panel offers 1000 to 100000 states and 5 to 300 seconds (_Time limit_,
+  used by the exploration and by the check of properties). A cut-off exploration is marked
   `truncated` with the reason, and its border states are _not expanded_: nothing is claimed about them.
 - The exploration runs in a Web Worker with progress and a **Cancel** button; in Node and in tests it runs in-thread.
 
@@ -111,8 +112,8 @@ and the property's automaton), which you can replay in the simulation.
 Three things to read carefully:
 
 - **Vacuous truth.** If no run ends in an end state (a net that never stops, such as the producer/consumer net), no trace
-  exists and every property holds vacuously. The result says "Holds vacuously". Choose _any marking_ to check
-  prefixes instead.
+  exists and every property holds vacuously. The result says "Holds vacuously", and the card offers _Check every prefix
+  of a run_, which switches the end states to _any marking_ and checks again.
 - **Infinite runs.** If a cycle can be reached without passing an end state, runs go on forever and the property says
   nothing about them. The result carries the warning "contains infinite runs without a final state".
 - **Incomplete state space.** If the exploration was cut off and no violation was found, the verdict is _unknown_, not

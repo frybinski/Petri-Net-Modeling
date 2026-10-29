@@ -5,6 +5,7 @@ import { makeProvider, providerConfig } from '../../lib/domain-generation';
 import {
   JSON_MODES,
   PRESETS,
+  insecureFromSecurePage,
   isConfigured,
   presetBaseUrl,
   type LlmSettings,
@@ -152,6 +153,16 @@ function SettingsForm() {
           />
           <p className="m-0 text-[11px] text-muted">{en.llm.baseUrlHint}</p>
         </div>
+
+        {insecureFromSecurePage(draft.baseUrl) ? (
+          <p
+            className="m-0 rounded-md bg-surface-2 px-2.5 py-2 text-[11px] leading-4 text-warn"
+            role="status"
+            data-testid="llm-https-hint"
+          >
+            {en.llm.httpsHint}
+          </p>
+        ) : null}
 
         {draft.preset === 'ollama' ? (
           <p

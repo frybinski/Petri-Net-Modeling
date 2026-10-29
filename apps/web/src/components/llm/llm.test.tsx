@@ -3,7 +3,7 @@ import type { ChatRequest, ChatResult, Provider, ProviderConfig } from '@pnm/llm
 import { createFakeProvider, type FakeScript } from '@pnm/llm/testing';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../App';
 import { setProviderFactory } from '../../lib/domain-generation';
 import { API_KEY_KEY, DEFAULT_SETTINGS, SETTINGS_KEY } from '../../lib/llm-settings';
@@ -105,8 +105,9 @@ afterEach(() => {
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
-  await user.click(screen.getByTestId('domain-generate-llm'));
-  expect(screen.getByTestId('llm-dialog')).toHaveAttribute('data-stage', 'form');
+  // The domain view and the dialog are loaded on demand.
+  await user.click(await screen.findByTestId('domain-generate-llm'));
+  expect(await screen.findByTestId('llm-dialog')).toHaveAttribute('data-stage', 'form');
 }
 
 async function waitForStage(stage: string) {
@@ -379,6 +380,34 @@ describe('generate dialog', () => {
 });
 
 describe('provider settings dialog', () => {
+  it('warns that a page on HTTPS may not reach an http:// provider, and says what to do', async () => {
+    const user = userEvent.setup();
+    installProvider([{ json: {} }]);
+    vi.stubGlobal('location', { ...window.location, protocol: 'https:' });
+    try {
+      render(<App />);
+      await user.click(screen.getByTestId('llm-settings-open'));
+      // The default provider is a local Ollama server on http://localhost.
+      const hint = await screen.findByTestId('llm-https-hint');
+      expect(hint).toHaveTextContent('served over HTTPS');
+      expect(hint).toHaveTextContent('pnpm dev');
+      await user.clear(screen.getByTestId('llm-base-url'));
+      await user.type(screen.getByTestId('llm-base-url'), 'https://api.example.com/v1');
+      expect(screen.queryByTestId('llm-https-hint')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not warn on a page that is not served over HTTPS', async () => {
+    const user = userEvent.setup();
+    installProvider([{ json: {} }]);
+    render(<App />);
+    await user.click(screen.getByTestId('llm-settings-open'));
+    await screen.findByTestId('llm-settings');
+    expect(screen.queryByTestId('llm-https-hint')).toBeNull();
+  });
+
   it('saves the settings and the key apart from each other', async () => {
     const user = userEvent.setup();
     installProvider([{ json: {} }]);

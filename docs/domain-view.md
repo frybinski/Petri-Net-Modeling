@@ -24,7 +24,7 @@ const { ok, view, diagnostics } = validateDomainView(net, net.domainView);
 ```
 
 Editing the net does not touch the mapping. A mapping that no longer fits (a place was deleted, an element was added)
-is reported by the rules V2, V3 and V7 and repaired with _Fill missing entries_ and _Update hash_.
+is reported by the rules V2, V3 and V7 and repaired with _Fill missing entries_, _Remove stale entries_ and _Update hash_.
 
 ## Schema
 
@@ -200,7 +200,7 @@ uses the animation below instead.
   counterpart in the net, and the other way round. A click selects it.
 - The mode _Edit layout_ (key `E`) lets you move, resize and reshape the entries in the picture, see _Editing the view_.
 - The tab _Domain view_ in the right panel shows the problems, the origin of the entries and the state of the hash, the
-  actions _Generate generic view_, _Fill missing entries_, _Update hash_ and _Remove domain view_, the appearance
+  actions _Generate generic view_, _Fill missing entries_, _Remove stale entries_, _Update hash_ and _Remove domain view_, the appearance
   (theme, name, entity, canvas size), the entry of the selected element and the whole mapping as JSON with live checks.
   Applying the JSON replaces the view in one undo step.
 
@@ -220,16 +220,19 @@ and every change is checked at once.
   there, or press and drag to add and place it in one move. A double click on a point removes it (a path keeps two).
   Slots are diamonds that move inside their station; wall segments have a handle at each end.
 - **Dragging.** The picture follows the pointer while you drag, nothing is written before you let go, and then the whole
-  drag is **one** undo step. `Esc` cancels a drag. The grid of the editor (8 px, key `G`) applies; `Alt` switches it
+  drag is **one** undo step. While you drag, only the moving entries (and the connectors that follow them) are drawn
+  anew, on a layer of their own; the rest of the sheet stays as it was rendered. `Esc` cancels a drag. The grid of the editor (8 px, key `G`) applies; `Alt` switches it
   off for the drag. `Shift` on a corner handle keeps the proportions. Coordinates are whole numbers and stay inside the
   canvas, boxes are at least 24 × 24 px, slots stay in their box, resizing scales slots and rooms with the box. A
   number next to the pointer shows where the entry is and how large.
 - **Arcs follow.** Moving an element moves the end of the arcs that touch it, and so does moving the end of a belt.
   Resizing leaves arcs where they are.
-- **Keys.** The arrow keys move the selection by 1 px, with `Shift` by 8 px. `Delete` does **not** delete the net
-  element: it hides the entry (`hidden`, reason _hidden by user_, a toast with _Undo_), and the element stays in the
-  net. Only decor is really removed. `F2` or a double click edits the label in place; an empty label brings the name of
-  the element back.
+- **Keys.** The arrow keys move the selection by 1 px, with `Shift` by 8 px. `Tab` and `Shift+Tab` select the next and
+  the previous entry (places, transitions, connectors, then decor; the picture scrolls to it) and give the key back at
+  the first and the last one, so that the focus can leave the picture. `Delete` does **not** delete the net element:
+  it hides the entry (`hidden`, reason _hidden by user_, a toast with _Undo_), and the element stays in the net. Only
+  decor is really removed. In Inspect mode `Delete` does nothing and says so: a net element is deleted in the net
+  view. `F2`, `Enter` or a double click edits the label in place; an empty label brings the name of the element back.
 - **Context menu.** On an entry: edit label, _Change kind_ (only the kinds that rule V4 allows for the role, converting
   the geometry: a box becomes a point at its middle, a point becomes a box around it), add or remove a point, add or
   remove a slot (at the click), hide or show, reset the entry to generic, edit JSON (selects the entry in the JSON
@@ -245,7 +248,8 @@ and every change is checked at once.
 - **Out of date.** When the net has changed (V7) the panel starts with a card _The view is out of date_. It lists the
   elements without an entry (V3) and the entries of removed elements (V2) and offers _Fill missing entries_ (only the
   new elements get a generic entry, everything else stays as it is), _Remove stale entries_ and _Update hash_, each as
-  its own undo step. The action _Fill missing entries_ in the action list does both of the first two at once.
+  its own undo step. The action list has the same two actions, _Fill missing entries_ (which only adds) and _Remove
+  stale entries_, so that the card and the list always do the same.
 
 The edits are pure functions of `@pnm/domain` (`handlesFor`, `hitHandle`, `moveEntry`, `resizeEntry`, `setBox`,
 `movePoint`, `insertPoint`, `removePoint`, `moveSlot`, `addSlot`, `removeSlot`, `setEntryKind`, `setLabel`,
@@ -267,7 +271,7 @@ simulator never waits for it. The pieces are pure functions in `@pnm/domain`; th
 | `applyEvents(prev, events, before, after, ...)` | Turns a bundle of events into motions, flashes and counters, from the layout before and after the bundle.            |
 | `sampleSprites(layout, anim, now, simTime)`     | The sprites at one moment: resting ones at their place, moving ones on their route (`sampleTokens` gives positions). |
 | `buildStaticScene` and `buildDynamicScene`      | The part of the picture that depends on net and view only, and the part that changes every frame.                    |
-| `stationStatus`, `queueLevel`, `stationInfos`   | Free, busy, blocked or starved stations, and the yellow and red of queues.                                           |
+| `stationStatus`, `queueLevel`, `stationInfos`   | Free, busy, busy-full, blocked or starved stations, and the yellow and red of queues.                                |
 | `caseTrail`, `caseActivities`                   | The steps of one case in the stream, for following a case.                                                           |
 
 **Tokens and their identity.** A token on a place is known by its `TokenMeta.id` from the simulation state (the view of
@@ -284,14 +288,14 @@ firing. Pools, sources and sinks are numbers.
 **From event to picture.** The motion of a token is the difference between the layout before and after a bundle,
 linked through the events:
 
-| Event                          | What is shown                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                    |
-| `start`                        | The case moves from its place along the connector to the slot of the station. The slot turns busy and a progress ring fills. |
-| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                    |
-| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                |
-| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                       |
-| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                              |
+| Event                          | What is shown                                                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                             |
+| `start`                        | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills. |
+| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                             |
+| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                                                         |
+| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                                                                |
+| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                                                                       |
 
 Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
 of the chain; the others light up their station. A move follows the connector of the view (`arcs`, key
@@ -305,9 +309,10 @@ element: `motion`, `flash`, `counter` or `hidden`. Every motion, flash and count
 caused it. The tests compare this log with the event stream (acceptance A2): over 30 simulated minutes of the parcel
 center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event.
 
-**States and colors.** A station is _busy_ when a slot is in use (green frame), _blocked_ when all slots are in use and
-cases wait in front of it (red frame and tint, red bar), _starved_ when nothing is in use and nothing waits (neutral) and
-_free_ otherwise. A queue, belt or buffer that holds cases turns yellow from 6 and red from 10 tokens; the limits are
+**States and colors.** A station is _busy_ when a slot is in use (green frame), _busy-full_ when all slots are in use and
+cases wait in front of it (amber frame, tint and bar), _blocked_ when, in addition, the waiting cases have reached the
+yellow limit of the queues, 6 by default (red frame and tint, red bar), _starved_ when nothing is in use and nothing
+waits (neutral) and _free_ otherwise. One waiting case at a full station is normal; only a growing queue turns it red. A queue, belt or buffer that holds cases turns yellow from 6 and red from 10 tokens; the limits are
 those of the key figure settings (_Queue highlighting_). A room of a `rooms` transition lights up while one of its slots
 is in use. Firings show a ring around the slot (or a bar under a desk or table) that fills with the simulation time.
 
@@ -322,6 +327,8 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 - A floating bar at the top of the view starts the simulation (_Simulate_) and, while it runs, offers play and pause,
   step, back, reset, the speed (1x to 60x, max), the clock, the cases in the system and _Edit_. It uses the same actions
   and shortcuts as the simulation panel. A small button hides it together with the key figures.
+- In the view _Domain_ alone the net editor is not mounted, so that it does not redraw its nodes for every bundle of
+  events behind the picture; in _Both_ it stays.
 - The strip at the bottom right shows throughput per hour, mean cycle time and cases in the system (with a note during
   the warm-up). The picture is fitted so that the bar, the strip, the zoom buttons and the case card do not cover it.
 - The hover card of a belt shows the waiting cases, the mean wait and whether it is getting long; the card of a station

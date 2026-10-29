@@ -41,9 +41,11 @@ must keep the view valid.
 
 ## Consequences
 
-- The preview rebuilds the static scene per pointer move. With a software renderer this costs a few milliseconds at a
-  device pixel ratio of 2; with a GPU it is negligible. If hall-sized scenes with thousands of elements need more, the
-  dragged entry can be drawn on its own layer over a cached scene.
+- The preview used to render the whole static scene per pointer move (about 12 ms of main-thread time per move with a
+  software renderer). Since 1.0.0 the entries that differ from the document's view (found by identity, as the edits
+  copy only what they change) leave the cached static layer once and are drawn on their own layer; a move then costs the
+  scene of the previewed view and not a new rendering of the sheet (about 8 ms, of which the script is 1 ms). The moved
+  part must be a few entries: a drag that touches most of the sheet still renders it.
 - Hiding drops the arcs of the hidden element from the view; showing draws generic ones. A hand-made route is lost
   unless the person undoes the hiding.
 - Arcs are independent paths. Resizing a station can leave an arc ending inside or outside of it; the arc handles fix

@@ -1,6 +1,6 @@
 {
   "name": "petri-net-modeling",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Web-based modeling tool for higher Petri nets",
   "license": "MIT",
@@ -13,6 +13,7 @@
     "dev": "pnpm --filter @pnm/web dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:e2e": "pnpm --filter @pnm/web test:e2e",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "pnpm -r typecheck",

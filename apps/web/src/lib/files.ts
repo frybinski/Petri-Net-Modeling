@@ -1,12 +1,10 @@
 import { NetFormatError, parseNetText, serializeNet, validate, type PetriNet } from '@pnm/core';
-import { eventLogRows, fromPnml, toEventLogCsv, toXes } from '@pnm/io';
 import { en } from '../i18n/en';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
 import { eventLog } from '../store/sim-log';
 import { useExportStore } from '../store/export-store';
 import { useImportStore } from '../store/import-store';
 import { notify, useUiStore } from '../store/ui-store';
-import { hasValidDomainView } from './domain-view';
 
 export const NET_EXTENSION = '.pn.json';
 
@@ -65,9 +63,15 @@ export function exportJson(): void {
  * domain view, the image is of the domain view; the dialog lets the person switch.
  */
 export function openExportImage(): void {
-  const { net } = useEditorStore.getState();
-  const domain = useUiStore.getState().viewMode === 'domain' && hasValidDomainView(net);
-  useExportStore.getState().openDialog('image', domain ? 'domain' : 'net');
+  if (useUiStore.getState().viewMode !== 'domain') {
+    useExportStore.getState().openDialog('image', 'net');
+    return;
+  }
+  // The check of the domain view is part of the domain view's chunk, which is loaded by now.
+  void import('./domain-view').then(({ hasValidDomainView }) => {
+    const { net } = useEditorStore.getState();
+    useExportStore.getState().openDialog('image', hasValidDomainView(net) ? 'domain' : 'net');
+  });
 }
 
 export function openExportPnml(): void {
@@ -82,9 +86,11 @@ export function openExportTikz(): void {
  * Downloads the events of the running simulation as an event log: CSV with the columns
  * `case_id, activity, timestamp, lifecycle`, or XES.
  */
-export function exportEventLog(format: 'csv' | 'xes'): void {
+export async function exportEventLog(format: 'csv' | 'xes'): Promise<void> {
   const { net } = useEditorStore.getState();
   const events = eventLog.all();
+  // The export formats are a chunk of their own.
+  const { eventLogRows, toEventLogCsv, toXes } = await import('@pnm/io');
   const rows = eventLogRows(events, net).length;
   if (rows === 0) {
     notify('info', en.trace.exportEmpty);
@@ -131,6 +137,7 @@ export function looksLikePnml(text: string, fileName: string): boolean {
  * `.pn.json` yet. Remarks of the import are shown in a dialog; a clean import only gets a toast.
  */
 export async function importPnmlText(text: string, fileName: string): Promise<void> {
+  const { fromPnml } = await import('@pnm/io');
   const result = await fromPnml(text);
   useEditorStore.getState().loadNet(result.net, null, { unsaved: true });
   const { net, warnings, laidOut } = result;

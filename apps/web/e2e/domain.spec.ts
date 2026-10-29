@@ -160,8 +160,11 @@ test('complaint handling: generate a generic view and keep it in step with the n
   expect(await listedRules(page)).toEqual(expect.arrayContaining(['V2', 'V7']));
   await expect(page.getByTestId('domain-update-hash')).toBeDisabled();
 
-  // Fill missing entries drops the stale one; Update hash accepts the new structure.
+  // Fill missing entries only adds, Remove stale entries drops the stale one; Update hash accepts
+  // the new structure.
   await page.getByTestId('domain-fill').click();
+  expect(await listedRules(page)).toEqual(expect.arrayContaining(['V2', 'V7']));
+  await page.getByTestId('domain-remove-stale').click();
   expect(await listedRules(page)).toEqual(['V7']);
   await expect(page.getByTestId('domain-hash-status')).toHaveAttribute('data-stale', 'true');
   await page.getByTestId('domain-update-hash').click();

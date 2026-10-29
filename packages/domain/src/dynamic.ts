@@ -1,6 +1,7 @@
 import type { Id } from '@pnm/core';
 import {
   FLASH_MS,
+  motionEnd,
   sampleSprites,
   shownCount,
   type AnimationState,
@@ -27,7 +28,7 @@ import {
   type Thresholds,
 } from './status';
 import type { LayoutContext, LayoutFiring, TokenLayout } from './token-layout';
-import { isPathPlace } from './token-layout';
+import { firingKey, isPathPlace } from './token-layout';
 
 export interface DynamicOptions {
   /** Wall-clock milliseconds, the clock of the animation state. */
@@ -98,7 +99,18 @@ export function buildDynamicScene(
   const thresholds = options.thresholds ?? DEFAULT_THRESHOLDS;
   const simTime = options.simTime ?? layout.time;
   const now = options.now;
-  const stations = stationInfos(net, view, layout.counts, layout.running, context);
+  const stations = stationInfos(net, view, layout.counts, layout.running, context, thresholds);
+
+  // Firings whose case is still on its way to the slot: the slot is taken, nobody is there yet.
+  const arriving = new Set<number>();
+  for (const firing of layout.running) {
+    const moving = anim.motions.some(
+      (motion) =>
+        now < motionEnd(motion) &&
+        firing.caseIds.some((c) => motion.tokenId === firingKey(firing.firingId, c)),
+    );
+    if (moving) arriving.add(firing.firingId);
+  }
 
   // Which transition's slots are drawn by a resource place.
   const slotPlaceOf = new Map<Id, Id>();
@@ -214,6 +226,10 @@ export function buildDynamicScene(
     const id = transition.id;
     const firings = runningAt.get(id) ?? [];
     const busySlots = new Set(firings.map((f) => f.slot));
+    // The slots of firings that wait for their case to arrive.
+    const reservedSlots = new Set(
+      firings.filter((f) => arriving.has(f.firingId)).map((f) => f.slot),
+    );
     const info = stations.get(id);
     const slots: readonly Point[] = 'slots' in entry ? (entry.slots ?? []) : [];
     const claimed = slotPlaceOf.get(id);
@@ -223,10 +239,12 @@ export function buildDynamicScene(
         entry.kind === 'rooms' && entry.rooms?.length ? entry.rooms : [entry.box];
       const [x, y, w, h] = entry.box;
       const card = entry.kind === 'station' || entry.kind === 'machine' || entry.kind === 'gate';
-      if (info.status === 'busy' || info.status === 'blocked') {
+      if (info.status === 'busy' || info.status === 'busy-full' || info.status === 'blocked') {
         const blocked = info.status === 'blocked';
+        // Green while working, amber with every slot in use and cases waiting, red for a bottleneck.
+        const tone = blocked ? 'danger' : info.status === 'busy-full' ? 'warn' : 'ok';
         if (card) {
-          if (blocked) {
+          if (info.status !== 'busy') {
             layers.transitions.push({
               layer: 'transitions',
               elementId: id,
@@ -236,8 +254,8 @@ export function buildDynamicScene(
               w,
               h,
               radius: 8,
-              fill: 'danger',
-              alpha: 0.09,
+              fill: tone,
+              alpha: blocked ? 0.09 : 0.07,
             });
           }
           layers.transitions.push({
@@ -249,8 +267,8 @@ export function buildDynamicScene(
             w,
             h,
             radius: 8,
-            stroke: blocked ? 'danger' : 'ok',
-            lineWidth: blocked ? 2.6 : 2,
+            stroke: tone,
+            lineWidth: blocked ? 2.6 : info.status === 'busy-full' ? 2.3 : 2,
           });
         } else {
           for (const region of regions) {
@@ -273,8 +291,8 @@ export function buildDynamicScene(
               w: rw - 2 * inset,
               h: rh - 2 * inset,
               radius: entry.kind === 'rooms' ? 4 : 6,
-              stroke: blocked ? 'danger' : 'ok',
-              lineWidth: blocked ? 2.2 : 1.4,
+              stroke: tone,
+              lineWidth: blocked ? 2.2 : info.status === 'busy-full' ? 1.8 : 1.4,
               dash: [7, 5],
               alpha: 0.9,
             });
@@ -295,7 +313,8 @@ export function buildDynamicScene(
             h: 4,
             value:
               slots.length === 0 ? (info.busy > 0 ? 1 : 0) : Math.min(1, info.busy / slots.length),
-            tone: info.status === 'blocked' ? 'danger' : 'ok',
+            tone:
+              info.status === 'blocked' ? 'danger' : info.status === 'busy-full' ? 'warn' : 'ok',
           });
         }
       }
@@ -321,9 +340,11 @@ export function buildDynamicScene(
     let free = claimed !== undefined ? (layout.counts.get(claimed) ?? 0) : 0;
     slots.forEach((slot, index) => {
       const busy = busySlots.has(index);
+      const reserved = reservedSlots.has(index);
       if (claimed !== undefined) {
         let state: CellState = 'off';
-        if (busy) state = 'busy';
+        if (reserved) state = 'reserved';
+        else if (busy) state = 'busy';
         else if (free > 0) {
           state = 'free';
           free -= 1;
@@ -347,15 +368,17 @@ export function buildDynamicScene(
           x: slot[0],
           y: slot[1],
           r: 14,
-          fill: 'okSoft',
-          stroke: 'ok',
+          ...(reserved
+            ? { stroke: 'ok' as const, hatch: true, dash: [4, 3] as [number, number] }
+            : { fill: 'okSoft' as const, stroke: 'ok' as const }),
           lineWidth: 1.5,
         });
       }
     });
     for (const firing of firings) {
       const slot = slots[firing.slot];
-      if (!slot) continue;
+      // No progress before the case has arrived: the ring starts with the arrival.
+      if (!slot || arriving.has(firing.firingId)) continue;
       const span = firing.end - firing.start;
       const value = span > 0 ? Math.min(1, Math.max(0, (simTime - firing.start) / span)) : 1;
       if (style === 'slot' || style === 'machine') {

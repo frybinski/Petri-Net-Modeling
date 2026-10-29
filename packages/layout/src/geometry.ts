@@ -81,6 +81,32 @@ export interface ArcGeometryInput {
   obstacles?: readonly Endpoint[];
 }
 
+/** Height of the guard pill above a transition and the gap between the pill and the transition. */
+export const GUARD_PILL_HEIGHT = 18;
+export const GUARD_PILL_GAP = 8;
+/** Advance of one character of the monospace font of the pill (11 px) and its horizontal padding. */
+const GUARD_PILL_CHAR_WIDTH = 6.6;
+const GUARD_PILL_PADDING = 8;
+const GUARD_PILL_MAX_WIDTH = 280;
+
+/**
+ * The box of the guard pill that sits above a transition, as an obstacle for arcs. `characters`
+ * is the length of the text in the pill, including its brackets (`[ guard ]`).
+ */
+export function guardPillObstacle(transition: Position, characters: number): Endpoint {
+  const width = Math.min(
+    GUARD_PILL_MAX_WIDTH,
+    Math.round(characters * GUARD_PILL_CHAR_WIDTH + 2 * GUARD_PILL_PADDING),
+  );
+  return {
+    center: {
+      x: transition.x,
+      y: transition.y - TRANSITION_HEIGHT / 2 - GUARD_PILL_GAP - GUARD_PILL_HEIGHT / 2,
+    },
+    shape: { kind: 'rect', width, height: GUARD_PILL_HEIGHT },
+  };
+}
+
 /** Space the curve keeps from other nodes, and the largest bulge it takes to get around them. */
 export const ARC_CLEARANCE = 10;
 export const MAX_AVOID_SAG = 64;
@@ -142,7 +168,7 @@ function clearance(
   obstacles: readonly Endpoint[],
 ): number {
   let smallest = Infinity;
-  for (let t = 0.15; t <= 0.851; t += 0.1) {
+  for (let t = 0.15; t <= 0.851; t += 0.05) {
     const u = 1 - t;
     const point = {
       x: u * u * a.x + 2 * u * t * control.x + t * t * b.x,

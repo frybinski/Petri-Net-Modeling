@@ -13,6 +13,7 @@ const DROP = 20_000;
 class EventLog {
   private events: SimEvent[] = [];
   private lost = 0;
+  private warned = false;
 
   /** Number of events dropped from the start because the log was full. */
   get dropped(): number {
@@ -27,12 +28,21 @@ class EventLog {
     return this.events;
   }
 
-  push(events: readonly SimEvent[]): void {
+  /**
+   * Adds events. Returns true the first time that events had to be dropped since the log was
+   * cleared, so that the person can be told once.
+   */
+  push(events: readonly SimEvent[]): boolean {
     for (const event of events) this.events.push(event);
     if (this.events.length > LOG_LIMIT) {
       this.events.splice(0, DROP);
       this.lost += DROP;
+      if (!this.warned) {
+        this.warned = true;
+        return true;
+      }
     }
+    return false;
   }
 
   /** Forgets the events after the one with the given id (stepping back). */
@@ -45,6 +55,7 @@ class EventLog {
   clear(): void {
     this.events = [];
     this.lost = 0;
+    this.warned = false;
   }
 }
 

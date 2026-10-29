@@ -43,6 +43,13 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    // The scripts run in Node and report on the console; the screenshots also hand functions to
+    // the browser.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['packages/**/*.ts', '**/*.config.{js,ts}', 'apps/web/e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },

@@ -2,6 +2,109 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.0.0: Release
+
+The first stable release. It adds no feature: it works through the limitations that the earlier increments recorded,
+loads the parts that most sessions never open on demand, consolidates the documentation and prepares the release on
+GitHub. The file format stays `1.0`; nets of every earlier version work unchanged. The numbers in brackets are those of
+the [release plan](docs/plan/Release-1.0_Umsetzungsplan.md); what stays a limitation is listed with its reason in
+[docs/limitations.md](docs/limitations.md).
+
+### What 1.0.0 contains
+
+- **Editor.** Places, transitions and arcs with weights, tokens and capacities; rubber-band selection, align and
+  distribute, grid, minimap, undo and redo, copy and paste, automatic layout with ELK, keyboard-first drawing, hover
+  cards and zoom levels that fade details out. Files as `.pn.json` (drag and drop, autosave to IndexedDB), live
+  validation with click-to-select, light and dark theme, self-hosted fonts and accessible components.
+- **Net classes.** Place/transition nets and **JSON nets**: tokens are JSON values, places carry JSON Schema types,
+  input arcs bind variables and guards and output inscriptions are JSONata expressions, with code editors, completion,
+  a type manager and computed bindings. A P/T net is the special case without them.
+- **Simulation.** `@pnm/sim`, a seeded discrete-event engine in a Web Worker: durations, priorities, arrival rates,
+  resources, cases, two-phase firing, speeds from 1x to max, step back, breakpoints, a trace, key figures (throughput,
+  cycle time, queues, utilisation) and the event log as CSV and XES.
+- **Domain view.** The net drawn as what it models (a hall, a floor plan, a generic process) from a declarative mapping
+  that is stored with the net and checked by eight rules; animated from the event stream, editable by dragging in the
+  picture, and generated on request by an LLM through any OpenAI-compatible server, with the net alone deciding the
+  behaviour.
+- **Interchange.** PNML in both directions (files of ProM, pm4py and WoPeD are read, with remarks), SVG, PNG and TikZ
+  export, and the command line `pnm`.
+- **Analysis.** `@pnm/analysis`: structure, invariants, state space with boundedness, deadlocks and liveness,
+  coverability, and properties as DECLARE templates or LTLf checked on the state space with shortest counterexamples
+  and on simulation logs, in a Web Worker.
+- **Command line.** `pnm` validates, simulates, analyzes, checks, exports, imports and lays out nets and works with
+  domain views, as one file for Node 22 (`pnm-1.0.0.js`, attached to the release with its SHA-256 sum).
+
+### Changed (the limitations that were fixed)
+
+- **The start of the app is much smaller (7).** The layout engine, the domain view, the analysis, the export formats and
+  the LLM dialogs are separate chunks that load when they are first used. The JavaScript that the page fetches at
+  start drops from 4286 kB to 1189 kB (1269 kB to 351 kB gzipped), the entry chunk from 1390 kB to 669 kB (409 kB to
+  190 kB gzipped). A test walks the static imports from the entry point and fails when one of the parts comes back.
+  JSONata and Ajv stay in the start, as the validation needs them at once.
+- **Fit view fills the canvas (1).** It zooms in to 200 % instead of 125 %, so small nets use a full-HD canvas. The zoom
+  levels that fade out details are unchanged.
+- **Arcs keep clear of guard pills (2).** The pills are obstacles for the routing in the editor and in the SVG export,
+  like nodes, and have a ring in the color of the canvas. Arcs that leave a transition below its pill bend away from it
+  (the token ring example).
+- **Copy and paste between nets (6).** A copied fragment carries the types its places refer to. Pasting adds the missing
+  ones, reuses the equal ones and stores a type whose name is taken by another schema as `Name_2` (type names allow only
+  letters, digits and underscore), and a toast says what happened.
+- **A click right after the start of the simulation counts (10).** It is kept until the engine has answered for the
+  first time and then carried out (one click at most, the last).
+- **The warm-up shows its progress (11).** Until it is over, the metrics tab shows a bar with the clock, for example
+  _Warm-up 4:12 of 20:00_, and a link to the setting.
+- **A slot is reserved until its case arrives (14).** In the domain view the slot of a starting firing is hatched and has
+  no progress ring while the case still moves along the connector; the ring starts with the arrival.
+- **Full is not blocked (15).** A station with every slot in use and a few cases waiting is _busy-full_ (amber). It is
+  _blocked_ (red) when the waiting cases reach the yellow limit of the queues (6 by default, the limit of the key
+  figure settings).
+- **Delete never removes a net element from the domain view (16).** In Inspect mode it does nothing and says so; in
+  Edit layout it hides the entry, as before. With only the domain view shown, `Tab` and `Enter` do not change the net.
+- **Keyboard in the domain view (17).** In Edit layout `Tab` and `Shift+Tab` select the entries in turn and scroll them
+  into view, `Enter` opens the label.
+- **The net editor is not mounted behind the domain view (18).** In the Domain view during a timed simulation (parcel
+  center, 10x, 6 s, Chromium without GPU) the main thread is busy for 2068 ms instead of 3296 ms, and the hidden editor
+  no longer takes 681 DOM changes.
+- **Dragging in Edit layout redraws only the dragged entry (19).** The entries that move leave the static layer once and
+  are drawn on their own layer. Per pointer move the script time drops from 4.7 ms to 1.1 ms and the whole task from
+  11.9 ms to 7.7 ms (median of three runs of 150 moves on the parcel center).
+- **A person looks like a person (21).** Shoulders and a lighter head instead of a capsule with a dot, and the routes of
+  the smart office no longer run through its waypoints.
+- **Fill missing entries only adds (24).** The action list has the same two actions as the card: _Fill missing entries_
+  (purely additive) and _Remove stale entries_, each its own undo step.
+- **PNG with letters beyond Latin-1 (26).** The Latin Extended subset of Inter and JetBrains Mono is embedded when a
+  text needs it (Łódź, Příliš, İstanbul); without such a letter the PNG stays as small as before.
+- **Vacuous checks suggest a way out (29).** When no run ends in a deadlock, the properties card says so and switches the
+  end states to _any marking_ with one click.
+- **The analysis has a time limit (30).** A field next to the state limit (5 to 300 s, default 10) is used by the
+  exploration and by the check.
+- **Unused string removed (31).** `en.llm.badgeLlm`.
+
+### Documented
+
+Kept as limitations, with reasons and the way forward in [docs/limitations.md](docs/limitations.md): Tab with a selected
+node (3), the tooltip after a jumping pointer (4), tight names at 57 % (5), the time limit of JSONata in a native regular
+expression (8), AND joins of different cases in P/T nets (9), the event log of 200 000 events, now with a toast (12),
+back and reset that jump (13), a resource place that edits its station, now with a note (20), a local provider from an
+HTTPS page, now with a warning (22), the API key in the browser (23), the command line of 5 MB (25), PNML page offsets
+from nodes only (27) and the skeleton of JSON nets in structure and invariants (28).
+
+### Release
+
+- `.github/workflows/release.yml` runs on tags `v*`: install, lint, typecheck, tests, build, then it attaches
+  `pnm-<version>.js` with its SHA-256 sum to a GitHub release whose notes are the matching section of this file
+  (`scripts/release-notes.mjs`, `scripts/release-assets.mjs`, tested with `pnpm test:scripts`). Started by hand it takes
+  `dry_run` (the default) and `version`, does everything except creating the release and keeps the files as an artifact.
+  The web app is still deployed from `main`.
+- [docs/cli.md](docs/cli.md) has an install section for the downloaded file.
+- Documentation consolidated: the README starts with what the tool is, a table of the features and the quick start;
+  [docs/README.md](docs/README.md) indexes every document, decision record and plan; the screenshots are made again
+  (`scripts/screenshots.mjs`). `pnpm audit --prod` reports no known vulnerabilities.
+- Verification: 1613 unit and component tests (1547 before), 13 tests of the release scripts and 100 Playwright tests
+  (98 before). The Playwright suite ran three times in a row and the web unit suite three times next to a Playwright
+  run, without a failure; one drag test that failed once in the first series (it assumed 100 % zoom) now sets the zoom
+  itself.
+
 ## 1.0.0-rc.1: Analysis and verification
 
 Milestone M5. The file format stays `1.0` and gains the optional field `properties`; nets of 0.9.0 work unchanged.

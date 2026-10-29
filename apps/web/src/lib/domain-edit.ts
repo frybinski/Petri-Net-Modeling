@@ -4,6 +4,8 @@ import {
   addSlot,
   decorAt,
   distanceToSegment,
+  elementOfRef,
+  entryBounds,
   entryOf,
   GRID,
   hideEntry,
@@ -16,6 +18,7 @@ import {
   ref,
   refOfElement,
   removeDecor,
+  sameRef,
   removePoint,
   removeSlot,
   resetEntry,
@@ -35,21 +38,15 @@ import { en } from '../i18n/en';
 import { useDomainEditStore } from '../store/domain-edit-store';
 import { useEditorStore } from '../store/editor-store';
 import { notify, useUiStore } from '../store/ui-store';
+import { domainEditActive, registerDomainEditApi } from './domain-edit-api';
 import { getDomainView } from './domain-view';
+import { getDomainViewApi } from './domain-view-api';
+
+export { domainEditActive };
 
 /** The grid for edits: 8 px when snapping is on in the editor, else whole pixels only. */
 export function gridStep(): number {
   return useUiStore.getState().snapToGrid ? GRID : 0;
-}
-
-/** True while handles show and edits apply: the mode "Edit layout" of a valid view. */
-export function domainEditActive(): boolean {
-  return (
-    useUiStore.getState().domainEdit &&
-    useUiStore.getState().viewMode !== 'net' &&
-    useEditorStore.getState().mode === 'edit' &&
-    getDomainView() !== null
-  );
 }
 
 /** The entry that the selection stands for: a piece of decor, or the entry of the one selected element. */
@@ -90,6 +87,60 @@ export function selectEntry(entry: EntryRef | null, elementId: string | null): v
     decor.selectDecor(null);
     editor.clearSelection();
   }
+}
+
+/** The entries in the order of the Tab key: places, transitions, connectors, then decor. */
+export function entryOrder(net: PetriNet, view: DomainView): EntryRef[] {
+  const order: EntryRef[] = [];
+  for (const place of net.places) {
+    // The cells of a resource sit on the card of their transition, which has its own entry.
+    const entry = view.places[place.id];
+    if (entry && entry.kind !== 'slots') order.push(ref('places', place.id));
+  }
+  for (const t of net.transitions) if (view.transitions[t.id]) order.push(ref('transitions', t.id));
+  for (const key of Object.keys(view.arcs ?? {})) order.push(ref('arcs', key));
+  (view.decor ?? []).forEach((_, index) => order.push(ref('decor', index)));
+  return order;
+}
+
+/**
+ * The entry after (`1`) or before (`-1`) the selected one. Without a selection the first or the
+ * last one; past the end there is none, and Tab keeps its normal job of leaving the picture.
+ */
+export function neighbourEntry(
+  order: readonly EntryRef[],
+  current: EntryRef | null,
+  direction: 1 | -1,
+): EntryRef | null {
+  if (current === null) return (direction === 1 ? order[0] : order[order.length - 1]) ?? null;
+  const at = order.findIndex((entry) => sameRef(entry, current));
+  if (at < 0) return (direction === 1 ? order[0] : order[order.length - 1]) ?? null;
+  return order[at + direction] ?? null;
+}
+
+function stepTarget(direction: 1 | -1): EntryRef | null {
+  const view = getDomainView();
+  if (!view) return null;
+  return neighbourEntry(
+    entryOrder(useEditorStore.getState().net, view),
+    currentSelectedEntry(),
+    direction,
+  );
+}
+
+export function canStepEntry(direction: 1 | -1): boolean {
+  return stepTarget(direction) !== null;
+}
+
+/** Tab and Shift+Tab in the mode "Edit layout": selects the next entry and scrolls it into view. */
+export function stepEntry(direction: 1 | -1): boolean {
+  const target = stepTarget(direction);
+  const view = getDomainView();
+  if (!target || !view) return false;
+  selectEntry(target, elementOfRef(useEditorStore.getState().net, target));
+  const bounds = entryBounds(view, target);
+  if (bounds) getDomainViewApi()?.reveal(bounds);
+  return true;
 }
 
 /**
@@ -371,3 +422,14 @@ export function addSlotDefault(entry: EntryRef): boolean {
 export function removeSlotIndex(entry: EntryRef, index: number): boolean {
   return editView((view) => removeSlot(view, entry, index));
 }
+
+// The keyboard commands reach the editing of the view through this registration.
+registerDomainEditApi({
+  hasView: () => getDomainView() !== null,
+  selectedEntry: currentSelectedEntry,
+  deleteSelected: deleteSelectedEntry,
+  nudgeSelected,
+  startLabel: startLabelEdit,
+  canStep: canStepEntry,
+  step: stepEntry,
+});

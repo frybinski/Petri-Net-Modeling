@@ -143,7 +143,7 @@ export function TraceTab() {
               size="sm"
               icon={<Download size={13} aria-hidden="true" />}
               onClick={() => {
-                exportEventLog('csv');
+                void exportEventLog('csv');
               }}
               data-testid="export-csv"
             >
@@ -155,7 +155,7 @@ export function TraceTab() {
               size="sm"
               icon={<Download size={13} aria-hidden="true" />}
               onClick={() => {
-                exportEventLog('xes');
+                void exportEventLog('xes');
               }}
               data-testid="export-xes"
             >

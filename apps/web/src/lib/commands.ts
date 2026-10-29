@@ -1,18 +1,13 @@
+import { en } from '../i18n/en';
 import { deleteSelection } from './delete';
 import { chooseFile, openExportImage, saveNet } from './files';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
-import {
-  currentSelectedEntry,
-  deleteSelectedEntry,
-  domainEditActive,
-  nudgeSelected as nudgeDomainEntry,
-  startLabelEdit,
-} from './domain-edit';
+import { domainEditActive, getDomainEditApi } from './domain-edit-api';
 import { getDomainViewApi } from './domain-view-api';
 import { getViewApi } from './view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
-import { useUiStore, type ViewMode } from '../store/ui-store';
+import { notify, useUiStore, type ViewMode } from '../store/ui-store';
 
 export type CommandGroup = 'tools' | 'editing' | 'view' | 'simulation';
 
@@ -73,8 +68,10 @@ const editor = () => useEditorStore.getState();
  */
 function focusOnCanvas(event: KeyboardEvent): boolean {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return true;
-  if (target === document.body) return true;
+  // With the domain view alone there is no net canvas: its keys must not change the net unseen.
+  const netShown = useUiStore.getState().viewMode !== 'domain';
+  if (!(target instanceof HTMLElement)) return netShown;
+  if (target === document.body) return netShown;
   return (
     target.closest('.react-flow') !== null &&
     target.closest('.react-flow__panel, .react-flow__minimap') === null
@@ -82,17 +79,21 @@ function focusOnCanvas(event: KeyboardEvent): boolean {
 }
 
 /**
- * True if the keys belong to the domain view in the mode "Edit layout": its picture has the focus,
- * or nothing has and the domain view is the only one shown.
+ * True if the keys belong to the picture of the domain view: it has the focus, or nothing has and
+ * the domain view is the only one shown.
  */
-function focusOnDomainEdit(event: KeyboardEvent): boolean {
-  if (!domainEditActive()) return false;
+function focusOnDomain(event: KeyboardEvent): boolean {
   const target = event.target;
   if (target instanceof HTMLElement && target.matches('[data-testid="domain-canvas"]')) return true;
   return (
     (target === document.body || !(target instanceof HTMLElement)) &&
     useUiStore.getState().viewMode === 'domain'
   );
+}
+
+/** The same in the mode "Edit layout", where the keys change the view. */
+function focusOnDomainEdit(event: KeyboardEvent): boolean {
+  return domainEditActive() && focusOnDomain(event);
 }
 
 /** The one place or transition that is selected, if exactly one element is selected. */
@@ -159,10 +160,10 @@ function domainNudgeCommands(): Command[] {
     keys: [{ key }],
     display: 'Arrow keys',
     hidden,
-    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    when: (event) => focusOnDomainEdit(event) && getDomainEditApi()?.selectedEntry() != null,
     run: (event) => {
       const step = event?.shiftKey ? 8 : 1;
-      nudgeDomainEntry(dx * step, dy * step);
+      getDomainEditApi()?.nudgeSelected(dx * step, dy * step);
     },
   });
   return [
@@ -215,9 +216,56 @@ export const commands: Command[] = [
     group: 'editing',
     keys: [{ key: 'Delete' }, { key: 'Backspace' }],
     display: 'Del',
-    when: (event) => focusOnDomainEdit(event) && currentSelectedEntry() !== null,
+    when: focusOnDomainEdit,
     run: () => {
-      deleteSelectedEntry();
+      // Without a selected entry nothing happens: the net is never touched from the domain view.
+      getDomainEditApi()?.deleteSelected();
+    },
+  },
+  {
+    id: 'domain-delete-inspect',
+    label: 'Delete in the domain view in Inspect mode does nothing',
+    group: 'editing',
+    keys: [{ key: 'Delete' }, { key: 'Backspace' }],
+    hidden: true,
+    // The element that a click in the picture selected belongs to the net: it is deleted there.
+    when: (event) => focusOnDomain(event) && !domainEditActive(),
+    run: () => {
+      notify('info', en.domain.deleteInspect);
+    },
+  },
+  {
+    id: 'domain-step-next',
+    label: 'Select the next entry in the domain view (Edit layout)',
+    group: 'editing',
+    keys: [{ key: 'Tab', shift: false }],
+    display: 'Tab',
+    when: (event) => focusOnDomainEdit(event) && (getDomainEditApi()?.canStep(1) ?? false),
+    run: () => {
+      getDomainEditApi()?.step(1);
+    },
+  },
+  {
+    id: 'domain-step-previous',
+    label: 'Select the previous entry in the domain view (Edit layout)',
+    group: 'editing',
+    keys: [{ key: 'Tab', shift: true }],
+    hidden: true,
+    when: (event) => focusOnDomainEdit(event) && (getDomainEditApi()?.canStep(-1) ?? false),
+    run: () => {
+      getDomainEditApi()?.step(-1);
+    },
+  },
+  {
+    id: 'domain-open-label',
+    label: 'Edit the label of the selected entry in the domain view',
+    group: 'editing',
+    keys: [{ key: 'Enter', shift: false }],
+    when: (event) => focusOnDomainEdit(event) && getDomainEditApi()?.selectedEntry() != null,
+    run: () => {
+      const api = getDomainEditApi();
+      const entry = api?.selectedEntry();
+      if (api && entry) api.startLabel(entry);
     },
   },
   {
@@ -292,8 +340,9 @@ export const commands: Command[] = [
     keys: [{ key: 'F2' }],
     run: () => {
       if (domainEditActive() && useUiStore.getState().viewMode === 'domain') {
-        const entry = currentSelectedEntry();
-        if (entry) startLabelEdit(entry);
+        const api = getDomainEditApi();
+        const entry = api?.selectedEntry();
+        if (api && entry) api.startLabel(entry);
         return;
       }
       const { selection, startRename } = editor();

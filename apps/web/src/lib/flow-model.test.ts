@@ -118,6 +118,65 @@ describe('buildFlowEdges', () => {
   });
 });
 
+describe('buildFlowEdges around guard pills', () => {
+  // The geometry of the token ring: the arc from the transition up to the place leaves the
+  // transition at its top, where the straight line runs through the pill of the guard.
+  function guarded(guard: string | undefined): PetriNet {
+    let n = createEmptyNet('x', 'json-net');
+    n = addPlace(n, { id: 'p', name: 'P', position: { x: 0, y: 0 } });
+    n = addTransition(n, {
+      id: 't',
+      name: 'T',
+      position: { x: 70, y: 150 },
+      ...(guard !== undefined && { guard }),
+    });
+    return addArc(n, 't', 'p', { id: 'a' });
+  }
+  const pathOf = (n: PetriNet, showInscriptions = true): string | undefined =>
+    buildFlowEdges(context({ net: n, marking: n.marking, diagnostics: [], showInscriptions }))[0]
+      ?.data?.path;
+  /** How far the control point of the curve lies from the straight line between its ends. */
+  const bulge = (path: string | undefined): number => {
+    const m = /M(-?[\d.]+) (-?[\d.]+) Q(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+)/.exec(
+      path ?? '',
+    );
+    if (!m) return 0; // a straight line
+    const [x1, y1, cx, cy, x2, y2] = m.slice(1).map(Number) as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ];
+    return Math.abs((x2 - x1) * (y1 - cy) - (x1 - cx) * (y2 - y1)) / Math.hypot(x2 - x1, y2 - y1);
+  };
+
+  it('bends an arc that would pass behind the guard pill of its own transition', () => {
+    const usual = bulge(pathOf(guarded(undefined)));
+    expect(bulge(pathOf(guarded('$n < 10')))).toBeGreaterThan(usual + 10);
+  });
+
+  it('keeps the straight line when the guards are hidden', () => {
+    expect(pathOf(guarded('$n < 10'), false)).toBe(pathOf(guarded(undefined)));
+  });
+
+  it('also avoids the pill of another transition on the way', () => {
+    let n = createEmptyNet('x', 'json-net');
+    n = addTransition(n, { id: 'u', name: 'U', position: { x: 0, y: 0 } });
+    n = addPlace(n, { id: 'q', name: 'Q', position: { x: 0, y: 320 } });
+    // The transition itself is well clear of the line from Q to U, but its wide pill is not.
+    n = addTransition(n, {
+      id: 't',
+      name: 'T',
+      position: { x: 70, y: 190 },
+      guard: '$n < 10 and $m > 3',
+    });
+    n = addArc(n, 'q', 'u', { id: 'a' });
+    expect(bulge(pathOf(n))).toBeGreaterThan(bulge(pathOf(n, false)) + 10);
+  });
+});
+
 describe('chipSide', () => {
   const at = (x: number, y: number) => ({ x, y });
   function row(...nodes: Array<[string, number, number]>): PetriNet {

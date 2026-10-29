@@ -2,8 +2,7 @@ import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { en } from '../i18n/en';
 import { useEditorStore } from '../store/editor-store';
 import { useUiStore, type RightTab } from '../store/ui-store';
-import { AnalysisPanel } from './analysis/analysis-panel';
-import { DomainPanel } from './domain/domain-panel';
+import { LazyAnalysisPanel, LazyDomainPanel } from './lazy-parts';
 import { PropertiesPanel } from './properties-panel';
 import { SimulationPanel } from './simulation-panel';
 
@@ -81,7 +80,13 @@ export function RightPanel() {
           </button>
         ))}
       </div>
-      {active === 'domain' ? <DomainPanel /> : active === 'analyze' ? <AnalysisPanel /> : main}
+      {active === 'domain' ? (
+        <LazyDomainPanel />
+      ) : active === 'analyze' ? (
+        <LazyAnalysisPanel />
+      ) : (
+        main
+      )}
     </div>
   );
 }

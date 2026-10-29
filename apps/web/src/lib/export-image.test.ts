@@ -1,11 +1,18 @@
-import { createEmptyNet, parseNetText, type PetriNet } from '@pnm/core';
+import { addPlace, createEmptyNet, parseNetText, type PetriNet } from '@pnm/core';
 import { genericDomainView } from '@pnm/domain';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mockCanvas, type CanvasMock } from '../test/canvas-mock';
 import { domainToPng } from './export-domain';
-import { ImageExportError, MAX_PNG_SIDE, netSvg, netToPng, pngSize } from './export-image';
+import {
+  ImageExportError,
+  MAX_PNG_SIDE,
+  needsLatinExtended,
+  netSvg,
+  netToPng,
+  pngSize,
+} from './export-image';
 
 const example = (name: string): PetriNet =>
   parseNetText(
@@ -57,6 +64,40 @@ describe('netToPng', () => {
     expect(svg).toContain("font-family:'Inter Variable'");
     expect(svg).toContain("font-family:'JetBrains Mono Variable'");
     expect(svg).toMatch(/url\(data:font\/woff2;base64,/);
+  });
+
+  it('knows which texts need the Latin Extended subset of the fonts', () => {
+    // Umlauts and accents of Western European languages are in the Latin subset.
+    for (const text of ['Müller', 'Café Zoë', 'Straße', 'Ångström', 'ñandú', 'œuvre'])
+      expect(needsLatinExtended(text)).toBe(false);
+    // Polish, Czech, Hungarian, Turkish, Romanian and the like are not.
+    for (const text of ['Łódź', 'Příliš', 'őű', 'İstanbul', 'Brașov', 'ǎ'])
+      expect(needsLatinExtended(text)).toBe(true);
+  });
+
+  it('embeds the Latin Extended fonts only for a drawing that has such a letter', async () => {
+    const plain = addPlace(createEmptyNet('Plain'), {
+      id: 'p',
+      name: 'Müller',
+      position: { x: 0, y: 0 },
+    });
+    await netToPng(plain, { ...LIGHT, scale: 1 });
+    const faces = (svg: string): RegExpMatchArray | never[] => svg.match(/@font-face/g) ?? [];
+    const latin = await mock.objectUrls[0]!.text();
+    expect(faces(latin)).toHaveLength(2);
+    expect(latin).not.toContain('U+0100-02BA');
+
+    const polish = addPlace(createEmptyNet('Polish'), {
+      id: 'p',
+      name: 'Łódź',
+      position: { x: 0, y: 0 },
+    });
+    await netToPng(polish, { ...LIGHT, scale: 1 });
+    const extended = await mock.objectUrls[1]!.text();
+    // Both families get the second subset, each with the range of characters it is for.
+    expect(faces(extended)).toHaveLength(4);
+    expect(extended.match(/U\+0100-02BA/g)).toHaveLength(2);
+    expect(extended).toContain('Łódź');
   });
 
   it('uses the dark palette and can leave the background out', async () => {

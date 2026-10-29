@@ -266,8 +266,11 @@ describe('export', () => {
     const user = userEvent.setup();
     renderPanel();
     await user.click(screen.getByTestId('export-csv'));
+    // The export code is loaded on demand.
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/no events with a case/);
+    });
     expect(clicks).toHaveLength(0);
-    expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/no events with a case/);
   });
 
   it('downloads the event log as CSV with four columns', async () => {
@@ -276,7 +279,9 @@ describe('export', () => {
     await store().stepNext();
     renderPanel();
     await user.click(screen.getByTestId('export-csv'));
-    expect(clicks).toHaveLength(1);
+    await waitFor(() => {
+      expect(clicks).toHaveLength(1);
+    });
     expect(clicks[0]?.download).toBe('Shop-events.csv');
     const text = await blobs[0]!.text();
     const lines = text.trim().split('\n');
@@ -291,6 +296,9 @@ describe('export', () => {
     await store().stepNext();
     renderPanel();
     await user.click(screen.getByTestId('export-xes'));
+    await waitFor(() => {
+      expect(clicks).toHaveLength(1);
+    });
     expect(clicks[0]?.download).toBe('Shop-events.xes');
     const text = await blobs[0]!.text();
     expect(text).toContain('<log xes.version="1.0"');
@@ -312,6 +320,44 @@ describe('metrics tab', () => {
     expect(screen.getByTestId('metrics-places')).toBeInTheDocument();
     expect(screen.getByTestId('metrics-resources')).toBeInTheDocument();
     expect(screen.getAllByTestId('metrics-resource-row')).toHaveLength(1);
+  });
+
+  it('shows the progress of the warm-up instead of bare dashes, and where to change it', async () => {
+    const user = userEvent.setup();
+    const net = shop();
+    net.simulation = { ...net.simulation, warmup: 1200 };
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    expect(screen.getByTestId('metrics-warmup-label')).toHaveTextContent(
+      /^Warm-up \d+:\d\d of 20:00$/,
+    );
+    const bar = screen.getByRole('progressbar');
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(0);
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeLessThan(100);
+    // The link stops the simulation and leaves the net settings, where the field is, to edit.
+    await user.click(screen.getByTestId('metrics-warmup-change'));
+    expect(store().mode).toBe('edit');
+    expect(useUiStore.getState().rightTab).toBe('main');
+  });
+
+  it('shows no progress without a warm-up, or once it is over', async () => {
+    const net = shop();
+    net.simulation = { ...net.simulation, warmup: 1 };
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    for (let i = 0; i < 6; i += 1) await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    expect(store().simTime).toBeGreaterThan(1);
+    expect(screen.queryByTestId('metrics-warmup')).toBeNull();
+    expect(screen.getByTestId('metric-cases')).toBeInTheDocument();
   });
 
   it('changes the queue thresholds', async () => {

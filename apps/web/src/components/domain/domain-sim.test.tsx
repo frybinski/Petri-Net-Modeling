@@ -64,7 +64,7 @@ afterEach(() => {
 async function startFromBar(): Promise<ReturnType<typeof userEvent.setup>> {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(screen.getByTestId('domain-simulate'));
+  await user.click(await screen.findByTestId('domain-simulate'));
   await settled();
   return user;
 }
@@ -73,7 +73,7 @@ describe('the control bar of the domain view', () => {
   it('offers Simulate while editing and starts the simulation', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const bar = screen.getByRole('toolbar', { name: 'Simulation bar of the domain view' });
+    const bar = await screen.findByRole('toolbar', { name: 'Simulation bar of the domain view' });
     expect(within(bar).getByTestId('domain-simulate')).toBeInTheDocument();
     expect(screen.queryByTestId('domain-play')).toBeNull();
     await user.click(screen.getByTestId('domain-simulate'));

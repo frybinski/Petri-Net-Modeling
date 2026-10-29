@@ -33,12 +33,41 @@ const response: PropertySpec = {
 beforeEach(() => {
   analysis().clear();
   analysis().setLimit(20000);
+  analysis().setTimeLimit(10);
   analysis().setFinalMode('deadlock');
 });
 
 afterEach(() => {
   editor().stopSimulation();
   analysis().clear();
+});
+
+describe('the time limit', () => {
+  it('is 10 seconds by default and stops an exploration when it is reached', async () => {
+    analysis().setTimeLimit(10);
+    expect(analysis().timeLimit).toBe(10);
+    editor().loadNet(growing(), null);
+    // Plenty of states, almost no time: the clock stops the exploration, not the state limit.
+    analysis().setLimit(100000);
+    analysis().setTimeLimit(0.001);
+    await analysis().exploreStateSpace();
+    const space = analysis().space?.value.report.space;
+    expect(space?.truncated).toBe(true);
+    expect(space?.reason).toMatch(/time limit of 1 ms/);
+    expect(space?.states.length).toBeLessThan(100000);
+  });
+
+  it('also bounds the exploration behind a check of properties', async () => {
+    editor().loadNet(growing(), null);
+    editor().setProperties([
+      { id: 'r', kind: 'declare', template: 'response', activities: ['Arrive', 'Arrive'] },
+    ]);
+    analysis().setLimit(100000);
+    analysis().setTimeLimit(0.001);
+    await analysis().checkOnStateSpace();
+    expect(analysis().check?.value.report.truncated).toBe(true);
+    expect(analysis().check?.value.report.reason).toMatch(/time limit of 1 ms/);
+  });
 });
 
 describe('computing the results', () => {

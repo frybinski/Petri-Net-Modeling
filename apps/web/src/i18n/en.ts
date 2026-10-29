@@ -8,6 +8,8 @@ export const en = {
     untitled: 'Untitled net',
     netName: 'Net name',
     unsaved: 'Unsaved changes',
+    /** Shown for a moment while a part of the app that loads on demand arrives. */
+    loading: 'Loading…',
   },
   menu: {
     file: 'File',
@@ -387,6 +389,8 @@ export const en = {
     },
     showing: (shown: number, total: number) => `Latest ${shown} of ${total} events`,
     dropped: (n: number) => `${n} older events were dropped.`,
+    droppedToast: (limit: number) =>
+      `The event log is full: it keeps the latest ${limit.toLocaleString('en')} events, older ones are dropped. The key figures are not affected.`,
     noMatch: 'No event matches the filter.',
     exportCsv: 'Export CSV',
     exportXes: 'Export XES',
@@ -421,6 +425,10 @@ export const en = {
     critical: 'Red from',
     thresholdsHint: 'Places that hold cases and reach these counts get a ring on the canvas.',
     notYet: 'Run the simulation to see figures.',
+    warmupTitle: (time: string, total: string) => `Warm-up ${time} of ${total}`,
+    warmupHint: 'The figures start when the warm-up is over.',
+    warmupChange: 'Change warm-up',
+    warmupChangeTip: 'Stops the simulation and opens the setting',
     untimed: 'Key figures need a net with durations or arrival rates.',
   },
   status: {
@@ -466,11 +474,30 @@ export const en = {
     capacityReached: (k: number) => `This place has capacity ${k}.`,
     noEnabled: 'No transition is enabled.',
     editLocked: 'Stop the simulation to edit the net.',
+    /** Pasting brought types along: new ones, and ones that got another name because the name was taken. */
+    pastedTypes: (
+      added: readonly string[],
+      renamed: ReadonlyArray<{ from: string; to: string }>,
+    ) => {
+      const parts: string[] = [];
+      if (added.length > 0) {
+        parts.push(`${added.length === 1 ? 'Type' : 'Types'} ${added.join(', ')} added`);
+      }
+      if (renamed.length > 0) {
+        parts.push(
+          `${renamed.map((r) => `${r.from} became ${r.to}`).join(', ')} (the name is taken by another type)`,
+        );
+      }
+      return `Pasted. ${parts.join('; ')}.`;
+    },
   },
   shortcuts: {
     title: 'Keyboard shortcuts',
     close: 'Close',
     mouseTitle: 'Mouse',
+    tabTitle: 'About the Tab key',
+    tabNote:
+      'With one node selected, Tab adds the next node and connects it (Shift+Tab the previous one), so the keyboard does not move the focus on. Press Esc to deselect; then Tab moves the focus as usual. In the domain view, in Edit layout, Tab walks through the entries.',
     mouse: [
       ['Double-click an element', 'Rename it, or edit an arc'],
       ['Double-click a tool', 'Keep it active (Esc stops)'],
@@ -505,6 +532,8 @@ export const en = {
     },
   },
   domain: {
+    deleteInspect:
+      'Delete does nothing here: the picture shows the net. Switch to Edit layout to hide an entry, or delete the element in the net view.',
     exportImage: 'Export image…',
     exportImageTip: 'Save the domain view as a PNG image',
     title: 'Domain view',
@@ -562,12 +591,14 @@ export const en = {
     hashStale: 'The net has changed since the view was made.',
     actions: 'Actions',
     fill: 'Fill missing entries',
-    fillTip: 'Add generic entries for new elements and drop entries of removed ones',
+    fillTip: 'Give the new elements a generic entry; all other entries stay as they are',
     updateHash: 'Update hash',
     updateHashTip: 'Accept the current structure of the net as the one the view is made for',
     remove: 'Remove domain view',
     entry: 'Entry of the selection',
     entryNone: 'Select a place, transition or arc to see its entry.',
+    slotsHint: (station: string) =>
+      `The cells of this resource sit on the card of ${station}. This section edits that station, which is what moves and resizes.`,
     entryMissing: 'The view has no entry for this element.',
     json: 'JSON',
     jsonHint: 'Edit the view as text. Apply checks it and replaces the view in one undo step.',
@@ -630,7 +661,8 @@ export const en = {
     stationStatus: {
       free: 'Ready',
       busy: 'Busy',
-      blocked: 'Blocked, cases wait',
+      'busy-full': 'Busy, cases wait',
+      blocked: 'Blocked, cases pile up',
       starved: 'Waiting for cases',
     } as Record<string, string>,
     queueLevel: { warn: 'Getting long', crit: 'Bottleneck' } as Record<string, string>,
@@ -763,6 +795,8 @@ export const en = {
       object: 'JSON object only',
       none: 'Plain text, no format request',
     } as Record<string, string>,
+    httpsHint:
+      'This page is served over HTTPS, and a browser may block requests from it to an http:// address, such as a local model server. Run the app locally (pnpm dev, then open http://localhost:5173) or use a provider with an https:// address.',
     ollamaHint:
       'A browser may only call Ollama if the server allows this page as an origin. Start it with OLLAMA_ORIGINS set to this site (for example OLLAMA_ORIGINS="http://localhost:5173" ollama serve), or to * for local use.',
     privacy:
@@ -865,7 +899,6 @@ export const en = {
     logFilled: (n: number) => `${n} filled generically`,
     logDropped: (n: number) => `${n} dropped`,
     logPaths: 'Paths',
-    badgeLlm: 'LLM',
   },
   analysis: {
     tab: 'Analyze',
@@ -939,6 +972,7 @@ export const en = {
       exploreTip: 'Build the reachability graph',
       limit: 'Limit (states)',
       limitHint: 'The exploration stops at this many states.',
+      timeLimit: 'Time limit (s)',
       progress: (states: number, edges: number) =>
         `${states.toLocaleString('en')} states, ${edges.toLocaleString('en')} edges so far…`,
       states: 'States',
@@ -1036,6 +1070,10 @@ export const en = {
       finalHint:
         'A property holds if every run from the initial marking to an end state satisfies it.',
       finalMarkingHint: 'Start the simulation to use its current marking as the end state.',
+      noDeadlock:
+        'No run of this net ends in a deadlock, so these properties hold only vacuously: there is nothing to check.',
+      useAll: 'Check every prefix of a run',
+      useAllTip: 'Switch the end states to "any marking" and check again',
       includeOpen: 'Count unfinished cases',
       includeOpenHint:
         'Cases that have not reached an end activity are left out of the log check unless this is set.',

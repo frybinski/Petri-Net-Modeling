@@ -15,8 +15,10 @@ import {
   deleteSelectedEntry,
   domainEditActive,
   editView,
+  entryOrder,
   hideSelected,
   nearestSegment,
+  neighbourEntry,
   nudgeSelected,
   resetToGeneric,
   selectEntry,
@@ -265,17 +267,16 @@ describe('nearestSegment', () => {
 });
 
 describe('keyboard', () => {
-  function press(key: string, init: KeyboardEventInit = {}): void {
+  /** Presses a key on the picture of the domain view; true if a command took it. */
+  function press(key: string, init: KeyboardEventInit = {}): boolean {
     const canvas = document.createElement('canvas');
     canvas.setAttribute('data-testid', 'domain-canvas');
     document.body.append(canvas);
-    canvas.dispatchEvent(
-      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),
-    );
     const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
     Object.defineProperty(event, 'target', { value: canvas });
-    handleShortcut(event);
+    const handled = handleShortcut(event);
     canvas.remove();
+    return handled;
   }
 
   it('moves the selected entry with the arrow keys, 8 px with Shift', () => {
@@ -297,6 +298,91 @@ describe('keyboard', () => {
     expect(store().net.transitions.some((t) => t.id === 't_sort')).toBe(true);
   });
 
+  it('does nothing on Delete in Inspect mode, and says so, and never deletes a net element', () => {
+    useUiStore.setState({ domainEdit: false });
+    store().select(['t_sort']);
+    const before = store().net;
+    expect(press('Delete')).toBe(true);
+    expect(press('Backspace')).toBe(true);
+    expect(store().net).toBe(before);
+    expect(store().selection).toEqual(['t_sort']);
+    expect(useUiStore.getState().toasts.at(-1)?.message).toMatch(/Edit layout/);
+  });
+
+  it('does not delete a net element on Delete in Edit layout when no entry is selected', () => {
+    store().select([]);
+    const before = store().net;
+    press('Delete');
+    expect(store().net).toBe(before);
+    // Nor when the selection is not exactly one element.
+    store().select(['t_sort', 't_scan']);
+    press('Delete');
+    expect(store().net).toBe(before);
+  });
+
+  it('still deletes from the net editor when the domain view has no part in the key', () => {
+    useUiStore.setState({ viewMode: 'both', domainEdit: false });
+    store().select(['t_sort']);
+    const event = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'target', { value: document.body });
+    handleShortcut(event);
+    expect(store().net.transitions.some((t) => t.id === 't_sort')).toBe(false);
+  });
+
+  it('walks through the entries with Tab and Shift+Tab and leaves the picture at the ends', () => {
+    store().select([]);
+    const order = entryOrder(store().net, view());
+    expect(order.length).toBeGreaterThan(5);
+    expect(press('Tab')).toBe(true);
+    expect(currentSelectedEntry()).toEqual(order[0]);
+    expect(store().selection).toHaveLength(1);
+    expect(press('Tab')).toBe(true);
+    expect(currentSelectedEntry()).toEqual(order[1]);
+    expect(press('Tab', { shiftKey: true })).toBe(true);
+    expect(currentSelectedEntry()).toEqual(order[0]);
+    // Shift+Tab on the first entry gives the key back, so that the focus can move on.
+    expect(press('Tab', { shiftKey: true })).toBe(false);
+    // On the last entry Tab does the same.
+    const last = order[order.length - 1]!;
+    selectEntry(last, last.section === 'decor' ? null : last.key);
+    expect(currentSelectedEntry()).toEqual(last);
+    expect(press('Tab')).toBe(false);
+    expect(currentSelectedEntry()).toEqual(last);
+  });
+
+  it('starts at the last entry with Shift+Tab when nothing is selected', () => {
+    store().select([]);
+    const order = entryOrder(store().net, view());
+    expect(press('Tab', { shiftKey: true })).toBe(true);
+    expect(currentSelectedEntry()).toEqual(order[order.length - 1]);
+  });
+
+  it('leaves Tab alone in Inspect mode, where it changes no selection of the picture', () => {
+    useUiStore.setState({ domainEdit: false });
+    store().select([]);
+    expect(press('Tab')).toBe(false);
+    expect(store().selection).toEqual([]);
+  });
+
+  it('opens the label of the selected entry on Enter', () => {
+    store().select(['t_sort']);
+    expect(press('Enter')).toBe(true);
+    expect(useDomainEditStore.getState().renaming).toEqual({
+      section: 'transitions',
+      key: 't_sort',
+    });
+  });
+
+  it('does not add a node to the net with Tab while only the domain view is shown', () => {
+    useUiStore.setState({ domainEdit: false });
+    store().select(['t_sort']);
+    const nodes = store().net.places.length + store().net.transitions.length;
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'target', { value: document.body });
+    handleShortcut(event);
+    expect(store().net.places.length + store().net.transitions.length).toBe(nodes);
+  });
+
   it('toggles the mode with E', () => {
     useUiStore.setState({ domainEdit: false });
     press('e');
@@ -306,5 +392,25 @@ describe('keyboard', () => {
     useUiStore.setState({ viewMode: 'net' });
     press('e');
     expect(useUiStore.getState().domainEdit).toBe(false);
+  });
+});
+
+describe('the order of the entries', () => {
+  it('lists places, transitions, connectors and decor, and steps without wrapping', () => {
+    const net = store().net;
+    const order = entryOrder(net, view());
+    const sections = order.map((entry) => entry.section);
+    expect(sections.lastIndexOf('places')).toBeLessThan(sections.indexOf('transitions'));
+    expect(sections.lastIndexOf('transitions')).toBeLessThan(sections.indexOf('arcs'));
+    // The slots of a resource belong to the card of their station: no entry of their own.
+    expect(order.some((entry) => entry.key === 'p_scanner')).toBe(false);
+    const first = order[0]!;
+    const last = order[order.length - 1]!;
+    expect(neighbourEntry(order, null, 1)).toEqual(first);
+    expect(neighbourEntry(order, null, -1)).toEqual(last);
+    expect(neighbourEntry(order, first, 1)).toEqual(order[1]);
+    expect(neighbourEntry(order, first, -1)).toBeNull();
+    expect(neighbourEntry(order, last, 1)).toBeNull();
+    expect(neighbourEntry([], null, 1)).toBeNull();
   });
 });

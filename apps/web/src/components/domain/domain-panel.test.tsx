@@ -37,11 +37,14 @@ describe('right panel tabs', () => {
     expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('view-domain'));
+
+    await screen.findByTestId('domain-view');
     expect(screen.getByRole('tab', { name: 'Domain view' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(screen.getByTestId('domain-panel')).toBeInTheDocument();
+    // The panel is loaded on demand.
+    expect(await screen.findByTestId('domain-panel')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Properties' }));
     expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('domain-panel')).toBeNull();
@@ -55,6 +58,7 @@ describe('right panel tabs', () => {
     open('complaint-handling');
     render(<App />);
     await user.click(screen.getByTestId('view-both'));
+    await screen.findByTestId('domain-view');
     store().startSimulation();
     await waitFor(() => {
       expect(screen.getByTestId('simulation-panel')).toBeInTheDocument();
@@ -70,7 +74,8 @@ describe('generated view in the panel', () => {
     open('complaint-handling');
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
-    await user.click(screen.getByTestId('domain-generate'));
+    await screen.findByTestId('domain-view');
+    await user.click(await screen.findByTestId('domain-generate'));
     await waitFor(() => {
       expect(store().net.domainView).toBeDefined();
     });
@@ -79,13 +84,30 @@ describe('generated view in the panel', () => {
     expect(screen.getByTestId('origin-user')).toHaveTextContent('0 user');
   });
 
+  it('says that the panel edits the station when a resource place with cells is selected', async () => {
+    open('smart-office');
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-panel');
+    store().select(['o_desks']);
+    expect(await screen.findByTestId('domain-slots-hint')).toHaveTextContent('Arbeiten');
+    expect(screen.getByTestId('domain-entry-ref')).toHaveTextContent('transitions.o_work');
+    // A place that draws itself has no such note.
+    store().select(['o_foyer']);
+    await waitFor(() => {
+      expect(screen.queryByTestId('domain-slots-hint')).toBeNull();
+    });
+  });
+
   it('reports a view that does not follow the schema', async () => {
     const user = userEvent.setup();
     open('parcel-center');
     store().setDomainView({ schemaVersion: 1 });
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
-    expect(screen.getByTestId('domain-status')).toHaveTextContent('error');
+    await screen.findByTestId('domain-view');
+    expect(await screen.findByTestId('domain-status')).toHaveTextContent('error');
   });
 });
 
@@ -94,6 +116,9 @@ describe('domain panel', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
+    // The panel is loaded on demand.
+    await screen.findByTestId('domain-panel');
     return user;
   }
 
@@ -123,10 +148,17 @@ describe('domain panel', () => {
     expect(screen.getByTestId('domain-hash-status')).toHaveAttribute('data-stale', 'true');
     expect(screen.getByTestId('domain-update-hash')).toBeDisabled();
 
+    // Filling adds entries only: the entry of the removed place is still there.
     await user.click(screen.getByTestId('domain-fill'));
+    expect(screen.getAllByTestId('domain-diagnostic').map((row) => row.dataset['rule'])).toEqual(
+      expect.arrayContaining(['V2', 'V7']),
+    );
+    // Removing the stale entries is its own action in the list.
+    await user.click(screen.getByTestId('domain-remove-stale'));
     expect(screen.getAllByTestId('domain-diagnostic').map((row) => row.dataset['rule'])).toEqual([
       'V7',
     ]);
+    expect(screen.getByTestId('domain-remove-stale')).toBeDisabled();
     expect(screen.getByTestId('domain-update-hash')).toBeEnabled();
 
     await user.click(screen.getByTestId('domain-update-hash'));
@@ -191,5 +223,6 @@ describe('domain panel', () => {
     expect(screen.getByTestId('domain-remove')).toBeDisabled();
     expect(screen.getByTestId('domain-generate-action')).toBeDisabled();
     expect(screen.getByTestId('domain-fill')).toBeDisabled();
+    expect(screen.getByTestId('domain-remove-stale')).toBeDisabled();
   });
 });

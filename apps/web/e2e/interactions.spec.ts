@@ -563,3 +563,17 @@ test('a selected place shows its chip card but not the hover card, on the side w
     page.locator('[data-testid="hover-card"], [data-testid="token-chips"]:visible'),
   ).toHaveCount(1);
 });
+
+test('fit view zooms a small net in beyond 125 % on a full-HD canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openExample(page, 'producer-consumer');
+  const zoomLabel = page.getByTestId('zoom-level');
+  await page.getByTestId('fit-view').click();
+  await expect
+    .poll(async () => Number.parseInt((await zoomLabel.innerText()).replace('%', ''), 10))
+    .toBeGreaterThan(125);
+  // Never past the limit of the fit.
+  expect(Number.parseInt((await zoomLabel.innerText()).replace('%', ''), 10)).toBeLessThanOrEqual(
+    200,
+  );
+});

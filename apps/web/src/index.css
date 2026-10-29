@@ -397,6 +397,12 @@ body {
     background-color 120ms;
 }
 
+/* A guard pill keeps an outer ring in the canvas color, so that an arc that passes behind it is cut
+   off cleanly instead of running into the text. */
+.pn-guard {
+  box-shadow: 0 0 0 2px var(--canvas);
+}
+
 .pn-arc-label {
   cursor: pointer;
 }

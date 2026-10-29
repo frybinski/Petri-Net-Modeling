@@ -8,8 +8,8 @@ import { en } from '../i18n/en';
 import { SPLIT_MAX, SPLIT_MIN, useUiStore } from '../store/ui-store';
 import { FlowCanvas } from './canvas/flow-canvas';
 import { DiagnosticsPanel } from './diagnostics-panel';
-import { DomainCanvas } from './domain/domain-canvas';
 import { EmptyHint } from './empty-hint';
+import { LazyDomainCanvas } from './lazy-parts';
 
 const KEY_STEP = 0.02;
 
@@ -70,13 +70,14 @@ function Splitter({ container }: { container: React.RefObject<HTMLElement | null
 
 /**
  * The area next to the panels: the net editor, the domain view, or both one above the other. The
- * editor stays mounted while it is hidden, so that its viewport and selection survive.
+ * net editor is not mounted while only the domain view is shown: behind it, it would draw its
+ * nodes anew with every bundle of events of the simulation, for nobody to see. Its viewport and
+ * selection are lost with it (the selection is part of the document and stays).
  */
 export function Workspace({ children }: { children?: ReactNode }) {
   const viewMode = useUiStore((s) => s.viewMode);
   const ratio = useUiStore((s) => s.splitRatio);
   const container = useRef<HTMLElement>(null);
-  const netHidden = viewMode === 'domain';
 
   return (
     <main
@@ -84,20 +85,21 @@ export function Workspace({ children }: { children?: ReactNode }) {
       className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       aria-label={en.canvas.label}
     >
-      <div
-        className={netHidden ? 'invisible absolute inset-0' : 'relative min-h-0 flex-1'}
-        style={viewMode === 'both' ? { flex: `0 0 ${ratio * 100}%` } : undefined}
-        inert={netHidden}
-        data-testid="net-pane"
-      >
-        <FlowCanvas />
-        <EmptyHint />
-        <DiagnosticsPanel />
-      </div>
+      {viewMode !== 'domain' ? (
+        <div
+          className="relative min-h-0 flex-1"
+          style={viewMode === 'both' ? { flex: `0 0 ${ratio * 100}%` } : undefined}
+          data-testid="net-pane"
+        >
+          <FlowCanvas />
+          <EmptyHint />
+          <DiagnosticsPanel />
+        </div>
+      ) : null}
       {viewMode === 'both' ? <Splitter container={container} /> : null}
       {viewMode !== 'net' ? (
         <div className="relative min-h-0 flex-1" data-testid="domain-pane">
-          <DomainCanvas />
+          <LazyDomainCanvas />
         </div>
       ) : null}
       {children}

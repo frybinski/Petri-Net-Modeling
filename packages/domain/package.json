@@ -1,6 +1,6 @@
 {
   "name": "@pnm/domain",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Domain view of a Petri net: mapping schema, validation, generic mapping and a Canvas 2D scene renderer",
   "license": "MIT",

@@ -14,7 +14,6 @@ import { useDiagnostics } from '../lib/use-diagnostics';
 import { getDomainViewApi } from '../lib/domain-view-api';
 import { getViewApi } from '../lib/view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
-import { openGenerateDialog } from '../lib/domain-generation';
 import { useGenerationStore } from '../store/generation-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
@@ -114,7 +113,12 @@ export function StatusBar() {
         <Tooltip content={en.llm.statusRunningTip} side="top">
           <button
             type="button"
-            onClick={openGenerateDialog}
+            onClick={() => {
+              // The generation code is a chunk of its own.
+              void import('../lib/domain-generation').then((m) => {
+                m.openGenerateDialog();
+              });
+            }}
             className="inline-flex h-6 items-center gap-1.5 rounded-full bg-accent-soft px-2 font-medium text-accent"
             role="status"
             data-testid="llm-status"

@@ -3,12 +3,31 @@
 `pnm` runs the core, the simulation, the analysis, the exports and the domain view without a browser. It is one file,
 `apps/cli/dist/pnm.js`, built with esbuild from the workspace packages; it needs Node 22 and nothing else.
 
+## Install
+
+Every [release](https://github.com/frybinski/Petri-Net-Modeling/releases) carries the command line as one file,
+`pnm-<version>.js`, and its SHA-256 sum. Node 22 is all it needs:
+
+```sh
+# download pnm-1.0.0.js and pnm-1.0.0.js.sha256 from the page of the release, then
+sha256sum --check pnm-1.0.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.0.0.js.sha256
+node pnm-1.0.0.js --help
+node pnm-1.0.0.js validate my-net.pn.json
+```
+
+The file starts with a shebang, so `chmod +x pnm-1.0.0.js` lets you call it as `./pnm-1.0.0.js`; put it on the `PATH`
+under the name `pnm` to use the examples below as they are written. `pnm --version` prints the version.
+
+**Build it yourself.** In a clone of the repository:
+
 ```sh
 pnpm install
 pnpm --filter @pnm/cli build           # also part of pnpm build
 node apps/cli/dist/pnm.js --help
 # or, after linking: pnpm --filter @pnm/cli exec pnm --help
 ```
+
+The file is about 5 MB because it contains every package, the layout engine included, and starts in about 0.2 s.
 
 A `<net>` is a `.pn.json` or a PNML file (detected by content); `-` reads standard input. Exit status: **0** success,
 **1** the command failed (errors in the net, unreadable file, failed run), **2** wrong usage (unknown command or option,

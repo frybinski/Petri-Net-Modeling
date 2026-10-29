@@ -1,0 +1,113 @@
+name: Release
+
+# A tag `v<version>` builds and tests the code and publishes a GitHub release with the command
+# line as `pnm-<version>.js`, its SHA-256 sum and the notes of the matching CHANGELOG.md section.
+# Run by hand (Actions > Release > Run workflow) the workflow does everything except creating the
+# release when `dry_run` is set, which is the default, and keeps the files as a build artifact.
+# The web app is deployed by deploy.yml from `main`, not from here.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build, test and prepare the files, but do not create the release'
+        type: boolean
+        default: true
+      version:
+        description: 'Version to prepare (default: the version in package.json)'
+        type: string
+        required: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Test, build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Find the version
+        id: version
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif [ -n "${INPUT_VERSION}" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${package_version}"
+          fi
+          if [ "${version}" != "${package_version}" ]; then
+            echo "::error::The version ${version} is not the version in package.json (${package_version}). Change the version first, then tag."
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          # Versions with a hyphen (1.0.0-rc.1) are pre-releases.
+          case "${version}" in *-*) echo "prerelease=true" >> "${GITHUB_OUTPUT}" ;; *) echo "prerelease=false" >> "${GITHUB_OUTPUT}" ;; esac
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:scripts
+      - run: pnpm build
+
+      - name: Write the release notes
+        run: node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" --repo "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" > release-notes.md
+
+      - name: Prepare the files of the release
+        run: node scripts/release-assets.mjs "${{ steps.version.outputs.version }}" release-assets
+
+      - name: Check the sum
+        working-directory: release-assets
+        run: sha256sum --check "pnm-${{ steps.version.outputs.version }}.js.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.version.outputs.version }}
+          path: |
+            release-assets/*
+            release-notes.md
+          retention-days: 14
+
+      - name: Create the release
+        if: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+        run: |
+          flags=""
+          if [ "${PRERELEASE}" = "true" ]; then flags="--prerelease"; fi
+          # A tag that was pushed must exist; by hand the tag is created at this commit.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then flags="${flags} --verify-tag"; else flags="${flags} --target ${GITHUB_SHA}"; fi
+          gh release create "v${VERSION}" release-assets/* \
+            --title "${VERSION}" \
+            --notes-file release-notes.md \
+            ${flags}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+
+      - name: Dry run
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != false }}
+        run: |
+          echo "Dry run: no release was created. The files and the notes are in the build artifact."
+          echo "--- release notes ---"
+          cat release-notes.md

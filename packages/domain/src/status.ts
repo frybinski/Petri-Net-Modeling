@@ -9,7 +9,9 @@ export type StationStatus =
   | 'free'
   /** At least one slot is in use. */
   | 'busy'
-  /** Every slot is in use and cases are waiting in front of it: a bottleneck. */
+  /** Every slot is in use and a few cases wait in front of it: full, but not yet a bottleneck. */
+  | 'busy-full'
+  /** Every slot is in use and the waiting cases have reached the yellow limit: a bottleneck. */
   | 'blocked'
   /** No slot is in use and nothing waits: the station lacks input. Drawn neutral. */
   | 'starved';
@@ -44,10 +46,19 @@ export function queueLevel(count: number, thresholds: Thresholds = DEFAULT_THRES
 
 /**
  * The status of a station from the number of slots in use and the tokens that wait in front of it.
- * `blocked` needs both full slots and waiting cases; `starved` needs free slots and nothing waiting.
+ * With every slot in use and cases waiting it is `busy-full`, and `blocked` once the waiting cases
+ * reach the yellow limit of the queues (a single waiting case is normal, not a bottleneck);
+ * `starved` needs free slots and nothing waiting.
  */
-export function stationStatus(busy: number, capacity: number, waiting: number): StationStatus {
-  if (capacity > 0 && busy >= capacity && waiting > 0) return 'blocked';
+export function stationStatus(
+  busy: number,
+  capacity: number,
+  waiting: number,
+  thresholds: Thresholds = DEFAULT_THRESHOLDS,
+): StationStatus {
+  if (capacity > 0 && busy >= capacity && waiting > 0) {
+    return waiting >= thresholds.warn ? 'blocked' : 'busy-full';
+  }
   if (busy > 0) return 'busy';
   return waiting > 0 ? 'free' : 'starved';
 }
@@ -62,6 +73,7 @@ export function stationInfos(
   counts: ReadonlyMap<Id, number>,
   running: readonly LayoutFiring[],
   context: LayoutContext = layoutContext(net, view),
+  thresholds: Thresholds = DEFAULT_THRESHOLDS,
 ): Map<Id, StationInfo> {
   const busyOf = new Map<Id, number>();
   for (const firing of running) {
@@ -82,7 +94,7 @@ export function stationInfos(
     const busy = busyOf.get(transition.id) ?? 0;
     infos.set(transition.id, {
       transitionId: transition.id,
-      status: stationStatus(busy, capacity, waiting),
+      status: stationStatus(busy, capacity, waiting, thresholds),
       busy,
       capacity,
       waiting,

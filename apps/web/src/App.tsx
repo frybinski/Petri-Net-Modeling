@@ -1,14 +1,10 @@
 import { ReactFlowProvider } from '@xyflow/react';
 import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { StateSpaceDialog } from './components/analysis/state-space-dialog';
 import { ConfirmDialog } from './components/confirm-dialog';
-import { ExportDialog } from './components/export/export-dialog';
 import { ImportReportDialog } from './components/export/import-report-dialog';
 import { Header } from './components/header';
-import { GenerateDialog } from './components/llm/generate-dialog';
-import { GenerationLogDialog } from './components/llm/generation-log-dialog';
-import { LlmSettingsDialog } from './components/llm/llm-settings-dialog';
+import { LazyDialogs } from './components/lazy-parts';
 import { RightPanel } from './components/right-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
 import { TokenDialog } from './components/tokens/token-dialog';
@@ -135,13 +131,9 @@ export function App() {
         </div>
         <Toaster />
         <ConfirmDialog />
-        <StateSpaceDialog />
         <ShortcutsDialog />
-        <ExportDialog />
         <ImportReportDialog />
-        <GenerateDialog />
-        <GenerationLogDialog />
-        <LlmSettingsDialog />
+        <LazyDialogs />
         {tokenDialog ? (
           <TokenDialog
             key={`${tokenDialog.placeId}:${tokenDialog.index ?? 'new'}`}

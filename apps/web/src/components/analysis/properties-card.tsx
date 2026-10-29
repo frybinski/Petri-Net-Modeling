@@ -249,6 +249,15 @@ export function PropertiesCard() {
   const spaceStale = check !== null && isStale(check, net);
   const logStale = conformance !== null && isStale(conformance, net);
 
+  // A net that never stops has no end state under "deadlock": every property then holds
+  // vacuously. The panel says so and offers the end states that make the check say something.
+  const suggestAll =
+    check !== null &&
+    !spaceStale &&
+    check.value.final === 'deadlock' &&
+    !check.value.report.truncated &&
+    check.value.report.results.some((r) => r.vacuous);
+
   const save = (spec: PropertySpec): void => {
     const exists = properties.some((p) => p.id === spec.id);
     setProperties(
@@ -425,6 +434,27 @@ export function PropertiesCard() {
               {' · '}
               {FINAL_LABEL[check.value.final]}
             </p>
+          ) : null}
+          {suggestAll ? (
+            <div
+              className="flex flex-col items-start gap-1.5 rounded-md border border-border bg-surface-2/60 p-2"
+              role="status"
+              data-testid="check-suggest-all"
+            >
+              <p className="m-0 text-[11px] leading-snug text-muted">{t.noDeadlock}</p>
+              <Button
+                size="sm"
+                variant="secondary"
+                title={t.useAllTip}
+                onClick={() => {
+                  setFinalMode('all');
+                  void checkSpace();
+                }}
+                data-testid="check-use-all"
+              >
+                {t.useAll}
+              </Button>
+            </div>
           ) : null}
           {conformance && !logStale ? (
             <p className="m-0 text-[11px] text-muted" data-testid="log-summary">

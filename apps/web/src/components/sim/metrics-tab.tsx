@@ -1,8 +1,10 @@
 import { en } from '../../i18n/en';
-import { formatSpan } from '../../lib/sim-format';
+import { formatSpan, formatWarmupClock } from '../../lib/sim-format';
+import { openWarmupSetting } from '../../lib/sim-settings';
 import { useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { NumberField } from '../ui/fields';
+import { Tooltip } from '../ui/tooltip';
 import { PanelSection } from './section';
 
 function Card({
@@ -27,6 +29,52 @@ function Card({
   );
 }
 
+/**
+ * Until the warm-up is over the figures are empty. This shows how far the clock is, and leads to
+ * the setting.
+ */
+function WarmupProgress({ time, warmup }: { time: number; warmup: number }) {
+  const share = Math.min(1, Math.max(0, time / warmup));
+  const label = en.metrics.warmupTitle(formatWarmupClock(time), formatWarmupClock(warmup));
+  return (
+    <section
+      className="flex flex-col gap-1.5 border-b border-border px-4 py-3"
+      data-testid="metrics-warmup"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium" data-testid="metrics-warmup-label">
+          {label}
+        </span>
+        <Tooltip content={en.metrics.warmupChangeTip}>
+          <button
+            type="button"
+            className="cursor-pointer text-[11px] text-accent underline-offset-2 hover:underline focus-visible:underline"
+            onClick={openWarmupSetting}
+            data-testid="metrics-warmup-change"
+          >
+            {en.metrics.warmupChange}
+          </button>
+        </Tooltip>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(share * 100)}
+        className="h-1.5 overflow-hidden rounded-full bg-surface-2"
+      >
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-200"
+          style={{ width: `${share * 100}%` }}
+          data-testid="metrics-warmup-bar"
+        />
+      </div>
+      <p className="m-0 text-[11px] text-muted">{en.metrics.warmupHint}</p>
+    </section>
+  );
+}
+
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 /** Throughput, cycle time, queues and the use of resources. */
@@ -37,19 +85,27 @@ export function MetricsTab() {
   const warn = useUiStore((s) => s.bottleneckWarn);
   const critical = useUiStore((s) => s.bottleneckCritical);
   const setThresholds = useUiStore((s) => s.setBottleneckThresholds);
+  const time = useEditorStore((s) => s.simTime);
+  const warmup = net.simulation?.warmup ?? 0;
+  const warming = warmup > 0 && time < warmup;
 
   if (!timed) {
     return <p className="m-0 px-4 py-3 text-sm text-muted">{en.metrics.untimed}</p>;
   }
   if (!metrics) {
-    return <p className="m-0 px-4 py-3 text-sm text-muted">{en.metrics.notYet}</p>;
+    return (
+      <>
+        {warming ? <WarmupProgress time={time} warmup={warmup} /> : null}
+        <p className="m-0 px-4 py-3 text-sm text-muted">{en.metrics.notYet}</p>
+      </>
+    );
   }
   const names = new Map(net.places.map((p) => [p.id, p.name]));
   const queues = metrics.places.filter((p) => p.role === 'case');
-  const warmup = net.simulation?.warmup ?? 0;
 
   return (
     <div className="flex flex-col" data-testid="metrics-tab">
+      {warming ? <WarmupProgress time={time} warmup={warmup} /> : null}
       <section className="flex flex-col gap-2 border-b border-border px-4 py-3">
         <div className="grid grid-cols-3 gap-1.5">
           <Card

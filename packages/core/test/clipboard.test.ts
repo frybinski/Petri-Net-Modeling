@@ -10,6 +10,8 @@ import {
   setInitialTokens,
   validate,
   addAnnotation,
+  addType,
+  setPlaceType,
   type PetriNet,
 } from '../src';
 
@@ -84,5 +86,77 @@ describe('clipboard fragments', () => {
     expect(result.net.annotations).toBeUndefined();
     const withNote = insertFragment(bare, extractFragment(net, ['n1']), { x: 1, y: 1 });
     expect(withNote.net.annotations).toHaveLength(1);
+  });
+});
+
+describe('clipboard fragments and types', () => {
+  const integer = { type: 'integer' };
+  const text = { type: 'string' };
+
+  function typed(schema: unknown): PetriNet {
+    let net = createEmptyNet('typed', 'json-net');
+    net = addPlace(net, { id: 'p1', name: 'P1', position: { x: 0, y: 0 } });
+    net = addPlace(net, { id: 'p2', name: 'P2', position: { x: 100, y: 0 } });
+    net = addType(net, 'Hops', schema);
+    net = addType(net, 'Unused', text);
+    return setPlaceType(net, 'p1', 'Hops');
+  }
+
+  it('copies only the types that the places refer to', () => {
+    const fragment = extractFragment(typed(integer), ['p1', 'p2']);
+    expect(fragment.types).toEqual({ Hops: integer });
+    expect(extractFragment(typed(integer), ['p2']).types).toEqual({});
+  });
+
+  it('adds a missing type to the target net', () => {
+    const fragment = extractFragment(typed(integer), ['p1']);
+    const target = createEmptyNet('other', 'json-net');
+    const result = insertFragment(target, fragment, { x: 0, y: 0 });
+    expect(result.net.types).toEqual({ Hops: integer });
+    expect(result.net.places[0]?.type).toBe('Hops');
+    expect(result.typeChanges).toEqual({ added: ['Hops'], renamed: [] });
+    expect(validate(result.net).filter((d) => d.severity === 'error')).toEqual([]);
+    expect(target.types).toEqual({});
+  });
+
+  it('compares schemas structurally, regardless of key order', () => {
+    const schema = {
+      type: 'object',
+      properties: { a: { type: 'integer' }, b: { type: 'string' } },
+    };
+    const reordered = {
+      properties: { b: { type: 'string' }, a: { type: 'integer' } },
+      type: 'object',
+    };
+    const fragment = extractFragment(typed(schema), ['p1']);
+    const target = addType(createEmptyNet('other', 'json-net'), 'Hops', reordered);
+    const result = insertFragment(target, fragment, { x: 0, y: 0 });
+    expect(Object.keys(result.net.types)).toEqual(['Hops']);
+    expect(result.typeChanges).toEqual({ added: [], renamed: [] });
+  });
+
+  it('renames a type whose name is taken by a different schema, and reuses that name', () => {
+    const fragment = extractFragment(typed(integer), ['p1']);
+    const target = addType(createEmptyNet('other', 'json-net'), 'Hops', text);
+    const first = insertFragment(target, fragment, { x: 0, y: 0 });
+    expect(first.net.types).toEqual({ Hops: text, Hops_2: integer });
+    expect(first.net.places[0]?.type).toBe('Hops_2');
+    expect(first.typeChanges.renamed).toEqual([{ from: 'Hops', to: 'Hops_2' }]);
+    const second = insertFragment(first.net, fragment, { x: 10, y: 10 });
+    expect(Object.keys(second.net.types)).toEqual(['Hops', 'Hops_2']);
+    expect(second.net.places.map((p) => p.type)).toEqual(['Hops_2', 'Hops_2']);
+    // A third schema of the same name takes the next free name.
+    const other = insertFragment(second.net, extractFragment(typed({ type: 'boolean' }), ['p1']), {
+      x: 0,
+      y: 0,
+    });
+    expect(other.net.places[2]?.type).toBe('Hops_3');
+  });
+
+  it('keeps working with fragments that carry no types', () => {
+    const fragment = extractFragment(typed(integer), ['p1']);
+    delete fragment.types;
+    const result = insertFragment(createEmptyNet('other', 'json-net'), fragment, { x: 0, y: 0 });
+    expect(result.typeChanges).toEqual({ added: [], renamed: [] });
   });
 });
