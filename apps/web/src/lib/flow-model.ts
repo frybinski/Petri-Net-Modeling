@@ -103,6 +103,10 @@ export interface FlowContext {
   breakpointPlaces?: Readonly<Record<Id, number>>;
   /** Queues that are filling up. */
   bottlenecks?: ReadonlyMap<Id, Bottleneck>;
+  /** Places that just got a token created by a replay. */
+  deviationRing?: ReadonlySet<Id>;
+  /** Tokens a replay has created, by place. */
+  createdTokens?: Readonly<Record<Id, number>>;
 }
 
 /** Ids of elements that have at least one error diagnostic. */
@@ -181,6 +185,7 @@ export function buildFlowNodes(ctx: FlowContext): FlowNode[] {
         isArcSource: ctx.arcSource === place.id,
         renaming: ctx.renamingId === place.id,
         ...(ctx.bottlenecks?.get(place.id) && { bottleneck: ctx.bottlenecks.get(place.id) }),
+        ...(ctx.deviationRing?.has(place.id) && { deviation: true }),
         ...(ctx.breakpointPlaces?.[place.id] !== undefined && {
           breakpoint: ctx.breakpointPlaces[place.id],
         }),

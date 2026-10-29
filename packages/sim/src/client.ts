@@ -45,6 +45,9 @@ function build(send: (request: Request) => Promise<Response>, stop: () => void):
 
   return {
     init: (net, options, opts) => result({ cmd: 'init', net, ...(options && { options }) }, opts),
+    initReplay: (net, replay, opts) => result({ cmd: 'initReplay', net, replay }, opts),
+    push: (events, opts) => result({ cmd: 'push', events }, opts),
+    closeFeed: (opts) => result({ cmd: 'closeFeed' }, opts),
     step: (opts) => result({ cmd: 'step' }, opts),
     stepRandom: (count, opts) =>
       result({ cmd: 'stepRandom', ...(count !== undefined && { count }) }, opts),

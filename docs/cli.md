@@ -9,13 +9,13 @@ Every [release](https://github.com/frybinski/Petri-Net-Modeling/releases) carrie
 `pnm-<version>.js`, and its SHA-256 sum. Node 22 is all it needs:
 
 ```sh
-# download pnm-1.0.0.js and pnm-1.0.0.js.sha256 from the page of the release, then
-sha256sum --check pnm-1.0.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.0.0.js.sha256
-node pnm-1.0.0.js --help
-node pnm-1.0.0.js validate my-net.pn.json
+# download pnm-1.1.0.js and pnm-1.1.0.js.sha256 from the page of the release, then
+sha256sum --check pnm-1.1.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.1.0.js.sha256
+node pnm-1.1.0.js --help
+node pnm-1.1.0.js validate my-net.pn.json
 ```
 
-The file starts with a shebang, so `chmod +x pnm-1.0.0.js` lets you call it as `./pnm-1.0.0.js`; put it on the `PATH`
+The file starts with a shebang, so `chmod +x pnm-1.1.0.js` lets you call it as `./pnm-1.1.0.js`; put it on the `PATH`
 under the name `pnm` to use the examples below as they are written. `pnm --version` prints the version.
 
 **Build it yourself.** In a clone of the repository:
@@ -81,6 +81,44 @@ PLACE           ROLE      NOW    MEAN  MAX   MEAN WAIT
 ...
 Wrote out.csv (6394 rows)
 ```
+
+### `pnm replay <net> <log> [options]`
+
+Replays an event log (CSV or XES) on the net and prints the **fitness**, the deviations and the key figures of the
+replay. The rules are in [replay.md](replay.md). `<log>` can be `-` for standard input. Activities are matched to
+transitions by name (case, spaces, `_` and `-` ignored), then by id, then by a unique beginning; the others are listed on
+standard error and skipped.
+
+| Option                                                                      | Meaning                                                                                                 |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `--map <activity>=<transition>`                                             | Activity of the log = transition (id or name). Repeatable.                                              |
+| `--ignore <activity>`                                                       | Skip this activity without a remark. Repeatable.                                                        |
+| `--complete-only zero\|span`                                                | An end without a start takes no time (default), or starts when the previous activity of the case ended. |
+| `--time-origin first\|net\|<iso>`                                           | Time 0: the first event (default), the start time of the net, or a time.                                |
+| `--case-column`, `--activity-column`, `--time-column`, `--lifecycle-column` | CSV: the column to use where the usual names do not apply.                                              |
+| `--check-guards`                                                            | Also check the guards of the transitions (JSON nets).                                                   |
+| `--seed <n>`                                                                | Choose among free tokens of a resource at random (default: the oldest).                                 |
+| `--warmup <n>`                                                              | Seconds left out of the key figures (default: the warm-up of the net).                                  |
+| `--csv <file>`, `--xes <file>`                                              | The replayed events as an event log (time 0 = the first moment of the log).                             |
+| `--metrics <file>`                                                          | The figures of the replay as JSON.                                                                      |
+| `--json`                                                                    | Print the figures as JSON; the summary goes to standard error.                                          |
+| `--strict`                                                                  | Exit with status 1 if the fitness is below 1.                                                           |
+| `--quiet`, `-q`                                                             | No summary.                                                                                             |
+
+```
+$ pnm simulate examples/parcel-center.pn.json --seconds 7200 --csv events.csv --quiet
+$ pnm replay examples/parcel-center.pn.json events.csv --time-origin net --strict
+Paketzentrum: replayed events.csv (6394 events, 653 cases, 2 h 00 min)
+  fitness            1.0000  (0 of 4455 tokens had to be created, 0 of 5100 were left behind)
+  deviations         none
+  cases completed    529  (317.41 per hour)
+  cases open         22
+  cycle time         mean 2 min 46 s, max 8 min 09 s
+...
+```
+
+Exit status: **0** the replay ran (also with deviations), **1** the net or the log cannot be used, or `--strict` and the
+fitness is below 1, **2** wrong usage (a missing log, an unknown option, `--map` for an activity the log does not have).
 
 ### `pnm analyze <net> [--states N] [--time ms] [--coverability] [--structure-only] [--json]`
 

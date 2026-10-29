@@ -477,6 +477,7 @@ export function buildDynamicScene(
     if (age < 0 || age >= FLASH_MS) continue;
     const progress = age / FLASH_MS;
     const fade = (1 - progress) * (1 - progress);
+    const tone = flash.deviation === true ? 'danger' : 'ok';
     for (const area of scene.hits) {
       if (area.elementId !== flash.elementId || area.kind === 'arc') continue;
       const grow = 3 + progress * 9;
@@ -492,7 +493,7 @@ export function buildDynamicScene(
           w: w + 2 * grow,
           h: h + 2 * grow,
           radius: 10 + grow / 2,
-          stroke: 'ok',
+          stroke: tone,
           lineWidth: 2,
           alpha: 0.75 * fade,
         });
@@ -504,7 +505,7 @@ export function buildDynamicScene(
           x: shape.x,
           y: shape.y,
           r: shape.r + grow,
-          stroke: 'ok',
+          stroke: tone,
           lineWidth: 2,
           alpha: 0.75 * fade,
         });
@@ -514,7 +515,7 @@ export function buildDynamicScene(
           elementId: flash.elementId,
           op: 'path',
           points: shape.points,
-          stroke: 'ok',
+          stroke: tone,
           lineWidth: shape.width + grow,
           alpha: 0.28 * fade,
           cap: 'round',

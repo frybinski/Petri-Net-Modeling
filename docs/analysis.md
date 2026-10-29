@@ -186,6 +186,10 @@ direct dynamic program (linear in formula and trace length).
 (`response`, `precedence`, the alternate and chain variants, `respondedExistence`, `notSuccession`, ...), the number of
 **activations and fulfilments**.
 
+The log is the last run: the events of the simulation in progress, or of the last one that ended. For a **replay** of an
+event log ([replay.md](replay.md)) these are the events replayed so far, so the button **Check properties on this log** in
+the key figures of the replay checks the properties on the log you have just replayed, in one click.
+
 A log of a running simulation ends with cases that are still on their way. Such an **open case** violates `response`
 only because the log stopped, so cases whose last activity is not an **end activity** are left out by default (and counted
 as open). The end activities of a net are the transitions that put a token on a sink place (a place nothing takes tokens

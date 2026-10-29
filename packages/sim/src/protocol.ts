@@ -1,5 +1,6 @@
 import type { Diagnostic, EnabledBinding, Id, Marking, PetriNet, Token } from '@pnm/core';
 import type { MetricsSnapshot } from './metrics';
+import type { LiveEvent, ReplayInit } from './replay/types';
 import type { Breakpoints, SimEvent, SimOptions, SimSnapshot, TokenMeta } from './types';
 
 /** A firing that is under way, as shown in the editor. */
@@ -47,6 +48,12 @@ export interface SimView {
 
 export type Command =
   | { cmd: 'init'; net: PetriNet; options?: SimOptions }
+  /** Replays an event log on the net instead of running the engine. */
+  | { cmd: 'initReplay'; net: PetriNet; replay: ReplayInit }
+  /** Adds events to a live replay. */
+  | { cmd: 'push'; events: LiveEvent[] }
+  /** Ends the feed of a live replay. */
+  | { cmd: 'closeFeed' }
   | { cmd: 'step' }
   | { cmd: 'stepRandom'; count?: number }
   | { cmd: 'advance'; seconds: number; maxEvents?: number }
@@ -90,6 +97,12 @@ export interface CommandOptions {
  */
 export interface SimulationClient {
   init(net: PetriNet, options?: SimOptions, opts?: CommandOptions): Promise<SimResult>;
+  /** Starts the replay of an event log (`replay.live`: of a feed that is filled by `push`). */
+  initReplay(net: PetriNet, replay: ReplayInit, opts?: CommandOptions): Promise<SimResult>;
+  /** Adds events to a live replay. Events without a time happen now. */
+  push(events: LiveEvent[], opts?: CommandOptions): Promise<SimResult>;
+  /** The feed of a live replay has ended. */
+  closeFeed(opts?: CommandOptions): Promise<SimResult>;
   step(opts?: CommandOptions): Promise<SimResult>;
   stepRandom(count?: number, opts?: CommandOptions): Promise<SimResult>;
   advance(seconds: number, maxEvents?: number, opts?: CommandOptions): Promise<SimResult>;

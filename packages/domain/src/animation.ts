@@ -47,6 +47,8 @@ export interface Flash {
   elementId: Id;
   eventId: number;
   startedAt: number;
+  /** The flash marks a deviation of a replay from the net (drawn in red). */
+  deviation?: true;
 }
 
 /** The number shown at a place that is only drawn as a number. */
@@ -329,7 +331,10 @@ export function applyEvents(
   };
 
   /** Events that concern a visible element, with what they did to it. */
-  const elementOf = new Map<number, { elementId: Id | undefined; visible: boolean }>();
+  const elementOf = new Map<
+    number,
+    { elementId: Id | undefined; visible: boolean; deviation?: Id[] }
+  >();
   const created: Motion[] = [];
 
   for (const event of events) {
@@ -446,6 +451,22 @@ export function applyEvents(
         elementOf.set(event.id, { elementId: event.placeId, visible });
         cause.set(event.placeId, event.id);
         if (visible && isCounterPlace(entry)) touch(event.placeId, event.id);
+        break;
+      }
+      case 'deviation': {
+        // A replay found the log not to fit the net: the places and stations concerned flash red.
+        const drawn = [event.placeId, event.transitionId].filter(
+          (id): id is Id =>
+            id !== undefined &&
+            (view.places[id] !== undefined
+              ? view.places[id]!.kind !== 'hidden'
+              : isVisibleTransition(view.transitions[id])),
+        );
+        elementOf.set(event.id, {
+          elementId: drawn[0] ?? event.placeId ?? event.transitionId,
+          visible: drawn.length > 0,
+          deviation: drawn,
+        });
         break;
       }
       default:
@@ -590,8 +611,16 @@ export function applyEvents(
   for (const f of prev.flashes) {
     if (now - f.startedAt < flashMs) flashing.set(f.elementId, f);
   }
-  const flash = (elementId: Id, eventId: number): void => {
-    if (flashMs > 0) flashing.set(elementId, { elementId, eventId, startedAt: now });
+  const flash = (elementId: Id, eventId: number, deviation = false): void => {
+    if (flashMs <= 0) return;
+    // A red flash is not painted over by an ordinary one that follows within its time.
+    if (!deviation && flashing.get(elementId)?.deviation === true) return;
+    flashing.set(elementId, {
+      elementId,
+      eventId,
+      startedAt: now,
+      ...(deviation && { deviation: true as const }),
+    });
   };
   const counterEvents = new Map<number, Id[]>();
   for (const [placeId, ids] of touchedCounters) {
@@ -611,6 +640,13 @@ export function applyEvents(
         kind: 'hidden',
         ...(element !== undefined && { elementId: element }),
       });
+      continue;
+    }
+    if (info.deviation !== undefined) {
+      for (const id of info.deviation) {
+        flash(id, event.id, true);
+        handled.push({ eventId: event.id, kind: 'flash', elementId: id });
+      }
       continue;
     }
     const moved = motionsByEvent.get(event.id) ?? [];

@@ -1,6 +1,6 @@
 {
   "name": "@pnm/analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Structure, invariants, state space, coverability and verification of Petri nets (DECLARE, LTLf)",
   "license": "MIT",

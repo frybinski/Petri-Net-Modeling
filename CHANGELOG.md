@@ -2,6 +2,52 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.1.0: Replay of event logs
+
+Increment D5. The simulation gets a second source: an event log (CSV or XES, from this tool or from others) or a live
+feed drives the net, the domain view, the trace and the key figures instead of the engine. The file format stays `1.0`;
+nets of every earlier version work unchanged. The rules, formats and limits are in [docs/replay.md](docs/replay.md), the
+decisions in [ADR 0015](docs/adr/0015-event-log-replay.md).
+
+### Added
+
+- **Replay engine (`@pnm/sim`).** `createReplay(net, events, options)` has the interface of the engine. Cases enter with
+  their first event, activities take the tokens of their case and put tokens on the next places at the times of the log;
+  resources are given back; joins of cases that overtook each other, logs with only ends (`zero` or `span`), tokens of the
+  initial marking and JSON nets are handled. Where the log does not fit, tokens are created and **deviation events**
+  (`missing`, `ignored`, `guard`) are emitted. The key figures get the **token replay fitness** of Rozinat and van der
+  Aalst with tokens created, left behind, events skipped and cases open. The log of an engine run of the parcel center
+  (2 h), the smart office (8 h) and the complaint handling replays to the same states, events and key figures.
+- **Reading logs (`@pnm/io`).** `readLog` reads the CSV of this tool and other CSV files (any column names, comma,
+  semicolon or tab, ISO or Unix times, optional lifecycle) and XES; `autoMapActivities` (`@pnm/sim`) proposes the
+  transition of each activity by name, normalised name, id and unique beginning.
+- **Live replay.** `createLiveReplay` takes events while it runs and waits for the next; `push`, `close`, events without
+  a time happen now. The worker protocol has `initReplay`, `push` and `closeFeed`.
+- **App.** A source switch (_Engine_, _Log_, _Live_) in the simulation panel; _File > Replay event log..._ and dropping a
+  CSV or XES file open the **mapping dialog** (columns for foreign CSV, activity to transition with automatic matches,
+  options for ends without a start, time zero, warm-up and guards, preview of events, cases and span). The controls,
+  speeds, back, breakpoints, trace and key figures work as in a run; what belongs to the engine is hidden. Deviations
+  are red rows in the trace, a red ring around the place for a second with a count in its hover card, a red flash in the
+  domain view, and the card _Replay_ in the key figures with a one-click check of the properties on the replayed log.
+  The live source takes pasted lines and, while it is active, `window.pnm.live.push([...])` and `close()` in the browser
+  console.
+- **Command line.** `pnm replay <net> <log>` prints fitness, deviations by kind and place and the key figures, with
+  `--map`, `--ignore`, `--complete-only`, `--time-origin`, column options, `--check-guards`, `--csv`, `--xes`,
+  `--metrics`, `--json` and `--strict`.
+- **`scripts/live-demo.mjs`** lets cases walk through the smart office with random durations and prints their events as
+  lines to paste, as a console call or as JSON.
+- Documentation: [docs/replay.md](docs/replay.md) (with the example of a smart-office device log for chapter 9 of the
+  thesis), ADR 0015, limitations R1 to R6.
+
+### Changed
+
+- `SimEvent` has the new type `deviation`, `spawn` can carry the `tokens` a replay created for a new case, and
+  `MetricsSnapshot` has the optional field `replay`. Consumers of the stream that switch over the event type (the
+  trace, the domain animation, the key figures) handle it; the engine's events are unchanged.
+- The simulation panel shows the source first; the key figures and the trace know deviations.
+- `docs/cli.md`, `docs/domain-view.md`, `docs/analysis.md`, `docs/simulation.md`, the README and `PLAN.md` mention the replay.
+- All packages are at version 1.1.0.
+
 ## 1.0.0: Release
 
 The first stable release. It adds no feature: it works through the limitations that the earlier increments recorded,

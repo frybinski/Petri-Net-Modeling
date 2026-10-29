@@ -115,6 +115,8 @@ export function FlowCanvas() {
   const simTime = useEditorStore((s) => s.simTime);
   const simTimed = useEditorStore((s) => s.simTimed);
   const simBreakpoints = useEditorStore((s) => s.simBreakpoints);
+  const deviationRing = useEditorStore((s) => s.simDeviationRing);
+  const createdTokens = useEditorStore((s) => s.simMetrics?.replay?.missingByPlace);
   const bottleneckWarn = useUiStore((s) => s.bottleneckWarn);
   const bottleneckCritical = useUiStore((s) => s.bottleneckCritical);
   const docVersion = useEditorStore((s) => s.docVersion);
@@ -172,6 +174,10 @@ export function FlowCanvas() {
     () => (simulating ? new Set(simBreakpoints.transitions) : undefined),
     [simulating, simBreakpoints.transitions],
   );
+  const ringed = useMemo(
+    () => (simulating ? new Set(Object.keys(deviationRing)) : undefined),
+    [simulating, deviationRing],
+  );
   const bottlenecks = useMemo(
     () =>
       simulating && simTimed
@@ -200,6 +206,7 @@ export function FlowCanvas() {
       ...(breakpointTransitions && { breakpointTransitions }),
       ...(simulating && { breakpointPlaces: simBreakpoints.places }),
       ...(bottlenecks && { bottlenecks }),
+      ...(ringed && ringed.size > 0 && { deviationRing: ringed }),
     }),
     [
       net,
@@ -219,6 +226,7 @@ export function FlowCanvas() {
       breakpointTransitions,
       simBreakpoints.places,
       bottlenecks,
+      ringed,
     ],
   );
   const nodes = useMemo(() => buildFlowNodes(context), [context]);
@@ -619,6 +627,7 @@ export function FlowCanvas() {
           diagnostics,
           enabled: simulating ? enabledResults : undefined,
           running: simulating ? running?.get(card.id)?.count : undefined,
+          createdTokens: simulating ? createdTokens : undefined,
         })
       : null;
 

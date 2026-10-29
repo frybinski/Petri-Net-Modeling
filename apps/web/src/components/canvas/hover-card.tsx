@@ -67,6 +67,11 @@ export function HoverCard({ model, anchor }: { model: HoverCardModel; anchor: An
             {en.elements.tokens(model.tokenCount ?? 0)}
             {model.capacity !== undefined ? ` · ${en.properties.capacity} ${model.capacity}` : ''}
           </div>
+          {model.created !== undefined ? (
+            <div className="mt-1 font-medium text-danger" data-testid="hover-created">
+              {en.replay.createdAt(model.created)}
+            </div>
+          ) : null}
           {model.tokens.length > 0 ? (
             <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0" data-testid="hover-tokens">
               {model.tokens.map((token, i) => (

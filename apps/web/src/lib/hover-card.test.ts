@@ -28,6 +28,15 @@ function jsonNet(): PetriNet {
 }
 
 describe('buildHoverCard', () => {
+  it('tells how many tokens a replay had to create on a place', () => {
+    const net = jsonNet();
+    const input = { net, marking: net.marking, id: 'p', diagnostics: [] };
+    expect(buildHoverCard({ ...input, createdTokens: { p: 3 } })?.created).toBe(3);
+    expect(buildHoverCard({ ...input, createdTokens: { p: 0 } })).not.toHaveProperty('created');
+    expect(buildHoverCard({ ...input, createdTokens: {} })).not.toHaveProperty('created');
+    expect(buildHoverCard(input)).not.toHaveProperty('created');
+  });
+
   it('lists at most ten tokens of a place and counts the rest', () => {
     const net = jsonNet();
     const card = buildHoverCard({ net, marking: net.marking, id: 'p', diagnostics: [] });

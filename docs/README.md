@@ -9,11 +9,12 @@ An index of everything in `docs/`. The README in the repository root is the firs
 | [format.md](format.md)           | The `.pn.json` format, types, inscriptions, evaluation rules, validation codes, the P/T firing rule and PNML.          |
 | [expressions.md](expressions.md) | A short guide to guards and inscriptions (JSONata) for modelers.                                                       |
 | [simulation.md](simulation.md)   | Durations, resources, arrivals, cases, key figures, the event log and its export, controls and limits.                 |
+| [replay.md](replay.md)           | Replay of event logs (CSV, XES) and live feeds on a net: formats, mapping, rules, fitness, deviations, live API.       |
 | [domain-view.md](domain-view.md) | The domain view: the mapping and its rules, drawing, animation, editing in place and generation by a language model.   |
 | [analysis.md](analysis.md)       | Structure, invariants, state space, coverability, DECLARE and LTLf properties, counterexamples, event logs and limits. |
 | [tikz.md](tikz.md)               | The TikZ export for LaTeX: styles, options and what the output looks like.                                             |
 | [cli.md](cli.md)                 | The command line `pnm`: install from a release or build, every command with its options and exit statuses.             |
-| [limitations.md](limitations.md) | What 1.0.0 does not do, with the reason for each limitation and the way forward.                                       |
+| [limitations.md](limitations.md) | What 1.1.0 does not do, with the reason for each limitation and the way forward.                                       |
 
 ## Decisions
 
@@ -36,6 +37,7 @@ consequences.
 | [0012](adr/0012-interchange-and-cli.md)                    | PNML, image and TikZ export, and the command line as one bundled file.                    |
 | [0013](adr/0013-analysis-and-verification.md)              | An explicit state space, Karp-Miller, exact invariants and DECLARE/LTLf by automata.      |
 | [0014](adr/0014-parts-load-on-demand.md)                   | Parts that most sessions never open (analysis, domain view, exports, LLM) load on demand. |
+| [0015](adr/0015-event-log-replay.md)                       | An event log is replayed as a simulation: token replay, deviations as events.             |
 
 ## Plans
 
@@ -53,6 +55,7 @@ The plans of the increments, in German, written before the work and kept as the 
 | [M4](plan/M4_Umsetzungsplan.md)                                    | Interchange and export: PNML, images, TikZ and the command line.                                                       |
 | [M5](plan/M5_Umsetzungsplan.md)                                    | Analysis and verification.                                                                                             |
 | [Release 1.0](plan/Release-1.0_Umsetzungsplan.md)                  | The limitations, the consolidation and the release workflow of 1.0.0.                                                  |
+| [D5](plan/D5_Umsetzungsplan.md)                                    | Replay of event logs and live feeds: the simulation with a second source.                                              |
 
 ## Material
 

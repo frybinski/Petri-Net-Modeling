@@ -18,11 +18,13 @@ const TYPES: SimEventType[] = [
   'marking-edited',
   'breakpoint',
   'warning',
+  'deviation',
   'idle',
 ];
 
 /** The element an event concerns (a transition, or a place for edits and breakpoints). */
 function eventElement(event: SimEvent): Id | undefined {
+  if (event.type === 'deviation') return event.placeId ?? event.transitionId;
   if (event.type === 'marking-edited') return event.placeId;
   if (event.type === 'breakpoint') return event.elementId;
   return eventTransition(event);
@@ -35,6 +37,8 @@ function caseOf(event: SimEvent): string {
     case 'start':
     case 'complete':
       return event.caseIds.join(', ');
+    case 'deviation':
+      return event.caseId ?? '';
     default:
       return '';
   }
@@ -55,6 +59,8 @@ function details(event: SimEvent): string {
       return en.trace.editedBy(event.delta);
     case 'warning':
       return event.message;
+    case 'deviation':
+      return `${en.replay.kinds[event.kind]}: ${event.message}`;
     default:
       return '';
   }
@@ -68,6 +74,7 @@ const BADGE: Record<SimEventType, string> = {
   idle: 'bg-surface-2 text-muted',
   breakpoint: 'bg-danger-soft text-danger',
   warning: 'bg-warn-soft text-warn',
+  deviation: 'bg-danger-soft text-danger',
 };
 
 function nameOf(net: PetriNet, id: Id | undefined): string {
@@ -189,12 +196,17 @@ export function TraceTab() {
               {rows.map((event) => {
                 const element = eventElement(event);
                 const extra = details(event);
+                const deviation = event.type === 'deviation';
+                const label =
+                  deviation && element === undefined
+                    ? (event.activity ?? '')
+                    : nameOf(net, element);
                 return (
                   <tr
                     key={event.id}
-                    className={`border-t border-border align-top odd:bg-surface-2/40 ${
-                      element ? 'cursor-pointer hover:bg-surface-hover' : ''
-                    }`}
+                    className={`border-t border-border align-top ${
+                      deviation ? 'bg-danger-soft text-danger' : 'odd:bg-surface-2/40'
+                    } ${element ? 'cursor-pointer hover:bg-surface-hover' : ''}`}
                     onClick={() => {
                       if (element) select([element]);
                     }}
@@ -212,11 +224,14 @@ export function TraceTab() {
                       </span>
                     </td>
                     <td className="px-1 py-1">
-                      <div className="truncate" title={nameOf(net, element)}>
-                        {nameOf(net, element)}
+                      <div className="truncate" title={label}>
+                        {label}
                       </div>
                       {extra ? (
-                        <div className="truncate font-mono text-[10px] text-muted" title={extra}>
+                        <div
+                          className={`truncate font-mono text-[10px] ${deviation ? 'text-danger' : 'text-muted'}`}
+                          title={extra}
+                        >
                           {extra}
                         </div>
                       ) : null}

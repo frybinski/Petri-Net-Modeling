@@ -9,6 +9,7 @@ import type {
   Token,
 } from '@pnm/core';
 import type { MetricsSnapshot, MetricsState } from './metrics';
+import type { DeviationKind } from './replay/types';
 
 /** What the simulation knows about one token beyond its value. */
 export interface TokenMeta {
@@ -72,9 +73,10 @@ interface EventBase {
 export type SimEvent =
   /**
    * A new case enters, through a source transition (before its firing starts) or, at time 0,
-   * as a token of the initial marking (no transition).
+   * as a token of the initial marking (no transition). In a replay a case enters with its first
+   * event; `tokens` are the tokens that were created for it because no source transition does.
    */
-  | (EventBase & { type: 'spawn'; transitionId?: Id; caseId: string })
+  | (EventBase & { type: 'spawn'; transitionId?: Id; caseId: string; tokens?: TokenRef[] })
   | (EventBase & {
       type: 'start';
       transitionId: Id;
@@ -98,7 +100,22 @@ export type SimEvent =
   | (EventBase & { type: 'idle' })
   /** A breakpoint was reached; a running `advance` stops here. */
   | (EventBase & { type: 'breakpoint'; kind: 'transition' | 'place'; elementId: Id })
-  | (EventBase & { type: 'warning'; code: string; message: string; elementId?: Id });
+  | (EventBase & { type: 'warning'; code: string; message: string; elementId?: Id })
+  /**
+   * Replay only: the event log does not fit the net here. `missing`: the activity had no token to
+   * take on `placeId` and one was created; `ignored`: the activity is not mapped to a transition;
+   * `guard`: the guard of the transition is not satisfied by the tokens of the case.
+   */
+  | (EventBase & {
+      type: 'deviation';
+      kind: DeviationKind;
+      message: string;
+      caseId?: string;
+      transitionId?: Id;
+      placeId?: Id;
+      /** The activity as written in the log. */
+      activity?: string;
+    });
 
 export type SimEventType = SimEvent['type'];
 
@@ -143,6 +160,25 @@ export interface SimSnapshot {
   idleReported: boolean;
   blocked: Id[];
   metrics: MetricsState;
+  /** Replay only: where in the log the replay is, and its tallies. */
+  replay?: ReplaySnapshot;
+}
+
+/** The part of the state that only a replay has. Plain data. */
+export interface ReplaySnapshot {
+  /** Number of events of the log that have been taken. */
+  cursor: number;
+  consumed: number;
+  produced: number;
+  missing: number;
+  /** The tokens that had to be created, by place. */
+  missingByPlace: Record<Id, number>;
+  ignored: number;
+  guard: number;
+  /** The note that guards are not checked has been given. */
+  guardNoted: boolean;
+  /** Number of cases that have started. */
+  seen: number;
 }
 
 export interface EnabledView {

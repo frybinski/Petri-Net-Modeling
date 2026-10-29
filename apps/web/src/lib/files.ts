@@ -4,6 +4,7 @@ import { selectIsDirty, useEditorStore } from '../store/editor-store';
 import { eventLog } from '../store/sim-log';
 import { useExportStore } from '../store/export-store';
 import { useImportStore } from '../store/import-store';
+import { useReplayStore } from '../store/replay-store';
 import { notify, useUiStore } from '../store/ui-store';
 
 export const NET_EXTENSION = '.pn.json';
@@ -189,8 +190,43 @@ export function chooseFile(): void {
   fileInput?.click();
 }
 
-/** Opens a dropped or chosen file after confirming that unsaved changes may be discarded. */
+/** True for the names of event logs: CSV, TSV, plain text and XES. */
+export function looksLikeEventLog(fileName: string): boolean {
+  return /\.(csv|tsv|txt|xes)$/i.test(fileName);
+}
+
+/** Reads an event log file and opens the dialog that maps its activities to the transitions. */
+export async function openLogFile(file: File): Promise<void> {
+  try {
+    useReplayStore.getState().openText(file.name, await file.text());
+  } catch (error) {
+    notify('error', en.replay.readFailed(file.name), {
+      details: [error instanceof Error ? error.message : String(error)],
+    });
+  }
+}
+
+let logInput: HTMLInputElement | null = null;
+
+/** Registers the hidden file input that `chooseLogFile` opens. */
+export function registerLogFileInput(input: HTMLInputElement | null): void {
+  logInput = input;
+}
+
+/** Opens the browser's file chooser for an event log. */
+export function chooseLogFile(): void {
+  logInput?.click();
+}
+
+/**
+ * Opens a dropped or chosen file after confirming that unsaved changes may be discarded. An event
+ * log (CSV, XES) is not a net: it opens the replay dialog and leaves the document alone.
+ */
 export function openFileGuarded(file: File): void {
+  if (looksLikeEventLog(file.name)) {
+    void openLogFile(file);
+    return;
+  }
   guardUnsaved(() => {
     void openFile(file);
   });

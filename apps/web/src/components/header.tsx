@@ -4,6 +4,7 @@ import {
   FileInput,
   FileJson,
   FilePlus2,
+  FileText,
   FolderOpen,
   HelpCircle,
   ImageDown,
@@ -25,6 +26,7 @@ import { en } from '../i18n/en';
 import { commandById, shortcutText } from '../lib/commands';
 import {
   chooseFile,
+  chooseLogFile,
   exportJson,
   newNetGuarded,
   openExampleGuarded,
@@ -105,6 +107,12 @@ export function Header() {
           label: en.menu.import,
           icon: <FileInput size={14} />,
           onSelect: chooseFile,
+        },
+        {
+          id: 'replay-log',
+          label: en.menu.replayLog,
+          icon: <FileText size={14} />,
+          onSelect: chooseLogFile,
         },
       ],
     },

@@ -1,5 +1,7 @@
 import { createSimulation, isTimedNet } from './engine';
 import type { EnabledEntry, Request, Response, SimView } from './protocol';
+import { createReplay } from './replay/engine';
+import { createLiveReplay, type LiveReplay } from './replay/live';
 import type { SimEvent, Simulation } from './types';
 
 /**
@@ -9,6 +11,7 @@ import type { SimEvent, Simulation } from './types';
  */
 export function createHandler(): (request: Request) => Promise<Response> {
   let sim: Simulation | null = null;
+  let live: LiveReplay | null = null;
   let timed = false;
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -60,9 +63,34 @@ export function createHandler(): (request: Request) => Promise<Response> {
       let events: SimEvent[] = [];
       switch (request.cmd) {
         case 'init': {
+          live = null;
           sim = createSimulation(request.net, request.options);
           timed = isTimedNet(request.net);
           events = [...sim.initialEvents];
+          break;
+        }
+        case 'initReplay': {
+          const { events: log, options, live: feed } = request.replay;
+          live = null;
+          if (feed === true) {
+            live = createLiveReplay(request.net, { ...options, events: log });
+            sim = live;
+          } else {
+            sim = createReplay(request.net, log, options);
+          }
+          // A replay has a clock whatever the net says.
+          timed = true;
+          events = [...sim.initialEvents];
+          break;
+        }
+        case 'push': {
+          if (!live) throw new Error('Events can only be added to a live replay');
+          live.push(request.events);
+          break;
+        }
+        case 'closeFeed': {
+          if (!live) throw new Error('Only a live replay has a feed to close');
+          live.close();
           break;
         }
         case 'step':

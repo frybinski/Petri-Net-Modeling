@@ -64,6 +64,7 @@ describe('help and usage errors', () => {
     for (const command of [
       'validate',
       'simulate',
+      'replay',
       'analyze',
       'check',
       'export',

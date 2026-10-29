@@ -264,6 +264,13 @@ body {
   stroke: var(--danger);
 }
 
+/* A replay created a token on this place because the log does not fit the net. */
+.pn-deviation {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 3;
+}
+
 /* A transition with firings under way fills up with the progress of the first one to finish. */
 .pn-node[data-busy='true']:not([data-error='true']) {
   --pn-stroke: var(--accent);

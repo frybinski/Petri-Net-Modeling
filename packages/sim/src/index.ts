@@ -6,3 +6,7 @@ export { DEFAULT_CASE_PREFIX, DEFAULT_START_TIME } from './engine';
 export * from './protocol';
 export { createHandler } from './handler';
 export { createLocalClient, createSimulationClient, type WorkerLike } from './client';
+export * from './replay/types';
+export { autoMapActivities } from './replay/mapping';
+export { createReplay } from './replay/engine';
+export { createLiveReplay, type LiveOptions, type LiveReplay } from './replay/live';

@@ -1,6 +1,7 @@
 # Simulation
 
-The editor simulates nets in two ways that share one engine (`@pnm/sim`):
+The editor simulates nets in two ways that share one engine (`@pnm/sim`). A third source for the same views, an event log
+that is **replayed** on the net, is described in [replay.md](replay.md).
 
 - **Untimed nets** (no durations, no arrival rates): click a green transition to fire it, take a random step, or let
   the simulation play at one firing per second. This is the behaviour of earlier versions.
@@ -91,7 +92,8 @@ Metrics tab).
 ## The event stream and the event log
 
 Everything the engine does is an event with a time: `spawn` (a case enters), `start`, `complete`, `marking-edited`
-(you added or withdrew tokens), `breakpoint`, `idle` and `warning`. The animation, the trace table, the key figures and
+(you added or withdrew tokens), `breakpoint`, `idle` and `warning`. A replay of an event log adds `deviation`
+([replay.md](replay.md#fitness-and-deviations)). The animation, the trace table, the key figures and
 the export are all computed from this stream.
 
 The **Trace** tab lists the events (newest first, with filters by type and transition; a click selects the

@@ -1,9 +1,9 @@
 # Known limitations
 
-What 1.0.0 does not do, and why. Each entry was found during development and decided in the release step: what could
+What 1.1.0 does not do, and why. Each entry was found during development and decided in the release step: what could
 be fixed cheaply was fixed (see the [changelog](../CHANGELOG.md)), what could not is listed here with the reason and,
 where there is one, the way forward. The numbers are those of the [release plan](plan/Release-1.0_Umsetzungsplan.md)
-(in German).
+(in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md).
 
 ## Editor and interface
 
@@ -57,6 +57,43 @@ the CSV and XES export and the check on the log use what is left. For longer run
 instead of playing the events backwards. The engine rewinds by restoring a snapshot, which has no events to play. Going
 backwards slowly would need a second, inverse animation and has little value for what the view is for.
 
+## Replay of event logs
+
+The rules and the details are in [replay.md](replay.md#limits).
+
+**A replay describes, it does not check (R1).** The log says what happened and the net follows; the only thing the net
+can refuse is a token that is not there, and then the replay creates it and counts the deviation. Guards are checked only
+with the option _Check the guards_, output inscriptions of JSON nets are never evaluated (the tokens are made of the
+case and its data), capacities are not checked, and the types of places are not applied to the tokens that a replay makes.
+A replay that fits is evidence that the log is one of the net's behaviours as far as places and tokens go, not that the
+net would have permitted it with its data.
+
+**No interpolation of time (R2).** An activity takes the time between its start and its end in the log; the durations of
+the net are not used. A log with only ends has activities of no duration (`zero`) or ones that last from the previous event
+of the case (`span`); the second holds resources while a case waits, so resources run short and the replay shows
+deviations. There is nothing in between.
+
+**Start and end are paired first in, first out (R3).** For one case and one activity the first start belongs to the first
+end. Two overlapping firings of an activity for the same case that end in the other order are paired the wrong way
+round. A firing of several cases (a join) is recognised by its rows at one time and only for transitions with two or more
+case places; a log that lists the cases of a join at different times shows a deviation. The engine's own logs replay
+exactly, including cases that overtake each other at a join.
+
+**Fitness counts a case as finished at a sink place (R4).** Tokens that remain are those a finished case left behind. A net
+without a sink place never finishes a case, so only the created tokens lower its fitness. Tokens of the initial marking
+on case places wait without a case and are taken over by the first cases; one that nobody takes over stays.
+
+**The live source has no connection to the outside (R5).** Events come from the paste field and from
+`window.pnm.live.push` in the browser console, which exists only while the source is _Live_. A bridge from another
+process (a WebSocket, or a `postMessage` from an embedded page) would need a server or an agreement on origins and is not
+part of 1.1; `scripts/live-demo.mjs` writes lines and console calls to paste. Late events are taken at the present
+moment.
+
+**Time 0 is the first event unless told otherwise (R6).** The key figures of a replay start at that moment and use the
+warm-up of the net (changeable in the dialog and with `--warmup`). To get the times and the figures of the run that wrote
+the log, choose _the start time of the net_ as time 0. The exported times are whole milliseconds, so mean times agree to a
+millisecond, not to the last digit.
+
 ## Domain view
 
 **A resource place with cells edits its station (20).** The cells of a resource (desks, rooms, machines) sit on the card
@@ -96,7 +133,7 @@ bindings, so deadlocks, boundedness, liveness and properties are exact. Siphons,
 invariants hold for the skeleton and say something about the JSON net only where the skeleton is a faithful picture of
 it.
 
-## Not in 1.0.0
+## Not in 1.1.0
 
 - A server for the LLM key and for sharing nets (M6).
 - Co-editing and a second user in the same net.
