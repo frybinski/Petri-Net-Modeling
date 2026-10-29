@@ -466,6 +466,22 @@ export const en = {
     capacityReached: (k: number) => `This place has capacity ${k}.`,
     noEnabled: 'No transition is enabled.',
     editLocked: 'Stop the simulation to edit the net.',
+    /** Pasting brought types along: new ones, and ones that got another name because the name was taken. */
+    pastedTypes: (
+      added: readonly string[],
+      renamed: ReadonlyArray<{ from: string; to: string }>,
+    ) => {
+      const parts: string[] = [];
+      if (added.length > 0) {
+        parts.push(`${added.length === 1 ? 'Type' : 'Types'} ${added.join(', ')} added`);
+      }
+      if (renamed.length > 0) {
+        parts.push(
+          `${renamed.map((r) => `${r.from} became ${r.to}`).join(', ')} (the name is taken by another type)`,
+        );
+      }
+      return `Pasted. ${parts.join('; ')}.`;
+    },
   },
   shortcuts: {
     title: 'Keyboard shortcuts',

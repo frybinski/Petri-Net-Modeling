@@ -40,6 +40,7 @@ import {
   updateType as coreUpdateType,
   validate,
   type AlignMode,
+  type TypeChanges,
   type Annotation,
   type Arc,
   canonicalJson,
@@ -1027,17 +1028,22 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       if (!clipboard) return;
       const step = pasteCount + 1;
       let inserted: Id[] = [];
+      let typeChanges: TypeChanges = { added: [], renamed: [] };
       const ok = edit((net) => {
         const result = insertFragment(net, clipboard, {
           x: PASTE_OFFSET * step,
           y: PASTE_OFFSET * step,
         });
         inserted = result.ids;
+        typeChanges = result.typeChanges;
         return result.net;
       });
       if (ok) {
         set({ pasteCount: step });
         set({ selection: inserted });
+        if (typeChanges.added.length > 0 || typeChanges.renamed.length > 0) {
+          notify('info', en.messages.pastedTypes(typeChanges.added, typeChanges.renamed));
+        }
       }
     },
     duplicate() {

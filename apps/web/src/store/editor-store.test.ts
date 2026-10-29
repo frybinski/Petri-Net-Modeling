@@ -246,6 +246,66 @@ describe('copy and paste', () => {
     expect(store().net.places).toHaveLength(2);
   });
 
+  describe('between nets', () => {
+    const integer = { type: 'integer' };
+    const text = { type: 'string' };
+
+    /** A JSON net with one place of type `Hops` and the given schema; it is copied to the clipboard. */
+    function copyTypedPlace(schema: unknown): void {
+      store().newNet();
+      store().setProfile('json-net');
+      const place = store().addPlace({ x: 0, y: 0 }) as string;
+      store().saveType(null, 'Hops', schema);
+      store().setPlaceType(place, 'Hops');
+      store().select([place]);
+      store().copy();
+    }
+
+    it('takes the types of the copied places along into a net that lacks them', () => {
+      copyTypedPlace(integer);
+      expect(store().clipboard?.types).toEqual({ Hops: integer });
+      store().newNet();
+      store().setProfile('json-net');
+      store().paste();
+      expect(store().net.types).toEqual({ Hops: integer });
+      expect(store().net.places[0]?.type).toBe('Hops');
+      expect(store().diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+      expect(useUiStore.getState().toasts[0]?.message).toContain('Hops');
+    });
+
+    it('uses a type of the same name and schema that the net already has', () => {
+      copyTypedPlace(integer);
+      store().newNet();
+      store().setProfile('json-net');
+      store().saveType(null, 'Hops', { type: 'integer' });
+      store().paste();
+      expect(Object.keys(store().net.types)).toEqual(['Hops']);
+      expect(store().net.places[0]?.type).toBe('Hops');
+      expect(useUiStore.getState().toasts).toHaveLength(0);
+    });
+
+    it('adds a type under a new name when the name is taken by another schema', () => {
+      copyTypedPlace(integer);
+      store().newNet();
+      store().setProfile('json-net');
+      store().saveType(null, 'Hops', text);
+      store().paste();
+      expect(store().net.types).toEqual({ Hops: text, Hops_2: integer });
+      expect(store().net.places[0]?.type).toBe('Hops_2');
+      // Pasting again reuses the type that the first paste created.
+      store().paste();
+      expect(Object.keys(store().net.types)).toEqual(['Hops', 'Hops_2']);
+      expect(store().net.places.map((p) => p.type)).toEqual(['Hops_2', 'Hops_2']);
+      expect(useUiStore.getState().toasts[0]?.message).toContain('Hops became Hops_2');
+    });
+
+    it('leaves the types alone when a fragment is duplicated in its own net', () => {
+      copyTypedPlace(integer);
+      store().duplicate();
+      expect(Object.keys(store().net.types)).toEqual(['Hops']);
+    });
+  });
+
   it('cuts and duplicates', () => {
     const { p1 } = buildSmallNet();
     store().select([p1]);
