@@ -2,6 +2,9 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBasicAuth, parseAccounts } from '../src/basic-auth';
 import { FIXTURE_WEB, SERVER_BUNDLE, freePort, tempDir } from './helpers';
+import { join } from 'node:path';
+
+const FAKE_BUNDLE = join(SERVER_BUNDLE, '..', 'fake-llm.js');
 
 interface Run {
   child: ChildProcess;
@@ -122,5 +125,39 @@ describe('the bundled server', () => {
     } finally {
       scratch.cleanup();
     }
+  });
+});
+
+describe('the bundled stand-in for the language model server', () => {
+  it('lists models and answers a chat request, with a key if one is set', async () => {
+    const port = await freePort();
+    const child = spawn(process.execPath, [FAKE_BUNDLE], {
+      env: {
+        PATH: process.env['PATH'] ?? '',
+        FAKE_LLM_PORT: String(port),
+        FAKE_LLM_KEY: 'placeholder',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    children.push(child);
+    let out = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      out += chunk.toString('utf8');
+    });
+    await waitFor(() => out.includes('listening'), 'the fake server to listen');
+    const base = `http://127.0.0.1:${port}`;
+    expect((await fetch(`${base}/v1/models`)).status).toBe(401);
+    const auth = { Authorization: 'Bearer placeholder' };
+    const models = (await (await fetch(`${base}/api/models`, { headers: auth })).json()) as {
+      data: Array<{ id: string }>;
+    };
+    expect(models.data.map((m) => m.id)).toContain('fake-model');
+    const chat = await fetch(`${base}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'fake-model', messages: [{ role: 'user', content: 'Hi' }] }),
+    });
+    expect(chat.status).toBe(200);
+    child.kill('SIGTERM');
   });
 });

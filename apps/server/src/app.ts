@@ -3,6 +3,7 @@ import type { Config } from './config';
 import { ApiError, messageOf } from './errors';
 import { header, sendError } from './http';
 import { createBasicAuth } from './basic-auth';
+import { createLlmProxy, type LlmProxy } from './llm/proxy';
 import { createLogger, type Logger } from './logger';
 import { clientAddress, isAllowed, parseNetList } from './net-filter';
 import { Router, type RequestContext } from './router';
@@ -13,11 +14,14 @@ import { createStaticFiles } from './static';
 /** What the application needs from the outside; tests replace parts of it. */
 export interface AppDeps {
   logger?: Logger;
+  /** Replaces the global `fetch` for calls to the language model server (tests). */
+  fetch?: typeof fetch;
 }
 
 export interface App {
   server: Server;
   router: Router;
+  llm: LlmProxy;
   /** Starts listening; resolves with the port. */
   start(): Promise<number>;
   /** Stops accepting requests, waits for running ones for `graceMs`, then cuts them off. */
@@ -42,6 +46,11 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
   const publicHost = new URL(config.publicUrl).host;
 
   registerHealth(router);
+  const llm = createLlmProxy(config.llm, {
+    logger,
+    ...(deps.fetch !== undefined && { fetch: deps.fetch }),
+  });
+  llm.register(router);
 
   /** The page of a share link is the app itself; the app reads the token from the address. */
   router.get(
@@ -119,7 +128,9 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
       const path = url.pathname;
       const method = req.method ?? 'GET';
       const matched = router.match(method, path);
-      const isApiPath = path.startsWith('/api/') || path.startsWith('/llm/');
+      const isApiPath = ['/api', '/llm'].some(
+        (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+      );
       const isStatic =
         matched.kind === 'none' && !isApiPath && (method === 'GET' || method === 'HEAD');
 
@@ -165,6 +176,11 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
       }
       throw new ApiError(404, 'not_found', 'There is nothing at this address.');
     } catch (error) {
+      if (abort.signal.aborted) {
+        // The client went away; there is nobody to answer.
+        res.destroy();
+        return;
+      }
       if (error instanceof ApiError) {
         sendError(res, error);
         return;
@@ -187,6 +203,7 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
   return {
     server,
     router,
+    llm,
     start() {
       return new Promise((resolve, reject) => {
         server.once('error', reject);

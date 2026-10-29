@@ -129,7 +129,7 @@ const schema = z.object({
   PNM_LLM_API_KEY: z.string().optional(),
   PNM_LLM_MODELS: z.string().default(''),
   PNM_LLM_DEFAULT_MODEL: z.string().optional(),
-  PNM_LLM_TIMEOUT: seconds(1, 3600).default(180),
+  PNM_LLM_TIMEOUT: seconds(0.1, 3600).default(180),
   PNM_LLM_CONCURRENCY: whole(1, 64).default(2),
   PNM_LLM_QUEUE: whole(0, 1000).default(10),
   PNM_LLM_MAX_BODY: size(1024, 1024 ** 3).default(2 * 1024 ** 2),

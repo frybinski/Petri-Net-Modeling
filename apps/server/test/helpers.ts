@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp, type App, type AppDeps } from '../src/app';
 import { loadConfig, type Config } from '../src/config';
+import { startFakeLlm, type FakeLlm, type FakeLlmOptions } from '../src/fake-llm/server';
 import { createLogger, type Logger } from '../src/logger';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -103,3 +104,41 @@ export function freePort(): Promise<number> {
     });
   });
 }
+
+export interface RunningWithLlm extends RunningApp {
+  fake: FakeLlm;
+}
+
+/**
+ * Starts a fake language model server and the application in front of it. `base` is the part of
+ * the fake's address that the application is given (`/v1` for Ollama, `/api` for Open WebUI).
+ */
+export async function startWithFake(
+  options: {
+    fake?: FakeLlmOptions;
+    base?: '/v1' | '/api';
+    env?: Record<string, string | undefined>;
+  } = {},
+): Promise<RunningWithLlm> {
+  const fake = await startFakeLlm(options.fake ?? {});
+  const running = await startApp({
+    PNM_LLM_BASE_URL: `${fake.url}${options.base ?? '/v1'}`,
+    ...(options.fake?.apiKey !== undefined && { PNM_LLM_API_KEY: options.fake.apiKey }),
+    ...options.env,
+  });
+  return {
+    ...running,
+    fake,
+    async stop() {
+      await running.stop();
+      await fake.close();
+    },
+  };
+}
+
+/** A chat request body for the proxy. */
+export function chatBody(model: string, content = 'Say hello', extra: object = {}): string {
+  return JSON.stringify({ model, messages: [{ role: 'user', content }], ...extra });
+}
+
+export const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
