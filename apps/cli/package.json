@@ -1,0 +1,28 @@
+{
+  "name": "@pnm/cli",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Command line for Petri nets: validate, simulate, export, import, layout, domain view",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "pnm": "./dist/pnm.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && jiti scripts/run-build.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@pnm/core": "workspace:*",
+    "@pnm/domain": "workspace:*",
+    "@pnm/io": "workspace:*",
+    "@pnm/layout": "workspace:*",
+    "@pnm/llm": "workspace:*",
+    "@pnm/sim": "workspace:*",
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.28.2",
+    "jiti": "^2.7.0",
+    "vitest": "^5.0.5"
+  }
+}

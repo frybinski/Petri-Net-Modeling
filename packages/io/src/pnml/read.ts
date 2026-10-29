@@ -4,6 +4,7 @@ import {
   parseNet,
   validate,
   type Annotation,
+  type Diagnostic,
   type Arc,
   type Id,
   type Marking,
@@ -16,7 +17,6 @@ import {
   type Token,
   type Transition,
 } from '@pnm/core';
-import { layoutNet } from '@pnm/layout';
 import {
   XmlParseError,
   childElements,
@@ -39,13 +39,20 @@ export interface PnmlParse {
   net: PetriNet;
   /** Things that were not understood, were dropped or changed, and findings of `validate`. */
   warnings: string[];
+  /** The part of `warnings` that is about the file, without the findings of `validate`. */
+  importWarnings: string[];
+  /** The findings of `validate` on the net that was read (already in `warnings`). */
+  diagnostics: Diagnostic[];
   /** Some nodes have no position, so the positions of `net` are placeholders. */
   needsLayout: boolean;
 }
 
 export interface PnmlImport {
   net: PetriNet;
+  /** Everything worth telling the person: see `PnmlParse.warnings`. */
   warnings: string[];
+  importWarnings: string[];
+  diagnostics: Diagnostic[];
   /** The positions come from the automatic layout. */
   laidOut: boolean;
 }
@@ -636,13 +643,15 @@ export function parsePnml(xml: string): PnmlParse {
     }
     throw error;
   }
-  for (const diagnostic of validate(checked)) {
-    warn(
+  const importWarnings = [...warnings];
+  const diagnostics = validate(checked);
+  for (const diagnostic of diagnostics) {
+    warnings.push(
       `${diagnostic.severity === 'error' ? 'Error' : 'Check'}: ${diagnostic.message}` +
         (diagnostic.elementId !== undefined ? ` (${diagnostic.elementId})` : ''),
     );
   }
-  return { net: checked, warnings, needsLayout };
+  return { net: checked, warnings, importWarnings, diagnostics, needsLayout };
 }
 
 /** Puts the notes about imported special arcs (`note-<arc id>`) next to the middle of their arc. */
@@ -676,8 +685,16 @@ export async function fromPnml(xml: string, options: PnmlReadOptions = {}): Prom
   const parsed = parsePnml(xml);
   const auto = options.layout === 'auto';
   if (!auto && !parsed.needsLayout) {
-    return { net: parsed.net, warnings: parsed.warnings, laidOut: false };
+    return {
+      net: parsed.net,
+      warnings: parsed.warnings,
+      importWarnings: parsed.importWarnings,
+      diagnostics: parsed.diagnostics,
+      laidOut: false,
+    };
   }
+  // Loaded on demand: the layout engine is large and only needed for files without positions.
+  const { layoutNet } = await import('@pnm/layout');
   const positions = await layoutNet(parsed.net, { direction: 'RIGHT' });
   const net: PetriNet = {
     ...parsed.net,
@@ -693,11 +710,12 @@ export async function fromPnml(xml: string, options: PnmlReadOptions = {}): Prom
     }),
   };
   placeHints(net);
-  const warnings = auto
-    ? parsed.warnings
-    : [
-        'The file has no (or incomplete) positions; the net was laid out automatically.',
-        ...parsed.warnings,
-      ];
-  return { net, warnings, laidOut: true };
+  const note = 'The file has no (or incomplete) positions; the net was laid out automatically.';
+  return {
+    net,
+    warnings: auto ? parsed.warnings : [note, ...parsed.warnings],
+    importWarnings: auto ? parsed.importWarnings : [note, ...parsed.importWarnings],
+    diagnostics: parsed.diagnostics,
+    laidOut: true,
+  };
 }
