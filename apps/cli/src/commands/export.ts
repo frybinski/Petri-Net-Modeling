@@ -1,8 +1,7 @@
-import { serializeNet } from '@pnm/core';
-import { netToSvg, toPnml, toTikz } from '@pnm/io';
 import { choiceOption, numberOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError, UsageError } from '../errors';
 import type { Io } from '../io';
+import { convertNet } from '../lib/convert';
 import { loadNet, reportImportWarnings } from '../net-file';
 
 export const EXPORT_HELP = `Usage: pnm export <net> --format svg|png|pnml|tikz|json [-o <file>] [options]
@@ -111,35 +110,18 @@ export async function exportCommand(io: Io, args: readonly string[]): Promise<nu
   const { net } = loaded;
   reportImportWarnings(io, path, loaded);
 
-  let text: string;
-  switch (format) {
-    case 'svg':
-      text = netToSvg(net, {
-        ...(values.dark === true && { dark: true }),
-        ...(values.inscriptions !== undefined && { inscriptions: values.inscriptions }),
-        ...(padding !== undefined && { padding }),
-      });
-      break;
-    case 'tikz':
-      text = toTikz(net, {
-        ...(values.standalone === true && { standalone: true }),
-        ...(scale !== undefined && { scale }),
-        ...(labels !== undefined && { labels }),
-        ...(tokens !== undefined && { tokens }),
-        ...(styles !== undefined && { styles }),
-        ...(values.inscriptions !== undefined && { inscriptions: values.inscriptions }),
-        ...(values.grayscale !== undefined && { grayscale: values.grayscale }),
-      });
-      break;
-    case 'pnml':
-      text = toPnml(net, {
-        ...(values.toolspecific !== undefined && { toolspecific: values.toolspecific }),
-      });
-      break;
-    case 'json':
-      text = serializeNet(net);
-      break;
-  }
+  const text = convertNet(net, format, {
+    ...(values.dark === true && { dark: true }),
+    ...(values.inscriptions !== undefined && { inscriptions: values.inscriptions }),
+    ...(padding !== undefined && { padding }),
+    ...(values.standalone === true && { standalone: true }),
+    ...(scale !== undefined && { scale }),
+    ...(labels !== undefined && { labels }),
+    ...(tokens !== undefined && { tokens }),
+    ...(styles !== undefined && { styles }),
+    ...(values.grayscale !== undefined && { grayscale: values.grayscale }),
+    ...(values.toolspecific !== undefined && { toolspecific: values.toolspecific }),
+  });
 
   const output = values.output ?? '-';
   await io.writeText(output, text);

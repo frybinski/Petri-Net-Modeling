@@ -1,25 +1,11 @@
-import { hasErrors, validate, type Id, type PetriNet } from '@pnm/core';
-import {
-  EventLogParseError,
-  eventLogRows,
-  looksLikeXes,
-  readLog,
-  toEventLogCsv,
-  toXes,
-  type LogColumns,
-  type ReadLogResult,
-} from '@pnm/io';
-import {
-  autoMapActivities,
-  createReplay,
-  type ActivityMapping,
-  type CompleteOnly,
-  type SimEvent,
-} from '@pnm/sim';
+import { hasErrors, validate, type PetriNet } from '@pnm/core';
+import { eventLogRows, toEventLogCsv, toXes, type LogColumns } from '@pnm/io';
+import type { ActivityMapping, CompleteOnly, MetricsSnapshot } from '@pnm/sim';
 import { choiceOption, numberOption, parseCommandArgs } from '../args';
 import { CommandError, UsageError } from '../errors';
 import { formatDuration, formatNumber, makeStyle, plural, table } from '../format';
 import type { Io } from '../io';
+import { runReplay } from '../lib/replay';
 import { metricTables } from '../metrics-text';
 import { loadNet, reportImportWarnings } from '../net-file';
 
@@ -59,16 +45,6 @@ A file name of - writes to standard output; the summary then goes to standard er
 Exit status: 0 success, 1 the net or the log cannot be used, or --strict and a deviation, 2 wrong usage.
 `;
 
-/** The transition a `--map` refers to, by id or by an unambiguous name. */
-function findTransition(net: PetriNet, key: string): Id {
-  const byId = net.transitions.find((t) => t.id === key);
-  if (byId) return byId.id;
-  const byName = net.transitions.filter((t) => t.name === key);
-  if (byName.length === 1 && byName[0]) return byName[0].id;
-  if (byName.length > 1) throw new UsageError(`--map: the name "${key}" is ambiguous; use the id.`);
-  throw new UsageError(`--map: the net has no transition "${key}".`);
-}
-
 function columnsOf(values: Record<string, unknown>): LogColumns {
   const columns: LogColumns = {};
   const pairs = [
@@ -82,31 +58,6 @@ function columnsOf(values: Record<string, unknown>): LogColumns {
     if (typeof value === 'string') columns[key] = value;
   }
   return columns;
-}
-
-type Deviation = Extract<SimEvent, { type: 'deviation' }>;
-
-/** Deviations of one kind and place, counted. */
-function groupDeviations(
-  net: PetriNet,
-  deviations: readonly Deviation[],
-): Array<{ kind: string; what: string; count: number }> {
-  const places = new Map(net.places.map((p) => [p.id, p.name]));
-  const transitions = new Map(net.transitions.map((t) => [t.id, t.name]));
-  const groups = new Map<string, { kind: string; what: string; count: number }>();
-  for (const d of deviations) {
-    const what =
-      d.kind === 'missing'
-        ? `${transitions.get(d.transitionId ?? '') ?? d.activity ?? '?'} found no token on ${places.get(d.placeId ?? '') ?? d.placeId ?? '?'}`
-        : d.kind === 'ignored'
-          ? `"${d.activity ?? '?'}" skipped, it has no transition`
-          : `guard of ${transitions.get(d.transitionId ?? '') ?? d.activity ?? '?'} not satisfied`;
-    const key = `${d.kind}\u0000${what}`;
-    const group = groups.get(key);
-    if (group) group.count += 1;
-    else groups.set(key, { kind: d.kind, what, count: 1 });
-  }
-  return [...groups.values()];
 }
 
 export async function replayCommand(io: Io, args: readonly string[]): Promise<number> {
@@ -151,17 +102,6 @@ export async function replayCommand(io: Io, args: readonly string[]): Promise<nu
     throw new CommandError(`${netPath}: the net has errors; fix them first (pnm validate).`);
   }
 
-  const originOption = values['time-origin'];
-  let timeOrigin = originOption ?? 'first';
-  if (timeOrigin === 'net') {
-    const start = net.simulation?.startTime;
-    if (start === undefined) {
-      throw new UsageError(
-        '--time-origin net: the net has no start time in its simulation settings.',
-      );
-    }
-    timeOrigin = start;
-  }
   let text: string;
   try {
     text = await io.readText(logPath);
@@ -170,42 +110,28 @@ export async function replayCommand(io: Io, args: readonly string[]): Promise<nu
     if (code === 'ENOENT') throw new CommandError(`${logPath}: no such file`);
     throw new CommandError(`${logPath}: cannot be read (${(error as Error).message})`);
   }
-  let log: ReadLogResult;
-  try {
-    log = readLog(looksLikeXes(text) ? { xes: text } : { csv: text }, {
-      timeOrigin,
-      columns: columnsOf(values),
-    });
-  } catch (error) {
-    if (error instanceof EventLogParseError) throw new CommandError(`${logPath}: ${error.message}`);
-    throw error;
-  }
-  for (const warning of log.warnings) io.err(`${logPath}: warning: ${warning}\n`);
-
-  // Which transition each activity belongs to: by name and the like, then by choice.
-  const { mapping } = autoMapActivities(net, log.activities);
-  const explicit: ActivityMapping = {};
+  const map: Record<string, string> = {};
   for (const spec of values.map ?? []) {
     const eq = spec.lastIndexOf('=');
     if (eq <= 0 || eq === spec.length - 1) {
       throw new UsageError(`--map needs the form <activity>=<transition>, got "${spec}".`);
     }
-    const activity = spec.slice(0, eq);
-    if (!log.activities.includes(activity)) {
-      throw new UsageError(
-        `--map: the log has no activity "${activity}" (activities: ${log.activities.join(', ')}).`,
-      );
-    }
-    explicit[activity] = findTransition(net, spec.slice(eq + 1));
+    map[spec.slice(0, eq)] = spec.slice(eq + 1);
   }
-  for (const activity of values.ignore ?? []) {
-    if (!log.activities.includes(activity)) {
-      throw new UsageError(`--ignore: the log has no activity "${activity}".`);
-    }
-    explicit[activity] = null;
-  }
-  const finalMapping: ActivityMapping = { ...mapping, ...explicit };
-  const skipped = log.activities.filter((a) => finalMapping[a] === undefined);
+  const run = await runReplay(net, text, {
+    map,
+    ignore: values.ignore ?? [],
+    completeOnly,
+    ...(values['time-origin'] !== undefined && { timeOrigin: values['time-origin'] }),
+    columns: columnsOf(values),
+    checkGuards: values['check-guards'] === true,
+    ...(seed !== undefined && { seed }),
+    ...(warmup !== undefined && { warmup }),
+    label: logPath,
+    netLabel: netPath,
+  });
+  const { log, events, metrics, groups, stats, skipped } = run;
+  for (const warning of run.logWarnings) io.err(`${logPath}: warning: ${warning}\n`);
   if (skipped.length > 0) {
     io.err(
       `${logPath}: warning: ${plural(skipped.length, 'activity', 'activities')} not mapped to a transition and skipped: ${skipped
@@ -213,63 +139,14 @@ export async function replayCommand(io: Io, args: readonly string[]): Promise<nu
         .join(', ')}. Map with --map "<activity>=<transition>" or silence with --ignore.\n`,
     );
   }
-
-  let replay;
-  try {
-    replay = createReplay(net, log.events, {
-      mapping: finalMapping,
-      completeOnly,
-      ...(values['check-guards'] === true && { strict: true }),
-      ...(seed !== undefined && { seed }),
-      ...(warmup !== undefined && { warmup }),
-    });
-  } catch (error) {
-    throw new CommandError(`${netPath}: ${(error as Error).message}`);
-  }
-
-  const events: SimEvent[] = [];
-  const warnings: string[] = [];
-  for (;;) {
-    const batch = await replay.advance(Infinity, { maxEvents: 100_000 });
-    for (const event of batch) {
-      events.push(event);
-      if (event.type === 'warning' && !warnings.includes(event.message))
-        warnings.push(event.message);
-    }
-    if (batch.some((event) => event.type === 'idle')) break;
-  }
-  for (const warning of warnings) io.err(`${netPath}: warning: ${warning}\n`);
-  const metrics = replay.metrics();
-  const stats = metrics.replay;
-  if (!stats) throw new CommandError('The replay produced no figures.');
-  const deviations = events.filter((e): e is Deviation => e.type === 'deviation');
-  const groups = groupDeviations(net, deviations);
+  for (const warning of run.warnings) io.err(`${netPath}: warning: ${warning}\n`);
 
   const settings = { ...net.simulation, startTime: log.origin };
   if (values.csv !== undefined)
     await io.writeText(values.csv, toEventLogCsv(events, net, settings));
   if (values.xes !== undefined) await io.writeText(values.xes, toXes(events, net, settings));
-  const result = {
-    net: net.name,
-    log: logPath,
-    events: log.events.length,
-    cases: log.cases,
-    seconds: replay.state.time,
-    origin: log.origin,
-    mapping: finalMapping,
-    skippedActivities: skipped,
-    fitness: stats.fitness,
-    consumed: stats.consumed,
-    produced: stats.produced,
-    missing: stats.missing,
-    remaining: stats.remaining,
-    ignored: stats.ignored,
-    guard: stats.guard,
-    openCases: stats.openCases,
-    deviations: groups,
-    warnings,
-    metrics,
-  };
+  const { net: netName, ...rest } = run.result;
+  const result = { net: netName, log: logPath, ...rest };
   if (values.metrics !== undefined) {
     await io.writeText(values.metrics, `${JSON.stringify(result, null, 2)}\n`);
   }
@@ -313,7 +190,7 @@ function summary(
     openCases: number;
     mapping: ActivityMapping;
   },
-  metrics: ReturnType<ReturnType<typeof createReplay>['metrics']>,
+  metrics: MetricsSnapshot,
   groups: ReadonlyArray<{ kind: string; what: string; count: number }>,
   io: Io,
 ): string {

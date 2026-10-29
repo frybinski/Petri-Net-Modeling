@@ -1,0 +1,204 @@
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createApp, type App, type AppDeps } from '../src/app';
+import { loadConfig, type Config } from '../src/config';
+import { startFakeLlm, type FakeLlm, type FakeLlmOptions } from '../src/fake-llm/server';
+import { createLogger, type Logger } from '../src/logger';
+
+const here = dirname(fileURLToPath(import.meta.url));
+export const SERVER_ROOT = resolve(here, '..');
+export const REPO = resolve(SERVER_ROOT, '..', '..');
+export const FIXTURE_WEB = join(here, 'fixtures', 'web');
+export const SERVER_BUNDLE = join(SERVER_ROOT, 'dist', 'server.js');
+export const WORKER_BUNDLE = join(SERVER_ROOT, 'dist', 'worker.js');
+export const CLI_BUNDLE = join(SERVER_ROOT, 'dist', 'pnm-cli.js');
+export const example = (name: string): string => join(REPO, 'examples', `${name}.pn.json`);
+
+/** A placeholder for a key in tests; it must never show up in an answer or a log line. */
+export const SECRET_KEY = 'sk-test-0123456789-must-not-leak';
+
+export function tempDir(): { dir: string; cleanup(): void } {
+  const dir = mkdtempSync(join(tmpdir(), 'pnm-server-'));
+  return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+/** The settings of a test server: loopback, a fixture web folder, an empty data folder. */
+export function testConfig(
+  dataDir: string,
+  overrides: Record<string, string | undefined> = {},
+): Config {
+  return loadConfig({
+    PNM_PUBLIC_URL: 'http://localhost:8080',
+    PNM_PORT: '1',
+    PNM_BIND_ADDRESS: '127.0.0.1',
+    PNM_WEB_DIR: FIXTURE_WEB,
+    PNM_DATA_DIR: dataDir,
+    ...overrides,
+  });
+}
+
+export interface LogCapture extends Logger {
+  lines: string[];
+  entries(): Array<Record<string, unknown>>;
+}
+
+export function captureLogs(): LogCapture {
+  const lines: string[] = [];
+  const logger = createLogger({
+    write: (line) => lines.push(line),
+    level: 'debug',
+  });
+  return {
+    ...logger,
+    lines,
+    entries: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
+  };
+}
+
+export interface RunningApp {
+  app: App;
+  config: Config;
+  /** `http://127.0.0.1:<port>` */
+  url: string;
+  logs: LogCapture;
+  data: string;
+  stop(): Promise<void>;
+}
+
+/** Starts the application in this process on a free port. */
+export async function startApp(
+  overrides: Record<string, string | undefined> = {},
+  deps: AppDeps = {},
+): Promise<RunningApp> {
+  const scratch = tempDir();
+  const logs = captureLogs();
+  const config = testConfig(scratch.dir, { ...overrides, PNM_PORT: overrides['PNM_PORT'] ?? '1' });
+  const app = await createApp(
+    { ...config, port: 0 },
+    { logger: logs, workerFile: WORKER_BUNDLE, ...deps },
+  );
+  const port = await app.start();
+  return {
+    app,
+    config,
+    url: `http://127.0.0.1:${port}`,
+    logs,
+    data: scratch.dir,
+    async stop() {
+      await app.close(500);
+      scratch.cleanup();
+    },
+  };
+}
+
+/** A port that is free right now. */
+export function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const address = probe.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+      probe.close(() => {
+        resolve(port);
+      });
+    });
+  });
+}
+
+export interface RunningWithLlm extends RunningApp {
+  fake: FakeLlm;
+}
+
+/**
+ * Starts a fake language model server and the application in front of it. `base` is the part of
+ * the fake's address that the application is given (`/v1` for Ollama, `/api` for Open WebUI).
+ */
+export async function startWithFake(
+  options: {
+    fake?: FakeLlmOptions;
+    base?: '/v1' | '/api';
+    env?: Record<string, string | undefined>;
+  } = {},
+): Promise<RunningWithLlm> {
+  const fake = await startFakeLlm(options.fake ?? {});
+  const running = await startApp({
+    PNM_LLM_BASE_URL: `${fake.url}${options.base ?? '/v1'}`,
+    ...(options.fake?.apiKey !== undefined && { PNM_LLM_API_KEY: options.fake.apiKey }),
+    ...options.env,
+  });
+  return {
+    ...running,
+    fake,
+    async stop() {
+      await running.stop();
+      await fake.close();
+    },
+  };
+}
+
+/** A chat request body for the proxy. */
+export function chatBody(model: string, content = 'Say hello', extra: object = {}): string {
+  return JSON.stringify({ model, messages: [{ role: 'user', content }], ...extra });
+}
+
+export const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+
+export interface CliResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/** Runs the command line `pnm` (the bundle built for the tests) like a user would. */
+export function pnm(args: string[], options: { stdin?: string } = {}): Promise<CliResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI_BUNDLE, ...args], {
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
+    child.on('error', reject);
+    child.on('close', (status) => {
+      resolve({ status, stdout, stderr });
+    });
+    child.stdin.on('error', () => undefined);
+    child.stdin.end(options.stdin ?? '');
+  });
+}
+
+/** POSTs JSON to the server. */
+export async function postJson(
+  url: string,
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return fetch(`${url}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+}
+
+/**
+ * A JSON answer that a test reads without a type for every field. `any` is deliberate here: the
+ * tests assert the shape of what comes back, which is what they are for.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Loose = Record<string, any>;
+
+export async function json(response: Response): Promise<Loose> {
+  return (await response.json()) as Loose;
+}

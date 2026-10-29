@@ -24,7 +24,8 @@ export function providerConfig(settings: LlmSettings, apiKey: string): ProviderC
     model: settings.model.trim(),
     temperature: settings.temperature,
     jsonMode: settings.jsonMode,
-    ...(apiKey.trim() !== '' ? { apiKey: apiKey.trim() } : {}),
+    // The key of the server is on the server; the browser never sends one to it.
+    ...(settings.preset !== 'server' && apiKey.trim() !== '' ? { apiKey: apiKey.trim() } : {}),
   };
 }
 

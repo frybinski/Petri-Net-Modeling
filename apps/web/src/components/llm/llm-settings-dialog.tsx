@@ -1,16 +1,17 @@
 import { CheckCircle2, Eye, EyeOff, Loader2, XCircle } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { en } from '../../i18n/en';
 import { makeProvider, providerConfig } from '../../lib/domain-generation';
 import {
   JSON_MODES,
-  PRESETS,
   insecureFromSecurePage,
   isConfigured,
   presetBaseUrl,
+  presetsFor,
   type LlmSettings,
 } from '../../lib/llm-settings';
 import { useLlmStore } from '../../store/llm-store';
+import { useServerStore } from '../../store/server-store';
 import { notify } from '../../store/ui-store';
 import { Button, IconButton } from '../ui/button';
 import { Dialog } from '../ui/dialog';
@@ -24,6 +25,11 @@ function SettingsForm() {
   const save = useLlmStore((s) => s.save);
   const close = useLlmStore((s) => s.closeSettings);
 
+  const serverModel = useServerStore(
+    (s) => s.status === 'present' && s.health?.features.llm === true,
+  );
+  const serverDefault = useServerStore((s) => s.health?.llm.defaultModel ?? null);
+  const presets = presetsFor(serverModel);
   const [draft, setDraft] = useState<LlmSettings>(settings);
   const [apiKey, setApiKey] = useState(storedKey);
   const [showKey, setShowKey] = useState(false);
@@ -42,12 +48,19 @@ function SettingsForm() {
     setProbe({ state: 'idle' });
   };
 
+  const isServer = draft.preset === 'server';
+
   const choosePreset = (value: string): void => {
-    const preset = PRESETS.find((p) => p.id === value)?.id;
+    const preset = presets.find((p) => p.id === value)?.id;
     if (!preset) return;
     // Presets bring their address; the custom entry keeps what was typed.
     const baseUrl = preset === 'custom' ? draft.baseUrl : presetBaseUrl(preset);
-    change({ preset, baseUrl });
+    change({
+      preset,
+      baseUrl,
+      // The model of the server is proposed; a name from another server would not be known there.
+      ...(preset === 'server' && { model: serverDefault ?? '' }),
+    });
     setModels([]);
     setModelsNote(null);
   };
@@ -80,6 +93,12 @@ function SettingsForm() {
       const list = await provider.listModels();
       setModels(list);
       setModelsNote({ ok: true, text: en.llm.modelsLoaded(list.length) });
+      // On the server there is nothing to type: take the first model if none is chosen.
+      if (isServer && list[0] !== undefined) {
+        setDraft((d) =>
+          d.preset === 'server' && d.model.trim() === '' ? { ...d, model: list[0] ?? '' } : d,
+        );
+      }
     } catch (error) {
       setModelsNote({
         ok: false,
@@ -87,6 +106,16 @@ function SettingsForm() {
       });
     }
   };
+
+  // The models of the server are listed when the dialog opens on that preset.
+  const loadOnOpen = useRef(isServer);
+  useEffect(() => {
+    if (!loadOnOpen.current) return;
+    loadOnOpen.current = false;
+    void loadModels();
+    // Once, when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = (): void => {
     save({ ...draft, baseUrl: draft.baseUrl.trim(), model: draft.model.trim() }, apiKey);
@@ -124,7 +153,7 @@ function SettingsForm() {
         <SelectField
           label={en.llm.preset}
           value={draft.preset}
-          options={PRESETS.map((p) => ({ value: p.id, label: en.llm.presets[p.id] ?? p.id }))}
+          options={presets.map((p) => ({ value: p.id, label: en.llm.presets[p.id] ?? p.id }))}
           onChange={choosePreset}
           data-testid="llm-preset"
         />
@@ -141,17 +170,21 @@ function SettingsForm() {
             spellCheck={false}
             value={draft.baseUrl}
             placeholder={en.llm.baseUrlPlaceholder}
+            readOnly={isServer}
             className={`${inputClass} font-mono text-xs`}
             data-testid="llm-base-url"
             onChange={(event) => {
               change({
                 baseUrl: event.target.value,
                 preset:
-                  PRESETS.find((p) => p.baseUrl === event.target.value.trim())?.id ?? 'custom',
+                  presets.find((p) => p.id !== 'server' && p.baseUrl === event.target.value.trim())
+                    ?.id ?? 'custom',
               });
             }}
           />
-          <p className="m-0 text-[11px] text-muted">{en.llm.baseUrlHint}</p>
+          <p className="m-0 text-[11px] text-muted">
+            {isServer ? en.llm.baseUrlServerHint : en.llm.baseUrlHint}
+          </p>
         </div>
 
         {insecureFromSecurePage(draft.baseUrl) ? (
@@ -161,6 +194,15 @@ function SettingsForm() {
             data-testid="llm-https-hint"
           >
             {en.llm.httpsHint}
+          </p>
+        ) : null}
+
+        {isServer ? (
+          <p
+            className="m-0 rounded-md bg-surface-2 px-2.5 py-2 text-[11px] leading-4 text-muted"
+            data-testid="llm-server-hint"
+          >
+            {en.llm.serverHint}
           </p>
         ) : null}
 
@@ -218,43 +260,45 @@ function SettingsForm() {
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={keyId} className="text-xs font-medium text-muted">
-            {en.llm.apiKey}
-          </label>
-          <div className="flex items-center gap-1">
-            <input
-              id={keyId}
-              type={showKey ? 'text' : 'password'}
-              autoComplete="off"
-              spellCheck={false}
-              value={apiKey}
-              aria-describedby={keyHintId}
-              className={`${inputClass} font-mono text-xs`}
-              data-testid="llm-api-key"
-              onChange={(event) => {
-                setApiKey(event.target.value);
-                setProbe({ state: 'idle' });
-              }}
-            />
-            <IconButton
-              label={showKey ? en.llm.apiKeyHide : en.llm.apiKeyShow}
-              pressed={showKey}
-              onClick={() => {
-                setShowKey((v) => !v);
-              }}
-            >
-              {showKey ? (
-                <EyeOff size={16} aria-hidden="true" />
-              ) : (
-                <Eye size={16} aria-hidden="true" />
-              )}
-            </IconButton>
+        {isServer ? null : (
+          <div className="flex flex-col gap-1">
+            <label htmlFor={keyId} className="text-xs font-medium text-muted">
+              {en.llm.apiKey}
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                id={keyId}
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                value={apiKey}
+                aria-describedby={keyHintId}
+                className={`${inputClass} font-mono text-xs`}
+                data-testid="llm-api-key"
+                onChange={(event) => {
+                  setApiKey(event.target.value);
+                  setProbe({ state: 'idle' });
+                }}
+              />
+              <IconButton
+                label={showKey ? en.llm.apiKeyHide : en.llm.apiKeyShow}
+                pressed={showKey}
+                onClick={() => {
+                  setShowKey((v) => !v);
+                }}
+              >
+                {showKey ? (
+                  <EyeOff size={16} aria-hidden="true" />
+                ) : (
+                  <Eye size={16} aria-hidden="true" />
+                )}
+              </IconButton>
+            </div>
+            <p id={keyHintId} className="m-0 text-[11px] text-muted">
+              {en.llm.apiKeyHint}
+            </p>
           </div>
-          <p id={keyHintId} className="m-0 text-[11px] text-muted">
-            {en.llm.apiKeyHint}
-          </p>
-        </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <NumberField
@@ -281,7 +325,9 @@ function SettingsForm() {
           />
         </div>
 
-        <p className="m-0 text-[11px] text-muted">{en.llm.privacy}</p>
+        <p className="m-0 text-[11px] text-muted">
+          {isServer ? en.llm.privacyServer : en.llm.privacy}
+        </p>
 
         <div className="flex items-center gap-3">
           <Button

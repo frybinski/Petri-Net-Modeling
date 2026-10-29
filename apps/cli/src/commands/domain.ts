@@ -1,13 +1,10 @@
 import type { PetriNet } from '@pnm/core';
-import {
-  genericDomainViewWithLayout,
-  validateDomainView,
-  type DomainDiagnostic,
-} from '@pnm/domain';
+import { genericDomainViewWithLayout, type DomainDiagnostic } from '@pnm/domain';
 import { numberOption, choiceOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError, UsageError, messageOf } from '../errors';
 import { makeStyle, plural, table } from '../format';
 import type { Io } from '../io';
+import { checkDomainView, domainCheckJson, netWithGenericView } from '../lib/domain';
 import { describeNet, formatOfName, loadNet, reportImportWarnings, serialize } from '../net-file';
 
 export const DOMAIN_HELP = `Usage: pnm domain <check|generic|generate> <net> [options]
@@ -75,13 +72,10 @@ async function check(io: Io, args: readonly string[]): Promise<number> {
       `${path}: the net has no domain view (use --view <file>, or pnm domain generic).`,
     );
   }
-  const result = validateDomainView(net, view);
-  const errors = result.diagnostics.filter((d) => d.severity === 'error').length;
-  const warnings = result.diagnostics.length - errors;
+  const result = checkDomainView(net, view);
+  const { errors, warnings } = result;
   if (values.json === true) {
-    io.out(
-      `${JSON.stringify({ file: path, ok: result.ok, errors, warnings, diagnostics: result.diagnostics }, null, 2)}\n`,
-    );
+    io.out(`${JSON.stringify({ file: path, ...domainCheckJson(result) }, null, 2)}\n`);
   } else {
     const style = makeStyle(io.color);
     io.out(
@@ -112,8 +106,7 @@ async function generic(io: Io, args: readonly string[]): Promise<number> {
     await io.writeText(output, `${JSON.stringify(view, null, 2)}\n`);
   } else {
     // A view that was written by a model no longer describes this one.
-    const { domainViewGeneration: _record, ...rest } = net;
-    await writeNet(io, { ...rest, domainView: view }, output);
+    await writeNet(io, netWithGenericView(net, view), output);
   }
   io.err(
     `${path}: generic domain view for ${describeNet(net)}${output !== '-' ? `; wrote ${output}` : ''}\n`,

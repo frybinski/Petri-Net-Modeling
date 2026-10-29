@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { ImportReportDialog } from './components/export/import-report-dialog';
 import { Header } from './components/header';
+import { SharedBanner } from './components/server/shared-banner';
 import { LazyDialogs } from './components/lazy-parts';
 import { RightPanel } from './components/right-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
@@ -24,10 +25,21 @@ import {
   registerFileInput,
   registerLogFileInput,
 } from './lib/files';
+import { startServerMode } from './lib/server-actions';
+import { shareTokenOf } from './lib/server-api';
 import { registerLogFileRequest, selectIsDirty, useEditorStore } from './store/editor-store';
 import { useUiStore } from './store/ui-store';
 
 let restoreStarted = false;
+let serverStarted = false;
+
+/**
+ * A page that was opened with a share link (`/s/<token>`) holds the shared project. It is not
+ * restored from, and not saved to, the autosave: that belongs to the person's own work.
+ */
+function onSharePage(): boolean {
+  return shareTokenOf(window.location.pathname) !== null;
+}
 
 function hasFiles(event: DragEvent): boolean {
   return [...event.dataTransfer.types].includes('Files');
@@ -89,11 +101,20 @@ export function App() {
 
   // Restore the last session, then keep saving changes.
   useEffect(() => {
+    if (onSharePage()) return;
     if (!restoreStarted) {
       restoreStarted = true;
       void restoreAutosave();
     }
     return startAutosave();
+  }, []);
+
+  // Find out whether a server serves the app (then it offers projects and a language model), and
+  // open the project of a share link.
+  useEffect(() => {
+    if (serverStarted) return;
+    serverStarted = true;
+    void startServerMode();
   }, []);
 
   const onDragOver = (event: DragEvent): void => {
@@ -126,6 +147,7 @@ export function App() {
           onDrop={onDrop}
         >
           <Header />
+          <SharedBanner />
           <div className="flex min-h-0 flex-1">
             {viewMode !== 'domain' ? <ToolPalette /> : null}
             <Workspace>

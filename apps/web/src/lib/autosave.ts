@@ -2,7 +2,9 @@ import { createEmptyNet, parseNet, serializeNet, type PetriNet } from '@pnm/core
 import { del, get, set } from 'idb-keyval';
 import { en } from '../i18n/en';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
+import { useServerStore } from '../store/server-store';
 import { notify } from '../store/ui-store';
+import { currentLink } from './server-actions';
 
 const KEY = 'pnm:autosave';
 export const AUTOSAVE_DELAY_MS = 500;
@@ -13,6 +15,8 @@ interface AutosaveRecord {
   fileName: string | null;
   dirty: boolean;
   savedAt: number;
+  /** The project on the server that the document belongs to, so that a save after a reload goes there. */
+  server?: { id: string; name: string; version: number };
 }
 
 function hasContent(net: PetriNet): boolean {
@@ -21,11 +25,15 @@ function hasContent(net: PetriNet): boolean {
 
 export async function writeAutosave(): Promise<void> {
   const state = useEditorStore.getState();
+  const link = currentLink();
   const record: AutosaveRecord = {
     text: serializeNet(state.net),
     fileName: state.fileName,
     dirty: selectIsDirty(state),
     savedAt: Date.now(),
+    ...(link?.kind === 'project' && {
+      server: { id: link.id, name: link.name, version: link.version },
+    }),
   };
   try {
     await set(KEY, record);
@@ -59,6 +67,14 @@ export async function restoreAutosave(): Promise<boolean> {
     // The autosaved state may differ from the file on disk: keep it marked as unsaved.
     if (record.dirty || record.fileName === null) {
       useEditorStore.setState({ savedNet: createEmptyNet(net.name) });
+    }
+    // The project on the server stays the one the document belongs to.
+    if (record.server) {
+      useServerStore.getState().setLink({
+        kind: 'project',
+        ...record.server,
+        docVersion: useEditorStore.getState().docVersion,
+      });
     }
     notify('info', en.files.restored, {
       action: { label: en.files.discardRestored, run: () => useEditorStore.getState().newNet() },

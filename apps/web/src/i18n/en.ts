@@ -11,6 +11,127 @@ export const en = {
     /** Shown for a moment while a part of the app that loads on demand arrives. */
     loading: 'Loading…',
   },
+  server: {
+    // Status bar
+    name: (name: string) => `Server: ${name}`,
+    statusTip:
+      'This page is served by a server: projects can be stored on it and it offers a language model.',
+    statusProject: (name: string, version: number) => `${name} · version ${version}`,
+    statusShared: 'shared link',
+    statusSharedRead: 'read-only link',
+    // File menu
+    menuTitle: 'Server',
+    open: 'Open from server…',
+    save: 'Save to server',
+    saveNew: 'Save to server…',
+    saveCopy: 'Save a copy to the server…',
+    versions: 'Versions…',
+    share: 'Share…',
+    saveFile: 'Save to file',
+    // Messages
+    opened: (name: string, version: number) =>
+      `Opened “${name}” (version ${version}) from the server.`,
+    openedVersion: (name: string, version: number) =>
+      `Opened version ${version} of “${name}”. Saving makes a new version.`,
+    created: (name: string) => `Saved “${name}” to the server as a new project.`,
+    saved: (name: string, version: number) =>
+      `Saved “${name}” to the server as version ${version}.`,
+    saveFailed: 'Could not save to the server',
+    openFailed: 'Could not open from the server',
+    shareOpenFailed: 'This share link does not work: it does not exist or was removed.',
+    gone: 'The project is no longer on the server.',
+    saveAsNew: 'Save as new project',
+    // Open dialog
+    openTitle: 'Open from server',
+    openIntro: 'The projects on this server. Everyone who can reach the server sees this list.',
+    search: 'Search projects',
+    searchPlaceholder: 'Name',
+    loading: 'Loading…',
+    loadFailed: (message: string) => `Could not load the list: ${message}`,
+    retry: 'Try again',
+    empty: 'There are no projects on the server yet. Save one with File > Save to server.',
+    noMatch: 'No project has this name.',
+    changed: (when: string) => `changed ${when}`,
+    versionLabel: (version: number) => `version ${version}`,
+    counts: (places: number, transitions: number, arcs: number) =>
+      `${places} place${places === 1 ? '' : 's'}, ${transitions} transition${transitions === 1 ? '' : 's'}, ${arcs} arc${arcs === 1 ? '' : 's'}`,
+    sharedBadge: 'shared',
+    openProject: 'Open',
+    openProjectLabel: (name: string) => `Open ${name}`,
+    deleteProject: 'Move to trash',
+    deleteProjectLabel: (name: string) => `Move ${name} to the trash`,
+    deleteTitle: 'Move the project to the trash?',
+    deleteMessage: (name: string) =>
+      `“${name}” and all its versions move to the trash and its share links stop working. It stays in the trash for 30 days and can be restored.`,
+    deleteConfirm: 'Move to trash',
+    deleted: (name: string) => `Moved “${name}” to the trash.`,
+    trashShow: (n: number) => `Trash (${n})`,
+    trashHide: 'Back to the projects',
+    trashEmpty: 'The trash is empty.',
+    trashUntil: (when: string) => `removed for good on ${when}`,
+    restore: 'Restore',
+    restoreLabel: (name: string) => `Restore ${name}`,
+    restored: (name: string) => `Restored “${name}”.`,
+    close: 'Close',
+    // Save dialog
+    saveTitle: 'Save to server',
+    saveCopyTitle: 'Save a copy to the server',
+    saveIntro: 'The net becomes a new project on the server. Later saves add versions to it.',
+    saveCopyIntro:
+      'The shared project cannot be changed through this link. The copy is a project of its own.',
+    projectName: 'Name of the project',
+    saveButton: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    // Versions dialog
+    versionsTitle: (name: string) => `Versions of “${name}”`,
+    versionsIntro:
+      'Every save is a version and versions never change. Opening an older version puts it in the editor; saving then makes a new version on top.',
+    versionCurrent: 'newest',
+    versionOpen: 'Open',
+    versionOpenLabel: (version: number) => `Open version ${version}`,
+    compare: 'Compared with the editor',
+    same: 'same',
+    delta: (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`),
+    savedAt: (when: string) => `saved ${when}`,
+    // Share dialog
+    shareTitle: (name: string) => `Share “${name}”`,
+    shareIntro:
+      'A link opens the project in the app without a password. Anyone who has the link and can reach the server can use it.',
+    shareRead: 'Link to look at the project',
+    shareReadHint:
+      'Shows the net and lets people simulate and analyse it. They cannot save to the project.',
+    shareWrite: 'Link to edit the project',
+    shareWriteHint:
+      'Also lets people save new versions. A save is refused if someone saved in between.',
+    shareCreate: 'Create link',
+    shareNew: 'New link',
+    shareNewTip: 'The old link stops working',
+    shareRemove: 'Remove',
+    shareCopy: 'Copy',
+    shareCopied: 'Link copied.',
+    shareCopyFailed: 'Could not copy. Select the link and copy it by hand.',
+    shareLinkLabel: (kind: string) => `Link (${kind})`,
+    shareNone: 'No link yet.',
+    shareFailed: 'Could not change the links',
+    // Conflict dialog
+    conflictTitle: 'The project changed on the server',
+    conflictMessage: (yours: number, current: number | null) =>
+      current === null
+        ? `Someone saved the project while you were editing version ${yours}.`
+        : `Version ${current} was saved while you were editing version ${yours}. Saving yours now would hide those changes.`,
+    conflictReload: 'Reload from server',
+    conflictReloadHint: 'Your changes in the editor are discarded.',
+    conflictCopy: 'Save as new project',
+    conflictCopyHint: 'Your changes become a project of their own.',
+    // Shared page
+    bannerRead: (name: string) =>
+      `You are looking at “${name}” through a read-only link. You can simulate, analyse and change it here, but changes cannot be saved to the project.`,
+    bannerWrite: (name: string) =>
+      `You opened “${name}” through a link that can edit it. Ctrl+S saves a new version; a save is refused if someone saved in between.`,
+    bannerCopy: 'Save a copy to the server…',
+    bannerEditor: 'Open the editor',
+  },
   menu: {
     file: 'File',
     new: 'New',
@@ -902,10 +1023,17 @@ export const en = {
       'Any server with an OpenAI-compatible chat API works: a local one (Ollama, LM Studio) or a cloud service. The model is only used to write the domain view, never while a simulation runs.',
     preset: 'Provider',
     presets: {
+      server: 'Server (Ollama)',
       ollama: 'Ollama (local)',
       lmstudio: 'LM Studio (local)',
       custom: 'OpenAI-compatible (custom)',
     } as Record<string, string>,
+    baseUrlServerHint:
+      'The language model of the server that serves this page. The server adds its own key, so there is none to enter.',
+    serverHint:
+      'Requests go to the server that serves this page, which passes them on to its language model. No key is needed here and none is stored in this browser.',
+    privacyServer:
+      'When you generate a view, the structure of your net (names, ids, arcs, tokens), your description and the examples are sent to this server and on to its language model. The server logs the model, the time and the number of tokens, not the content.',
     baseUrl: 'Base URL',
     baseUrlHint: 'Up to and including /v1. Requests go to <base URL>/chat/completions.',
     baseUrlPlaceholder: 'https://api.example.com/v1',

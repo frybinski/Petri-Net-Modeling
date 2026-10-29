@@ -12,11 +12,15 @@ import {
   Moon,
   Play,
   Redo2,
+  Server,
+  Share2,
   ShieldCheck,
   Sigma,
   Sun,
   Undo2,
   Workflow,
+  History,
+  CloudUpload,
   Pencil,
   Settings,
   ArrowRight,
@@ -36,9 +40,11 @@ import {
   saveNet,
 } from '../lib/files';
 import { listExamples } from '../lib/examples';
+import { saveToServer, useCurrentLink } from '../lib/server-actions';
 import { runAutoLayout } from '../lib/layout-action';
 import { selectCanRedo, selectCanUndo, selectIsDirty, useEditorStore } from '../store/editor-store';
 import { useLlmStore } from '../store/llm-store';
+import { serverHasProjects, useServerStore } from '../store/server-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
 import { ViewSwitch } from './domain/view-switch';
@@ -83,6 +89,56 @@ export function Header() {
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const openLlmSettings = useLlmStore((s) => s.openSettings);
   const simulating = mode === 'simulate';
+  const serverOn = useServerStore(serverHasProjects);
+  const openServerDialog = useServerStore((s) => s.openDialog);
+  const link = useCurrentLink();
+  const readOnlyLink = link?.kind === 'shared' && link.mode === 'read';
+
+  // With a server, Ctrl+S saves there and the file gets Ctrl+Shift+S.
+  const serverSections: MenuSection[] = serverOn
+    ? [
+        {
+          title: en.server.menuTitle,
+          items: [
+            {
+              id: 'server-open',
+              label: en.server.open,
+              icon: <Server size={14} />,
+              onSelect: () => {
+                openServerDialog('open');
+              },
+            },
+            {
+              id: 'server-save',
+              label: readOnlyLink ? en.server.saveCopy : link ? en.server.save : en.server.saveNew,
+              icon: <CloudUpload size={14} />,
+              shortcut: shortcutOf('save'),
+              onSelect: () => {
+                void saveToServer();
+              },
+            },
+            {
+              id: 'server-versions',
+              label: en.server.versions,
+              icon: <History size={14} />,
+              disabled: link?.kind !== 'project',
+              onSelect: () => {
+                openServerDialog('versions');
+              },
+            },
+            {
+              id: 'server-share',
+              label: en.server.share,
+              icon: <Share2 size={14} />,
+              disabled: link?.kind !== 'project',
+              onSelect: () => {
+                openServerDialog('share');
+              },
+            },
+          ],
+        },
+      ]
+    : [];
 
   const fileSections: MenuSection[] = [
     {
@@ -97,9 +153,9 @@ export function Header() {
         },
         {
           id: 'save',
-          label: en.menu.save,
+          label: serverOn ? en.server.saveFile : en.menu.save,
           icon: <Download size={14} />,
-          shortcut: shortcutOf('save'),
+          shortcut: shortcutOf(serverOn ? 'save-file' : 'save'),
           onSelect: saveNet,
         },
         {
@@ -116,6 +172,7 @@ export function Header() {
         },
       ],
     },
+    ...serverSections,
     {
       title: en.menu.exportTitle,
       items: [

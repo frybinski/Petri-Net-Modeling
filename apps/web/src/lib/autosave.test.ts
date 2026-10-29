@@ -3,13 +3,16 @@ import { createEmptyNet, serializeNet } from '@pnm/core';
 import { set } from 'idb-keyval';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
+import { useServerStore } from '../store/server-store';
 import { useUiStore } from '../store/ui-store';
 import { clearAutosave, restoreAutosave, writeAutosave } from './autosave';
+import { currentLink } from './server-actions';
 
 beforeEach(async () => {
   await clearAutosave();
   useEditorStore.getState().newNet();
   useUiStore.setState({ toasts: [] });
+  useServerStore.getState().setLink(null);
 });
 
 describe('autosave', () => {
@@ -52,5 +55,41 @@ describe('autosave', () => {
       savedAt: 1,
     });
     expect(await restoreAutosave()).toBe(false);
+  });
+
+  it('remembers the project on the server that the document belongs to', async () => {
+    const editor = useEditorStore.getState();
+    editor.addPlace({ x: 0, y: 0 });
+    useServerStore.getState().setLink({
+      kind: 'project',
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Crossing',
+      version: 3,
+      docVersion: useEditorStore.getState().docVersion,
+    });
+    await writeAutosave();
+    editor.newNet();
+    useServerStore.getState().setLink(null);
+
+    expect(await restoreAutosave()).toBe(true);
+    const link = useServerStore.getState().link;
+    expect(link).toMatchObject({ kind: 'project', name: 'Crossing', version: 3 });
+    // It belongs to the document that was restored, and so applies.
+    expect(link?.docVersion).toBe(useEditorStore.getState().docVersion);
+  });
+
+  it('does not store a link for a document that has none, or one that no longer applies', async () => {
+    useEditorStore.getState().addPlace({ x: 0, y: 0 });
+    useServerStore.getState().setLink({
+      kind: 'project',
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Old',
+      version: 1,
+      docVersion: useEditorStore.getState().docVersion - 1,
+    });
+    await writeAutosave();
+    useEditorStore.getState().newNet();
+    expect(await restoreAutosave()).toBe(true);
+    expect(currentLink()).toBeNull();
   });
 });

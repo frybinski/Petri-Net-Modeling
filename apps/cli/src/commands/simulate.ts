@@ -1,10 +1,18 @@
-import { hasErrors, isSourceTransition, validate, type Id, type PetriNet } from '@pnm/core';
-import { eventLogRows, toEventLogCsv, toXes } from '@pnm/io';
-import { createSimulation, type MetricsSnapshot, type SimEvent } from '@pnm/sim';
+import { hasErrors, validate, type Id, type PetriNet } from '@pnm/core';
+import type { MetricsSnapshot } from '@pnm/sim';
 import { numberOption, parseCommandArgs, requireOne } from '../args';
 import { CommandError, UsageError } from '../errors';
 import { formatDuration, formatNumber, makeStyle, plural } from '../format';
 import type { Io } from '../io';
+import {
+  logRowCount,
+  metricsDocument,
+  resolveRates,
+  runSimulation,
+  runToCsv,
+  runToEventLines,
+  runToXes,
+} from '../lib/simulate';
 import { metricTables } from '../metrics-text';
 import { loadNet, reportImportWarnings } from '../net-file';
 
@@ -31,45 +39,19 @@ A file name of - writes to standard output; the summary then goes to standard er
 Exit status: 0 success, 1 the net has errors or the run failed, 2 wrong usage.
 `;
 
-const CHUNK_SECONDS = 600;
-const CHUNK_EVENTS = 100_000;
-
-/** The transition a `--rate` refers to, by id or by an unambiguous name. */
-function findTransition(net: PetriNet, key: string): Id {
-  const byId = net.transitions.find((t) => t.id === key);
-  if (byId) return byId.id;
-  const byName = net.transitions.filter((t) => t.name === key);
-  if (byName.length === 1 && byName[0]) return byName[0].id;
-  if (byName.length > 1)
-    throw new UsageError(`--rate: the name "${key}" is ambiguous; use the id.`);
-  const sources = net.transitions
-    .filter((t) => isSourceTransition(net, t.id))
-    .map((t) => t.id)
-    .join(', ');
-  throw new UsageError(
-    `--rate: the net has no transition "${key}"` +
-      (sources === '' ? '.' : ` (source transitions: ${sources}).`),
-  );
-}
-
 function parseRates(net: PetriNet, specs: readonly string[]): Record<Id, number | null> {
-  const rates: Record<Id, number | null> = {};
-  for (const spec of specs) {
+  const entries = specs.map((spec) => {
     const eq = spec.lastIndexOf('=');
     if (eq <= 0)
       throw new UsageError(`--rate needs the form <transition>=<per hour>, got "${spec}".`);
-    const id = findTransition(net, spec.slice(0, eq));
-    if (!isSourceTransition(net, id)) {
-      throw new UsageError(`--rate: "${id}" is not a source transition (it has input arcs).`);
-    }
     const raw = spec.slice(eq + 1);
-    if (raw === 'off') rates[id] = null;
-    else {
-      const value = numberOption(raw, 'rate', (n) => n >= 0, 'a number of at least 0 or "off"');
-      rates[id] = value ?? null;
-    }
-  }
-  return rates;
+    const perHour =
+      raw === 'off'
+        ? null
+        : (numberOption(raw, 'rate', (n) => n >= 0, 'a number of at least 0 or "off"') ?? null);
+    return { transition: spec.slice(0, eq), perHour };
+  });
+  return resolveRates(net, entries, '--rate');
 }
 
 function summary(net: PetriNet, metrics: MetricsSnapshot, info: Info, io: Io): string {
@@ -147,63 +129,28 @@ export async function simulateCommand(io: Io, args: readonly string[]): Promise<
   }
 
   const rates = parseRates(net, values.rate ?? []);
-  const seed = seedOption ?? net.simulation?.seed ?? 1;
-  let simulation;
-  try {
-    simulation = createSimulation(net, {
-      seed,
-      ...(warmup !== undefined && { warmup }),
-      ...(Object.keys(rates).length > 0 && { rates }),
-    });
-  } catch (error) {
-    throw new CommandError(`${path}: ${(error as Error).message}`);
-  }
-
   const keep = values.csv !== undefined || values.xes !== undefined || values.events !== undefined;
-  const events: SimEvent[] = [];
-  const warnings: string[] = [];
-  let count = 0;
-  const take = (batch: readonly SimEvent[]): void => {
-    count += batch.length;
-    for (const event of batch) {
-      if (event.type === 'warning' && !warnings.includes(event.message))
-        warnings.push(event.message);
-    }
-    if (keep) for (const event of batch) events.push(event);
-  };
-  take(simulation.initialEvents);
-  while (simulation.state.time < seconds) {
-    const step = Math.min(CHUNK_SECONDS, seconds - simulation.state.time);
-    take(await simulation.advance(step, { maxEvents: CHUNK_EVENTS }));
-    if (count > maxEvents) {
-      throw new CommandError(
-        `The run produced more than ${maxEvents} events by model time ${Math.round(simulation.state.time)} s; ` +
-          'shorten it with --seconds or raise --max-events.',
-      );
-    }
-  }
+  const run = await runSimulation(net, {
+    seconds,
+    ...(seedOption !== undefined && { seed: seedOption }),
+    ...(warmup !== undefined && { warmup }),
+    rates,
+    maxEvents,
+    keepEvents: keep,
+    label: path,
+  });
+  const { events, warnings, metrics, seed } = run;
+  const count = run.eventCount;
 
-  const settings = { ...net.simulation, ...(startTime !== undefined && { startTime }) };
   let rows = 0;
-  if (values.csv !== undefined) {
-    await io.writeText(values.csv, toEventLogCsv(events, net, settings));
-  }
-  if (values.xes !== undefined) await io.writeText(values.xes, toXes(events, net, settings));
+  if (values.csv !== undefined) await io.writeText(values.csv, runToCsv(net, run, startTime));
+  if (values.xes !== undefined) await io.writeText(values.xes, runToXes(net, run, startTime));
   if (values.csv !== undefined || values.xes !== undefined) {
-    rows = eventLogRows(events, net, settings).length;
+    rows = logRowCount(net, run, startTime);
   }
-  if (values.events !== undefined) {
-    await io.writeText(
-      values.events,
-      events.map((e) => JSON.stringify(e)).join('\n') + (events.length > 0 ? '\n' : ''),
-    );
-  }
-  const metrics = simulation.metrics();
+  if (values.events !== undefined) await io.writeText(values.events, runToEventLines(run));
   if (values.metrics !== undefined) {
-    await io.writeText(
-      values.metrics,
-      `${JSON.stringify({ net: net.name, seed, seconds, events: count, warnings, metrics }, null, 2)}\n`,
-    );
+    await io.writeText(values.metrics, `${JSON.stringify(metricsDocument(net, run), null, 2)}\n`);
   }
 
   const toStdout = [values.csv, values.xes, values.metrics, values.events].includes('-');

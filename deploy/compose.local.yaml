@@ -1,0 +1,57 @@
+# Try the server on your own machine, without a registry, an ingress or a GPU.
+#
+#   docker compose -f deploy/compose.local.yaml up --build
+#   open http://localhost:8080
+#
+# It builds the image from the source tree, publishes port 8080 on localhost only, and starts a
+# stand-in for the language model server (fake-llm.js from the same image), so that "Generate with
+# LLM" can be tried: the stand-in answers with a fixed text, so the generic view is used.
+# The data of the projects lives in the volume pnm-local-data (docker compose -f ... down -v
+# removes it).
+
+name: pnm-local
+
+services:
+  pnm:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        VERSION: local
+    image: pnm-local:dev
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      PNM_PUBLIC_URL: http://localhost:8080
+      PNM_SERVER_NAME: local
+      PNM_LLM_BASE_URL: http://fake-llm:11434/v1
+      PNM_LLM_MODELS: fake-model,fake-model-large
+      # Everything is allowed: the port is only open on localhost.
+      PNM_ALLOWED_NETS: 0.0.0.0/0,::/0
+    volumes:
+      - pnm-local-data:/data
+    depends_on:
+      fake-llm:
+        condition: service_started
+
+  fake-llm:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        VERSION: local
+    image: pnm-local:dev
+    command: ['node', 'fake-llm.js']
+    environment:
+      FAKE_LLM_HOST: 0.0.0.0
+      FAKE_LLM_PORT: '11434'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:11434/health']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  pnm-local-data:

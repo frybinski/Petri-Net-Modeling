@@ -139,7 +139,8 @@ function ProviderLine() {
       <span className="text-muted">{en.llm.provider}</span>
       {configured ? (
         <span className="min-w-0 truncate font-mono" data-testid="llm-provider-line">
-          {settings.model} · {settings.baseUrl}
+          {settings.model} ·{' '}
+          {settings.preset === 'server' ? en.llm.presets['server'] : settings.baseUrl}
         </span>
       ) : (
         <span className="min-w-0 flex-1 text-warn" role="status" data-testid="llm-not-configured">

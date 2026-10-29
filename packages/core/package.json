@@ -1,6 +1,6 @@
 {
   "name": "@pnm/core",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "UI-independent Petri net model, validation, firing rule and file format",
   "license": "MIT",

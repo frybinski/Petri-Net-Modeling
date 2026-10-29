@@ -1,8 +1,8 @@
-import { validate, type Diagnostic, type PetriNet } from '@pnm/core';
-import { validateDomainView, type DomainDiagnostic } from '@pnm/domain';
+import type { PetriNet } from '@pnm/core';
 import { parseCommandArgs, requireOne } from '../args';
 import { makeStyle, plural, table } from '../format';
 import type { Io } from '../io';
+import { checkNet, validationJson } from '../lib/validate';
 import { loadNet, reportImportWarnings } from '../net-file';
 
 export const VALIDATE_HELP = `Usage: pnm validate <net> [--json]
@@ -27,54 +27,11 @@ export async function validateCommand(io: Io, args: readonly string[]): Promise<
   const loaded = await loadNet(io, path);
   const { net } = loaded;
 
-  const core: Diagnostic[] = validate(net);
-  const domain = net.domainView === undefined ? undefined : validateDomainView(net, net.domainView);
-  const domainDiagnostics: DomainDiagnostic[] = domain?.diagnostics ?? [];
-  const errors =
-    core.filter((d) => d.severity === 'error').length +
-    domainDiagnostics.filter((d) => d.severity === 'error').length;
-  const warnings =
-    core.filter((d) => d.severity === 'warning').length +
-    domainDiagnostics.filter((d) => d.severity === 'warning').length;
+  const check = checkNet(net);
+  const { core, domain, domainDiagnostics, errors, warnings } = check;
 
   if (values.json === true) {
-    io.out(
-      `${JSON.stringify(
-        {
-          file: path,
-          ok: errors === 0,
-          errors,
-          warnings,
-          places: net.places.length,
-          transitions: net.transitions.length,
-          arcs: net.arcs.length,
-          importWarnings: loaded.importWarnings,
-          diagnostics: core.map((d) => ({
-            severity: d.severity,
-            code: d.code,
-            message: d.message,
-            ...(d.elementId !== undefined && { elementId: d.elementId }),
-            ...(d.typeName !== undefined && { typeName: d.typeName }),
-          })),
-          domainView:
-            domain === undefined
-              ? { present: false }
-              : {
-                  present: true,
-                  ok: domain.ok,
-                  diagnostics: domainDiagnostics.map((d) => ({
-                    rule: d.rule,
-                    severity: d.severity,
-                    path: d.path,
-                    message: d.message,
-                    ...(d.elementId !== undefined && { elementId: d.elementId }),
-                  })),
-                },
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    io.out(`${JSON.stringify({ file: path, ...validationJson(loaded, check) }, null, 2)}\n`);
     return errors === 0 ? 0 : 1;
   }
 
