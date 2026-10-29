@@ -50,8 +50,8 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
-    // Threads and processes that the server tests start run in Node.
-    files: ['apps/server/test/fixtures/**/*.mjs'],
+    // Threads and processes that the server tests start, and the launcher of the end-to-end tests, run in Node.
+    files: ['apps/server/test/fixtures/**/*.mjs', 'apps/web/e2e/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

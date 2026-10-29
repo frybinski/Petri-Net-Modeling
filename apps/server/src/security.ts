@@ -29,7 +29,8 @@ export function contentSecurityPolicy(scriptHashes: readonly string[] = []): str
     `script-src 'self' 'unsafe-eval' ${scriptHashes.join(' ')}`.trim(),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
-    "font-src 'self'",
+    // The build inlines small font files as data: URIs.
+    "font-src 'self' data:",
     "connect-src 'self'",
     "worker-src 'self' blob:",
     "object-src 'none'",

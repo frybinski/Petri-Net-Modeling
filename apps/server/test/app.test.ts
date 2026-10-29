@@ -188,6 +188,8 @@ describe('security headers', () => {
       expect(csp, path).toContain("frame-ancestors 'none'");
       expect(csp, path).toContain("worker-src 'self' blob:");
       expect(csp, path).toContain("object-src 'none'");
+      // The build of the app inlines small fonts as data: URIs.
+      expect(csp, path).toContain("font-src 'self' data:");
     }
   });
 
