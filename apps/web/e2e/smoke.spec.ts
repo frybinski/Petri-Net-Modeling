@@ -129,6 +129,11 @@ test('drag snaps to the grid and is one undo step; rename and copy/paste work', 
   await page.getByTestId('tool-place').click();
   await clickCanvas(page, 300, 300);
   const shape = page.getByTestId('place-shape');
+  // The grid is 20 px only at 100 % zoom. Setting it by hand also stops the view from being
+  // fitted again when the canvas is resized late (a flake seen once in a run of many).
+  await page.keyboard.press('Control+0');
+  await expect(page.getByTestId('zoom-level')).toHaveText('100%');
+  await page.waitForTimeout(250);
   const start = await shape.boundingBox();
   if (!start) throw new Error('place not visible');
 
