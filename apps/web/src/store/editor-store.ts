@@ -253,7 +253,8 @@ export interface EditorState {
 
   // Files
   newNet(): void;
-  loadNet(net: PetriNet, fileName?: string | null): void;
+  /** Replaces the document. With `unsaved` it counts as changed (an import, not yet saved as a file). */
+  loadNet(net: PetriNet, fileName?: string | null, options?: { unsaved?: boolean }): void;
   markSaved(fileName: string): void;
 
   // Simulation
@@ -437,12 +438,17 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     }
   };
 
-  const replaceDocument = (net: PetriNet, fileName: string | null): void => {
+  const replaceDocument = (
+    net: PetriNet,
+    fileName: string | null,
+    options: { unsaved?: boolean } = {},
+  ): void => {
     disposeRuntime();
     eventLog.clear();
     set({
       net,
-      savedNet: net,
+      // A different object than the net makes the document count as changed.
+      savedNet: options.unsaved ? createEmptyNet() : net,
       fileName,
       past: [],
       future: [],
@@ -981,8 +987,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     newNet() {
       replaceDocument(freshNet(), null);
     },
-    loadNet(net, fileName = null) {
-      replaceDocument(net, fileName);
+    loadNet(net, fileName = null, options) {
+      replaceDocument(net, fileName, options);
     },
     markSaved(fileName) {
       set({ savedNet: get().net, fileName });

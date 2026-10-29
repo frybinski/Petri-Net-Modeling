@@ -10,6 +10,7 @@ import {
   Braces,
   Eye,
   EyeOff,
+  ImageDown,
   Maximize,
   Minus,
   Pencil,
@@ -39,6 +40,7 @@ import {
   startLabelEdit,
 } from '../../lib/domain-edit';
 import { analyseDomainView } from '../../lib/domain-view';
+import { useExportStore } from '../../store/export-store';
 import { getDomainViewApi } from '../../lib/domain-view-api';
 import { useDomainEditStore, type DomainMenuTarget } from '../../store/domain-edit-store';
 import { useEditorStore } from '../../store/editor-store';
@@ -83,7 +85,21 @@ export function DomainContextMenu() {
   else if (target.entry.section === 'decor') {
     entries = <DecorEntries entry={target.entry} view={view} />;
   } else entries = <ElementEntries entry={target.entry} view={view} target={target} />;
-  return <ContextMenuContent label={en.domain.menuLabel}>{entries}</ContextMenuContent>;
+  return (
+    <ContextMenuContent label={en.domain.menuLabel}>
+      {entries}
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        label={en.domain.exportImage}
+        icon={icon(ImageDown)}
+        shortcut={shortcut('export-image')}
+        onSelect={() => {
+          useExportStore.getState().openDialog('image', 'domain');
+        }}
+        data-testid="domain-menu-export-image"
+      />
+    </ContextMenuContent>
+  );
 }
 
 function EmptyEntries({ target }: { target: DomainMenuTarget }) {

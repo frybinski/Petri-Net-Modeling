@@ -12,7 +12,7 @@ import {
 } from '@pnm/core';
 import { describe, expect, it } from 'vitest';
 import { parseXml } from '../src/xml';
-import { escapeXml, netToSvg, wrapNoteText } from '../src/svg';
+import { escapeXml, netToSvg, renderNetSvg, wrapNoteText } from '../src/svg';
 
 function sampleNet() {
   let net = createEmptyNet('A & B <net>');
@@ -116,5 +116,31 @@ describe('netToSvg for JSON nets', () => {
   it('is well-formed XML', () => {
     const root = parseXml(netToSvg(json()));
     expect(root.name).toBe('svg');
+  });
+});
+
+describe('netToSvg options for raster images', () => {
+  it('leaves the background out when transparent', () => {
+    const net = sampleNet();
+    expect(netToSvg(net)).toContain('fill="#fafafa"/>');
+    const transparent = netToSvg(net, { transparent: true });
+    expect(transparent).not.toContain('fill="#fafafa"/>');
+    expect(parseXml(transparent).name).toBe('svg');
+  });
+
+  it('embeds CSS in a way that survives odd content', () => {
+    const css = "@font-face{font-family:'X';src:url(data:font/woff2;base64,AAAA)} /* ]]> */";
+    const svg = netToSvg(sampleNet(), { fontCss: css });
+    const style = parseXml(svg).children.find((c) => typeof c !== 'string' && c.name === 'defs');
+    expect(style).toBeDefined();
+    expect(svg).toContain('@font-face');
+  });
+
+  it('reports the size that its width and height attributes have', () => {
+    const { svg, width, height } = renderNetSvg(sampleNet());
+    const root = parseXml(svg);
+    expect(root.attributes['width']).toBe(String(width));
+    expect(root.attributes['height']).toBe(String(height));
+    expect(width).toBeGreaterThan(300);
   });
 });

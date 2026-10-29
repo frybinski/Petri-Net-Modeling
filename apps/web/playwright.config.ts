@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
 // PNM_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e
 // In CI, `npx playwright install --with-deps chromium` provides the matching browser.
 const executablePath = process.env.PNM_CHROMIUM_PATH;
+// Another port can be chosen if 5173 is taken: PNM_E2E_PORT=5191 pnpm test:e2e
+const port = Number(process.env.PNM_E2E_PORT ?? 5173);
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,7 +16,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${port}`,
     trace: 'retain-on-failure',
     viewport: { width: 1360, height: 820 },
     acceptDownloads: true,
@@ -32,8 +34,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:5173',
+    command: `pnpm dev --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

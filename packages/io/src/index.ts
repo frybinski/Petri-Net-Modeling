@@ -16,6 +16,8 @@ export {
   escapeXml,
   netToSvg,
   noteHeight,
+  renderNetSvg,
+  type RenderedSvg,
   wrapNoteText,
   type SvgExportOptions,
 } from './svg';
