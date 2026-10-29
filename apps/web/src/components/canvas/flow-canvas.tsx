@@ -30,7 +30,7 @@ import { buildFlowEdges, buildFlowNodes } from '../../lib/flow-model';
 import { findBottlenecks, runningByTransition } from '../../lib/sim-view';
 import { GRID_SIZE, snap, snapDragged } from '@pnm/layout/geometry';
 import { registerViewApi } from '../../lib/view-api';
-import { zoomLevel } from '../../lib/zoom';
+import { FIT_MAX_ZOOM, zoomLevel } from '../../lib/zoom';
 import { currentMarking, useEditorStore } from '../../store/editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { AnnotationNode } from './annotation-node';
@@ -272,7 +272,7 @@ export function FlowCanvas() {
       // Room for labels above (guards) and below (names) the nodes.
       void fitView({
         padding: { top: '84px', right: '96px', bottom: '80px', left: '96px' },
-        maxZoom: 1.25,
+        maxZoom: FIT_MAX_ZOOM,
         duration,
       });
     },

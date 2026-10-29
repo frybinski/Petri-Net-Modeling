@@ -11,3 +11,6 @@ export function zoomLevel(zoom: number): ZoomLevel {
   if (zoom >= ZOOM_FAR) return 'mid';
   return 'far';
 }
+
+/** Fitting the view never zooms in further than this: small nets fill a wide canvas. */
+export const FIT_MAX_ZOOM = 2;
