@@ -1,7 +1,9 @@
 /** Settings of the LLM provider. The API key lives apart from them, only in this browser. */
+import { serverLlmBaseUrl } from './server-api';
 
 export type JsonMode = 'auto' | 'schema' | 'object' | 'none';
-export type ProviderPreset = 'ollama' | 'lmstudio' | 'custom';
+/** `server` is the language model of the server that serves the app; it has no key field. */
+export type ProviderPreset = 'ollama' | 'lmstudio' | 'custom' | 'server';
 
 export interface LlmSettings {
   preset: ProviderPreset;
@@ -15,11 +17,19 @@ export interface LlmSettings {
 export const SETTINGS_KEY = 'pnm:llm';
 export const API_KEY_KEY = 'pnm:llm-key';
 
+/** The presets for a model server of the user's own; the server preset is added by `presetsFor`. */
 export const PRESETS: ReadonlyArray<{ id: ProviderPreset; baseUrl: string }> = [
   { id: 'ollama', baseUrl: 'http://localhost:11434/v1' },
   { id: 'lmstudio', baseUrl: 'http://localhost:1234/v1' },
   { id: 'custom', baseUrl: '' },
 ];
+
+/** The presets to offer: with the one of the server when the app is served by a server with a model. */
+export function presetsFor(
+  serverModel: boolean,
+): ReadonlyArray<{ id: ProviderPreset; baseUrl: string }> {
+  return serverModel ? [{ id: 'server', baseUrl: serverLlmBaseUrl() }, ...PRESETS] : PRESETS;
+}
 
 export const JSON_MODES: readonly JsonMode[] = ['auto', 'schema', 'object', 'none'];
 
@@ -32,6 +42,7 @@ export const DEFAULT_SETTINGS: LlmSettings = {
 };
 
 export function presetBaseUrl(preset: ProviderPreset): string {
+  if (preset === 'server') return serverLlmBaseUrl();
   return PRESETS.find((p) => p.id === preset)?.baseUrl ?? '';
 }
 
@@ -53,7 +64,12 @@ function write(key: string, value: string | null): void {
 }
 
 function isPreset(value: unknown): value is ProviderPreset {
-  return PRESETS.some((p) => p.id === value);
+  return value === 'server' || PRESETS.some((p) => p.id === value);
+}
+
+/** True if settings were stored before (the person has chosen something). */
+export function hasStoredSettings(): boolean {
+  return read(SETTINGS_KEY) !== null;
 }
 
 function isJsonMode(value: unknown): value is JsonMode {
@@ -80,6 +96,16 @@ export function loadSettings(): LlmSettings {
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
+}
+
+/** The settings that a person gets on a server with a language model, before they choose anything. */
+export function serverSettings(defaultModel: string | null): LlmSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    preset: 'server',
+    baseUrl: serverLlmBaseUrl(),
+    model: defaultModel ?? '',
+  };
 }
 
 /** Stores the settings, without the API key. */

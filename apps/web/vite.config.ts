@@ -5,10 +5,24 @@ import { defineConfig } from 'vitest/config';
 // The deploy workflow sets VITE_BASE=/Petri-Net-Modeling/ for GitHub Pages.
 const base = process.env.VITE_BASE ?? '/';
 
+// To try the app against a running server during development: `PNM_DEV_SERVER=http://localhost:8080
+// pnpm dev` passes /api and /llm on to it, so that the app finds the server like it would in the
+// container.
+const devServer = process.env.PNM_DEV_SERVER;
+
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
-  server: { port: 5173, strictPort: false },
+  server: {
+    port: 5173,
+    strictPort: false,
+    ...(devServer !== undefined && {
+      proxy: {
+        '/api': { target: devServer, changeOrigin: false },
+        '/llm': { target: devServer, changeOrigin: false },
+      },
+    }),
+  },
   // The simulation engine runs in a module worker (see @pnm/sim/worker-client).
   worker: { format: 'es' },
   build: {

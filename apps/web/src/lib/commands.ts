@@ -1,6 +1,7 @@
 import { en } from '../i18n/en';
 import { deleteSelection } from './delete';
 import { chooseFile, openExportImage, saveNet } from './files';
+import { saveCommand } from './server-actions';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
 import { domainEditActive, getDomainEditApi } from './domain-edit-api';
@@ -437,9 +438,17 @@ export const commands: Command[] = [
 
   {
     id: 'save',
-    label: 'Save',
+    label: 'Save (to the server, if there is one)',
     group: 'view',
-    keys: [{ key: 's', mod: true }],
+    keys: [{ key: 's', mod: true, shift: false }],
+    run: saveCommand,
+    inSimulation: true,
+  },
+  {
+    id: 'save-file',
+    label: 'Save to file',
+    group: 'view',
+    keys: [{ key: 's', mod: true, shift: true }],
     run: saveNet,
     inSimulation: true,
   },

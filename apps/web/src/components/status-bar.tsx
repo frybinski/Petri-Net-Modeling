@@ -17,6 +17,7 @@ import { useEditorStore, type Tool } from '../store/editor-store';
 import { useGenerationStore } from '../store/generation-store';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './ui/button';
+import { ServerStatus } from './server/server-status';
 import { Tooltip } from './ui/tooltip';
 
 /** Hint for the active tool; nothing for the select tool unless an arc is being drawn. */
@@ -142,6 +143,7 @@ export function StatusBar() {
         </span>
       ) : null}
       {selectionCount > 0 ? <span>{en.status.selected(selectionCount)}</span> : null}
+      <ServerStatus />
 
       <div className="ml-auto flex items-center gap-1">
         {viewMode !== 'domain' ? (
