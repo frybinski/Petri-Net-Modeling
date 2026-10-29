@@ -21,7 +21,10 @@ import { SelectField, TextField } from '../ui/fields';
 type Read = { ok: true; log: ReadLogResult } | { ok: false; error: string };
 
 /** Reads the log of the draft with the columns and the time origin that were chosen. */
-function readDraft(draft: LogDraft, startTime: string | undefined): Read {
+function readDraft(
+  draft: Pick<LogDraft, 'text' | 'format' | 'columns' | 'timeOrigin' | 'customOrigin'>,
+  startTime: string | undefined,
+): Read {
   const columns: LogColumns = {};
   for (const [key, value] of Object.entries(draft.columns)) {
     if (value !== '') columns[key as keyof ColumnChoice] = value;
@@ -98,13 +101,27 @@ export function LogDialog() {
   const t = en.replay;
   const startTime = net.simulation?.startTime;
 
+  // The file is read again only when something about reading it changes, not for every choice of
+  // a transition.
+  const text = draft?.text;
+  const format = draft?.format;
+  const columns = draft?.columns;
+  const timeOrigin = draft?.timeOrigin;
+  const customOrigin = draft?.customOrigin;
   const read = useMemo<Read | null>(
-    () => (draft === null ? null : readDraft(draft, startTime)),
-    [draft, startTime],
+    () =>
+      text === undefined ||
+      format === undefined ||
+      columns === undefined ||
+      timeOrigin === undefined ||
+      customOrigin === undefined
+        ? null
+        : readDraft({ text, format, columns, timeOrigin, customOrigin }, startTime),
+    [text, format, columns, timeOrigin, customOrigin, startTime],
   );
   const headers = useMemo(
-    () => (draft !== null && draft.format === 'csv' ? readCsvHeaders(draft.text) : []),
-    [draft],
+    () => (text !== undefined && format === 'csv' ? readCsvHeaders(text) : []),
+    [text, format],
   );
   const log = read?.ok === true ? read.log : null;
   const auto = useMemo(
