@@ -1,8 +1,8 @@
 {
   "name": "@pnm/cli",
-  "version": "0.9.0",
+  "version": "1.0.0-rc.1",
   "private": true,
-  "description": "Command line for Petri nets: validate, simulate, export, import, layout, domain view",
+  "description": "Command line for Petri nets: validate, simulate, analyze, check, export, import, layout, domain view",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -14,6 +14,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@pnm/analysis": "workspace:*",
     "@pnm/core": "workspace:*",
     "@pnm/domain": "workspace:*",
     "@pnm/io": "workspace:*",

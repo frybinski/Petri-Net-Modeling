@@ -88,7 +88,9 @@ export function DomainControls() {
                 variant="primary"
                 size="sm"
                 icon={<Play size={13} aria-hidden="true" />}
-                onClick={start}
+                onClick={() => {
+                  void start();
+                }}
                 data-testid="domain-simulate"
               >
                 {en.menu.simulate}

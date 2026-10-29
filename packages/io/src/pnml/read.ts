@@ -633,6 +633,7 @@ export function parsePnml(xml: string): PnmlParse {
   if (netPayload?.['domainViewGeneration'] !== undefined) {
     net.domainViewGeneration = netPayload['domainViewGeneration'];
   }
+  if (netPayload?.['properties'] !== undefined) net.properties = netPayload['properties'];
 
   let checked: PetriNet;
   try {

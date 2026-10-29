@@ -1,0 +1,29 @@
+{
+  "name": "@pnm/analysis",
+  "version": "1.0.0-rc.1",
+  "private": true,
+  "description": "Structure, invariants, state space, coverability and verification of Petri nets (DECLARE, LTLf)",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker-client": "./src/worker-client.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pnm/core": "workspace:*",
+    "@pnm/expr": "workspace:*",
+    "@pnm/io": "workspace:*"
+  },
+  "devDependencies": {
+    "@pnm/sim": "workspace:*",
+    "@types/node": "^22.19.0",
+    "fast-check": "^4.10.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -308,7 +308,9 @@ export function Header() {
           <button
             type="button"
             aria-pressed={simulating}
-            onClick={startSimulation}
+            onClick={() => {
+              void startSimulation();
+            }}
             data-testid="mode-simulate"
             className="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-muted transition-colors hover:text-fg aria-pressed:bg-accent aria-pressed:text-accent-contrast"
           >

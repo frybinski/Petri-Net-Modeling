@@ -1,7 +1,14 @@
 import { createEmptyNet, type PetriNet } from '@pnm/core';
 import { createSimulation, type SimEvent } from '@pnm/sim';
 import { describe, expect, it } from 'vitest';
-import { CSV_COLUMNS, eventLogRows, toEventLogCsv, toXes } from '../src';
+import {
+  CSV_COLUMNS,
+  EventLogParseError,
+  eventLogRows,
+  parseEventLogCsv,
+  toEventLogCsv,
+  toXes,
+} from '../src';
 
 /** arrive (rate) -> wait -> serve (5 s, uses a clerk) -> done */
 function shop(): PetriNet {
@@ -211,5 +218,30 @@ describe('XES', () => {
     ];
     expect(toXes(ev, net)).toContain('value="x&lt;y&gt;"');
     checkWellFormed(toXes(ev, net));
+  });
+});
+
+describe('parseEventLogCsv', () => {
+  it('reads back what toEventLogCsv wrote, including quoted names', async () => {
+    const { net, events } = await run();
+    const rows = eventLogRows(events, net);
+    expect(rows.some((r) => r.activity === 'Serve, politely')).toBe(true);
+    expect(parseEventLogCsv(toEventLogCsv(events, net))).toEqual(rows);
+  });
+
+  it('accepts other column orders, CR LF, a byte order mark and a missing lifecycle column', () => {
+    const rows = parseEventLogCsv('﻿activity,case_id\r\n"A ""x""",c1\r\nB,c1\r\n\r\n');
+    expect(rows).toEqual([
+      { caseId: 'c1', activity: 'A "x"', timestamp: '', lifecycle: 'complete' },
+      { caseId: 'c1', activity: 'B', timestamp: '', lifecycle: 'complete' },
+    ]);
+  });
+
+  it('rejects logs without the required columns, bad lifecycles and open quotes', () => {
+    expect(() => parseEventLogCsv('')).toThrow(EventLogParseError);
+    expect(() => parseEventLogCsv('a,b\n1,2\n')).toThrow(/case_id/);
+    expect(() => parseEventLogCsv('case_id,activity,lifecycle\nc,a,pause\n')).toThrow(/lifecycle/);
+    expect(() => parseEventLogCsv('case_id,activity\nc,"a\n')).toThrow(/not closed/);
+    expect(() => parseEventLogCsv('case_id,activity\n,a\n')).toThrow(/must not be empty/);
   });
 });

@@ -102,6 +102,11 @@ export interface PetriNet {
    * view, not inside it. Passed through like `domainView`; `@pnm/llm` defines and reads it.
    */
   domainViewGeneration?: unknown;
+  /**
+   * Behavioural properties to check (DECLARE templates and LTLf formulas). The core stores the list
+   * and passes it through without looking at it; `@pnm/analysis` defines and checks the schema.
+   */
+  properties?: unknown;
 }
 
 export type Node = Place | Transition;

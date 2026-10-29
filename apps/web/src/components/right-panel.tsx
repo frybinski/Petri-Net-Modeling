@@ -2,33 +2,38 @@ import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { en } from '../i18n/en';
 import { useEditorStore } from '../store/editor-store';
 import { useUiStore, type RightTab } from '../store/ui-store';
+import { AnalysisPanel } from './analysis/analysis-panel';
 import { DomainPanel } from './domain/domain-panel';
 import { PropertiesPanel } from './properties-panel';
 import { SimulationPanel } from './simulation-panel';
 
 /**
- * The panel on the right. In the net view it is the properties or simulation panel; with the
- * domain view visible a tab strip adds the domain panel.
+ * The panel on the right. A tab strip switches between the properties or simulation panel, the
+ * analysis and, with the domain view visible, the domain panel.
  */
 export function RightPanel() {
   const viewMode = useUiStore((s) => s.viewMode);
   const tab = useUiStore((s) => s.rightTab);
   const setTab = useUiStore((s) => s.setRightTab);
   const mode = useEditorStore((s) => s.mode);
+  const untimed = useEditorStore((s) => s.simUntimed);
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const simulating = mode === 'simulate';
   const main = simulating ? <SimulationPanel /> : <PropertiesPanel />;
 
-  // Starting the simulation brings up its controls.
+  // Starting the simulation brings up its controls, unless an analysis started it to replay a run.
   useEffect(() => {
-    if (simulating) useUiStore.getState().setRightTab('main');
-  }, [simulating]);
+    if (simulating && !untimed) useUiStore.getState().setRightTab('main');
+  }, [simulating, untimed]);
 
-  if (viewMode === 'net') return main;
+  // The domain tab only exists while the domain view is shown.
+  const domainShown = viewMode !== 'net';
+  const active: RightTab = tab === 'domain' && !domainShown ? 'main' : tab;
 
   const tabs: Array<{ id: RightTab; label: string }> = [
     { id: 'main', label: simulating ? en.domain.tabSimulation : en.domain.tabMain },
-    { id: 'domain', label: en.domain.panelTitle },
+    { id: 'analyze', label: en.analysis.tab },
+    ...(domainShown ? [{ id: 'domain' as const, label: en.domain.panelTitle }] : []),
   ];
   const onKeyDown = (event: KeyboardEvent, index: number): void => {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
@@ -42,7 +47,9 @@ export function RightPanel() {
 
   return (
     <div
-      className="flex w-72 shrink-0 flex-col border-l border-border bg-surface max-md:hidden [&>aside]:min-h-0 [&>aside]:w-full [&>aside]:flex-1 [&>aside]:border-l-0"
+      className={`flex shrink-0 flex-col border-l border-border bg-surface max-md:hidden ${
+        active === 'analyze' ? 'w-96' : 'w-72'
+      } [&>aside]:min-h-0 [&>aside]:w-full [&>aside]:flex-1 [&>aside]:border-l-0`}
       data-testid="right-panel"
     >
       <div
@@ -59,8 +66,8 @@ export function RightPanel() {
             type="button"
             role="tab"
             id={`right-tab-${entry.id}`}
-            aria-selected={tab === entry.id}
-            tabIndex={tab === entry.id ? 0 : -1}
+            aria-selected={active === entry.id}
+            tabIndex={active === entry.id ? 0 : -1}
             onClick={() => {
               setTab(entry.id);
             }}
@@ -74,7 +81,7 @@ export function RightPanel() {
           </button>
         ))}
       </div>
-      {tab === 'domain' ? <DomainPanel /> : main}
+      {active === 'domain' ? <DomainPanel /> : active === 'analyze' ? <AnalysisPanel /> : main}
     </div>
   );
 }

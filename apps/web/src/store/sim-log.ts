@@ -1,3 +1,4 @@
+import type { PetriNet } from '@pnm/core';
 import type { SimEvent } from '@pnm/sim';
 
 /** Events kept for the trace and the export; the oldest are dropped beyond this. */
@@ -48,6 +49,30 @@ class EventLog {
 }
 
 export const eventLog = new EventLog();
+
+/** The event stream of the last run that ended, with the net it ran on. */
+interface ArchivedRun {
+  net: PetriNet;
+  events: readonly SimEvent[];
+}
+
+let archived: ArchivedRun | null = null;
+
+/** Keeps a copy of the current event stream (if there is one) when a run ends or restarts. */
+export function archiveRun(net: PetriNet): void {
+  if (eventLog.length === 0) return;
+  archived = { net, events: [...eventLog.all()] };
+}
+
+export function clearArchive(): void {
+  archived = null;
+}
+
+/** The latest run: the one in progress, else the last one that ended. `null` if there is none. */
+export function lastRun(net: PetriNet, simulating: boolean): ArchivedRun | null {
+  if (simulating && eventLog.length > 0) return { net, events: eventLog.all() };
+  return archived;
+}
 
 export type SimEventListener = (events: readonly SimEvent[]) => void;
 

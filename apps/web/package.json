@@ -1,6 +1,6 @@
 {
   "name": "@pnm/web",
-  "version": "0.9.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "description": "Web editor for Petri nets",
   "license": "MIT",
@@ -24,6 +24,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@lezer/highlight": "^1.2.5",
+    "@pnm/analysis": "workspace:*",
     "@pnm/core": "workspace:*",
     "@pnm/domain": "workspace:*",
     "@pnm/expr": "workspace:*",

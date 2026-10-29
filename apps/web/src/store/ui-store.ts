@@ -8,8 +8,8 @@ export type SimTab = 'enabled' | 'trace' | 'metrics';
 /** Which views fill the workspace: the net editor, the domain view, or both one above the other. */
 export type ViewMode = 'net' | 'domain' | 'both';
 
-/** The tab of the right panel next to the properties or simulation panel. */
-export type RightTab = 'main' | 'domain';
+/** The tab of the right panel: properties or simulation, analysis, domain view. */
+export type RightTab = 'main' | 'analyze' | 'domain';
 
 /** The element the pointer is on, in either view; the other view highlights it too. */
 export interface HoverState {

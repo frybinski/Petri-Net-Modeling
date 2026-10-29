@@ -464,7 +464,18 @@ export const commands: Command[] = [
     run: () => {
       const state = editor();
       if (state.mode === 'simulate') state.stopSimulation();
-      else state.startSimulation();
+      else void state.startSimulation();
+    },
+    inSimulation: true,
+  },
+  {
+    id: 'analyze',
+    label: 'Show or hide the analysis',
+    group: 'view',
+    keys: [{ key: 'y' }],
+    run: () => {
+      const ui = useUiStore.getState();
+      ui.setRightTab(ui.rightTab === 'analyze' ? 'main' : 'analyze');
     },
     inSimulation: true,
   },

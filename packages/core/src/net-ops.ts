@@ -625,3 +625,14 @@ export function setDomainViewGeneration(net: PetriNet, generation: unknown): Pet
   const { domainViewGeneration: _old, ...rest } = net;
   return generation === undefined ? rest : { ...rest, domainViewGeneration: generation };
 }
+
+// --- Properties ------------------------------------------------------------------------------
+
+/**
+ * Sets the list of properties to check (see `@pnm/analysis`), or removes it with `undefined`. The
+ * core passes the content through without looking at it.
+ */
+export function setProperties(net: PetriNet, properties: unknown): PetriNet {
+  const { properties: _old, ...rest } = net;
+  return properties === undefined ? rest : { ...rest, properties };
+}

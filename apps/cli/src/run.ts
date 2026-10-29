@@ -1,5 +1,7 @@
 import { UsageError, CommandError, messageOf } from './errors';
 import type { Io } from './io';
+import { ANALYZE_HELP, analyzeCommand } from './commands/analyze';
+import { CHECK_HELP, checkCommand } from './commands/check';
 import { DOMAIN_HELP, domainCommand } from './commands/domain';
 import { EXAMPLES_HELP, examplesCommand } from './commands/examples';
 import { EXPORT_HELP, exportCommand } from './commands/export';
@@ -17,6 +19,8 @@ Usage: pnm <command> [arguments]
 Commands:
   validate <net>             check a net and its domain view
   simulate <net>             run the timed simulation, print key figures, write event logs
+  analyze <net>              structure, invariants, state space, boundedness, deadlocks, liveness
+  check <net>                check DECLARE and LTLf properties on the state space or an event log
   export <net> --format <f>  write svg, pnml, tikz or json (png: web app only)
   import <file.pnml>         read PNML and write .pn.json
   layout <net>               compute a new automatic layout
@@ -27,12 +31,15 @@ Commands:
 A <net> is a .pn.json or PNML file; - reads standard input.
 Run "pnm <command> --help" for the options of a command.
 
-Exit status: 0 success, 1 the command failed (errors in the net, unreadable file), 2 wrong usage.
+Exit status: 0 success, 1 the command failed (errors in the net, unreadable file, a violated property),
+2 wrong usage.
 `;
 
 const HELP: Record<string, string> = {
   validate: VALIDATE_HELP,
   simulate: SIMULATE_HELP,
+  analyze: ANALYZE_HELP,
+  check: CHECK_HELP,
   export: EXPORT_HELP,
   import: IMPORT_HELP,
   layout: LAYOUT_HELP,
@@ -45,6 +52,8 @@ type Handler = (io: Io, args: readonly string[]) => Promise<number>;
 const COMMANDS: Record<string, Handler> = {
   validate: validateCommand,
   simulate: simulateCommand,
+  analyze: analyzeCommand,
+  check: checkCommand,
   export: exportCommand,
   import: importCommand,
   layout: layoutCommand,

@@ -14,6 +14,7 @@ import { FUNCTIONS } from '@pnm/expr';
 import { useEffect, useRef } from 'react';
 import { editorHighlighting, editorTheme } from './editor-theme';
 import { jsonataLanguage } from './jsonata-language';
+import { ltlfLanguage } from './ltlf-language';
 
 export interface EditorDiagnostic {
   from: number;
@@ -28,7 +29,7 @@ export interface CodeEditorProps {
   onChange?: (value: string) => void;
   /** Called when the editor loses focus, or on Ctrl/Cmd+Enter (and Enter in single-line mode). */
   onCommit?: (value: string) => void;
-  language: 'json' | 'jsonata';
+  language: 'json' | 'jsonata' | 'ltlf';
   /** One logical line: newlines are replaced by spaces and Enter commits. Long text wraps. */
   singleLine?: boolean;
   lineNumbers?: boolean;
@@ -36,6 +37,8 @@ export interface CodeEditorProps {
   diagnostics?: readonly EditorDiagnostic[];
   /** Variable names (without `$`) offered by completion in JSONata mode. */
   variables?: readonly string[];
+  /** Activity names offered by completion in LTLf mode (inserted in quotation marks when needed). */
+  activities?: readonly string[];
   /** Offer completion (default true). */
   completion?: boolean;
   readOnly?: boolean;
@@ -70,6 +73,38 @@ function jsonataCompletions(getVariables: () => readonly string[]) {
           info: fn.detail,
           apply: `$${fn.name}()`,
         })),
+      ],
+    };
+  };
+}
+
+const LTLF_OPERATORS = [
+  { label: 'G', detail: 'always' },
+  { label: 'F', detail: 'eventually' },
+  { label: 'X', detail: 'next (strong)' },
+  { label: 'Xw', detail: 'next (weak)' },
+  { label: 'U', detail: 'until' },
+  { label: 'W', detail: 'weak until' },
+  { label: 'R', detail: 'release' },
+  { label: 'true', detail: 'constant' },
+  { label: 'false', detail: 'constant' },
+];
+
+function ltlfCompletions(getActivities: () => readonly string[]) {
+  return (context: CompletionContext) => {
+    const match = context.matchBefore(/[\p{L}\p{N}_"']*/u);
+    if (!match || (match.from === match.to && !context.explicit)) return null;
+    return {
+      from: match.from,
+      validFor: /^[\p{L}\p{N}_"']*$/u,
+      options: [
+        ...getActivities().map((name) => ({
+          label: /^[\p{L}_][\p{L}\p{N}_]*$/u.test(name) ? name : `"${name}"`,
+          type: 'variable',
+          detail: 'activity',
+          boost: 10,
+        })),
+        ...LTLF_OPERATORS.map((op) => ({ ...op, type: 'keyword' })),
       ],
     };
   };
@@ -122,7 +157,7 @@ export default function CodeEditor(props: CodeEditorProps) {
         ...(testId ? { 'data-testid': testId } : {}),
       }),
       editable.current.of([EditorView.editable.of(!readOnly), EditorState.readOnly.of(readOnly)]),
-      language === 'json' ? json() : jsonataLanguage,
+      language === 'json' ? json() : language === 'ltlf' ? ltlfLanguage : jsonataLanguage,
       ...(props.completion === false
         ? []
         : [
@@ -131,7 +166,9 @@ export default function CodeEditor(props: CodeEditorProps) {
               override:
                 language === 'jsonata'
                   ? [jsonataCompletions(() => latest.current.variables ?? [])]
-                  : [],
+                  : language === 'ltlf'
+                    ? [ltlfCompletions(() => latest.current.activities ?? [])]
+                    : [],
             }),
           ]),
       keymap.of([

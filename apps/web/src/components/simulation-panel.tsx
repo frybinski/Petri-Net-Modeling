@@ -4,6 +4,7 @@ import { useEditorStore } from '../store/editor-store';
 import { useUiStore, type SimTab } from '../store/ui-store';
 import { EnabledTab } from './sim/enabled-tab';
 import { MetricsTab } from './sim/metrics-tab';
+import { ReplayBar } from './sim/replay-bar';
 import { SimControls } from './sim/sim-controls';
 import { TraceTab } from './sim/trace-tab';
 
@@ -73,6 +74,7 @@ export function SimulationPanel() {
       data-testid="simulation-panel"
     >
       <SimControls />
+      <ReplayBar />
       <Tabs active={active} onSelect={setTab} />
       <div
         role="tabpanel"
