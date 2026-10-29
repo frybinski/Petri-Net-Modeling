@@ -174,3 +174,32 @@ describe('a live replay', () => {
     expect(collected.filter((e) => e.type === 'deviation')).toEqual([]);
   });
 });
+
+describe('a live replay with autoMap', () => {
+  it('matches the activities to transitions when their first event arrives', async () => {
+    const net = chain();
+    net.transitions[0]!.name = 'Check Credit';
+    net.transitions[1]!.name = 'Pay';
+    const live = createLiveReplay(net, { mapping: {}, autoMap: true, clock: () => 0 });
+    live.push([
+      { caseId: 'x', activity: 'check_credit', lifecycle: 'complete', time: 1 },
+      { caseId: 'x', activity: 'Pay', lifecycle: 'complete', time: 2 },
+      { caseId: 'x', activity: 'Gossip', lifecycle: 'complete', time: 3 },
+    ]);
+    const events = await live.advance(10);
+    expect(types(events)).toEqual([
+      'spawn',
+      'start',
+      'complete',
+      'start',
+      'complete',
+      'deviation',
+      'idle',
+    ]);
+    expect(live.state.marking['c']).toHaveLength(1);
+    // Without autoMap an activity that is not in the mapping is skipped.
+    const strict = createLiveReplay(net, { mapping: {}, clock: () => 0 });
+    strict.push([{ caseId: 'x', activity: 'Pay', lifecycle: 'complete', time: 1 }]);
+    expect(types(await strict.advance(10))).toEqual(['deviation', 'idle']);
+  });
+});

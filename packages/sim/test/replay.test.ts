@@ -132,6 +132,7 @@ describe('deviations from the net', () => {
     }
     const stats = replay.metrics().replay!;
     expect(stats.missing).toBe(sorts.length);
+    expect(stats.missingByPlace).toEqual({ p_scanned: sorts.length });
     // The token on the input buffer was never taken: every case that finished left one behind.
     const finished = replay.state.marking['p_done']?.length ?? 0;
     expect(finished).toBeGreaterThan(50);

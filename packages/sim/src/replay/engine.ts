@@ -26,8 +26,16 @@ import type {
   TokenMeta,
   TokenRef,
 } from '../types';
+import { autoMapActivities } from './mapping';
 import { insertByTime, keyOf, prepareItems, toItem, type Item } from './prepare';
-import type { DeviationKind, LiveEvent, LogEvent, ReplayOptions, ReplayStats } from './types';
+import type {
+  ActivityMapping,
+  DeviationKind,
+  LiveEvent,
+  LogEvent,
+  ReplayOptions,
+  ReplayStats,
+} from './types';
 
 type EventInput =
   | { type: 'spawn'; transitionId?: Id; caseId: string; tokens?: TokenRef[] }
@@ -142,6 +150,8 @@ export function buildReplay(
     outputsOf.set(t.id, flows(t.id, false));
   }
 
+  /** The mapping of a live replay grows when activities are matched as they arrive. */
+  const liveMapping: ActivityMapping = { ...mapping };
   const useRandom = options.seed !== undefined;
   const rng: Rng = createRng(options.seed ?? 1);
   const metrics = createMetrics(net, warmup);
@@ -170,6 +180,7 @@ export function buildReplay(
   let consumed = 0;
   let produced = 0;
   let missing = 0;
+  let missingBy: Record<Id, number> = {};
   let ignored = 0;
   let guardCount = 0;
   let guardNoted = false;
@@ -233,6 +244,7 @@ export function buildReplay(
     consumed = 0;
     produced = 0;
     missing = 0;
+    missingBy = {};
     ignored = 0;
     guardCount = 0;
     guardNoted = false;
@@ -259,6 +271,7 @@ export function buildReplay(
       consumed,
       produced,
       missing,
+      missingByPlace: { ...missingBy },
       ignored,
       guard: guardCount,
       guardNoted,
@@ -297,6 +310,7 @@ export function buildReplay(
     consumed = replay.consumed;
     produced = replay.produced;
     missing = replay.missing;
+    missingBy = { ...replay.missingByPlace };
     ignored = replay.ignored;
     guardCount = replay.guard;
     guardNoted = replay.guardNoted;
@@ -595,6 +609,7 @@ export function buildReplay(
         const meta = newMeta(resource ? undefined : caseId, s.time);
         const value: Token = resource ? 1 : tokenValue(caseId, item.attributes);
         missing += 1;
+        missingBy = { ...missingBy, [placeId]: (missingBy[placeId] ?? 0) + 1 };
         deviate(
           'missing',
           `"${nameOfTransition(transition.id)}" of case ${caseId} found no token on "${nameOfPlace(placeId)}"; one was created.`,
@@ -842,6 +857,7 @@ export function buildReplay(
       produced,
       missing,
       remaining,
+      missingByPlace: { ...missingBy },
       ignored,
       guard: guardCount,
       openCases: base.casesInSystem,
@@ -912,7 +928,11 @@ export function buildReplay(
       }
       // An event that arrives late is taken at the present moment.
       const time = Math.max(stamped, s.time);
-      const item = toItem({ ...entry, time }, mapping);
+      if (options.autoMap === true && !Object.hasOwn(liveMapping, entry.activity)) {
+        const found = autoMapActivities(net, [entry.activity]).mapping[entry.activity];
+        liveMapping[entry.activity] = found ?? null;
+      }
+      const item = toItem({ ...entry, time }, liveMapping);
       insertByTime(items, cursor, item);
       frontier = Math.max(frontier, time);
       // The firing that this event ends now knows when.

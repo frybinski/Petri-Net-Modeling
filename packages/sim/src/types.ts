@@ -171,6 +171,8 @@ export interface ReplaySnapshot {
   consumed: number;
   produced: number;
   missing: number;
+  /** The tokens that had to be created, by place. */
+  missingByPlace: Record<Id, number>;
   ignored: number;
   guard: number;
   /** The note that guards are not checked has been given. */

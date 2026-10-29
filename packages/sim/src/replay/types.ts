@@ -46,6 +46,11 @@ export interface ReplayOptions {
   seed?: number;
   /** Seconds left out of the key figures. Default: `net.simulation.warmup`, else 0. */
   warmup?: number;
+  /**
+   * Live replays: an activity that is not in the mapping when its first event arrives is matched to
+   * a transition like `autoMapActivities` does, and skipped if none fits.
+   */
+  autoMap?: boolean;
 }
 
 /** What the worker needs to start a replay. Plain data. */
@@ -73,6 +78,8 @@ export interface ReplayStats {
   missing: number;
   /** Tokens that cases which reached a sink place left behind elsewhere. */
   remaining: number;
+  /** The tokens that had to be created, by place. */
+  missingByPlace: Record<string, number>;
   /** Events of the log that were skipped because their activity is not mapped. */
   ignored: number;
   /** Activities whose guard was not satisfied (only with `strict`). */
