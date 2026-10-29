@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@pnm/core": "workspace:*",
+    "@pnm/expr": "workspace:*",
     "@pnm/io": "workspace:*"
   },
   "devDependencies": {

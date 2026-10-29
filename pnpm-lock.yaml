@@ -198,6 +198,9 @@ importers:
       '@pnm/core':
         specifier: workspace:*
         version: link:../core
+      '@pnm/expr':
+        specifier: workspace:*
+        version: link:../expr
       '@pnm/io':
         specifier: workspace:*
         version: link:../io
