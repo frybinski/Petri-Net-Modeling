@@ -22,6 +22,7 @@ export interface CheckOptions {
 }
 
 export const DEFAULT_MAX_PRODUCT_NODES = 5_000_000;
+const CHECK_SLICE_MS = 40;
 
 export interface Counterexample {
   /** The firing sequence from the initial marking. */
@@ -81,12 +82,12 @@ function hasInfiniteRun(space: StateSpace, final: readonly boolean[]): boolean {
  * is searched breadth first for an end state in which the automaton does not accept, which gives a
  * shortest counterexample. Properties that cannot be evaluated give `unknown` with an `error`.
  */
-export function checkCompiled(
+export async function checkCompiled(
   net: PetriNet,
   space: StateSpace,
   compiled: CompiledProperty,
   options: CheckOptions = {},
-): CheckResult {
+): Promise<CheckResult> {
   const spec = compiled.spec;
   const final = options.final ?? 'deadlock';
   const base = { id: spec.id, vacuous: false, infiniteRuns: false, warnings: [] as string[] };
@@ -135,8 +136,16 @@ export function checkCompiled(
   const queue: number[] = [start];
   let violation = -1;
   let sawFinal = false;
+  let sliceStart = Date.now();
   for (let head = 0; head < queue.length; head += 1) {
-    if (options.signal?.aborted) throw new AnalysisCancelled();
+    if ((head & 1023) === 0) {
+      // Give the event loop a turn now and then, so that a worker can receive a cancellation.
+      if (Date.now() - sliceStart > CHECK_SLICE_MS) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        sliceStart = Date.now();
+      }
+      if (options.signal?.aborted) throw new AnalysisCancelled();
+    }
     const node = queue[head]!;
     const s = Math.floor(node / Q);
     const q = node % Q;
@@ -228,14 +237,18 @@ export function checkCompiled(
 }
 
 /** Compiles and checks a list of properties on a state space. */
-export function checkProperties(
+export async function checkProperties(
   net: PetriNet,
   space: StateSpace,
   specs: readonly PropertySpec[],
   options: CheckOptions = {},
-): CheckResult[] {
+): Promise<CheckResult[]> {
   const { labels } = activityLabels(net);
-  return specs.map((spec) =>
-    checkCompiled(net, space, compileProperty(spec, labels, options.ltlf), options),
-  );
+  const results: CheckResult[] = [];
+  for (const spec of specs) {
+    results.push(
+      await checkCompiled(net, space, compileProperty(spec, labels, options.ltlf), options),
+    );
+  }
+  return results;
 }

@@ -11,3 +11,6 @@ export * from './declare';
 export * from './spec';
 export * from './check';
 export * from './conformance';
+export * from './protocol';
+export { createAnalysisHandler } from './handler';
+export { createAnalysisClient, createLocalAnalysisClient, type WorkerLike } from './client';

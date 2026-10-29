@@ -48,7 +48,7 @@ describe('order example (JSON net)', () => {
     // Create invoice also happens in runs without any Reject before it: the 9-step runs that
     // invoice A-0 first never contain a Reject before that step.
     const space = await buildStateSpace(net);
-    const [response, precedence] = checkProperties(net, space, [
+    const [response, precedence] = await checkProperties(net, space, [
       declare('p1', 'response(Approve, Create invoice)'),
       declare('p2', 'precedence(Reject, Create invoice)'),
     ]);
@@ -79,7 +79,7 @@ describe('order example (JSON net)', () => {
 
   it('checks free LTLf formulas, also with quoted activities', async () => {
     const space = await buildStateSpace(net);
-    const results = checkProperties(net, space, [
+    const results = await checkProperties(net, space, [
       ltlf('a', 'G("Approve" -> F "Create invoice")'),
       ltlf('b', 'F "Reject"'),
       ltlf('c', 'G !"Reject"'),
@@ -93,7 +93,7 @@ describe('order example (JSON net)', () => {
 
   it('reports unknown activities and syntax errors instead of throwing', async () => {
     const space = await buildStateSpace(net);
-    const [unknown, syntax, template] = checkProperties(net, space, [
+    const [unknown, syntax, template] = await checkProperties(net, space, [
       declare('u', 'response(Approve, Ship)'),
       ltlf('s', 'G(Approve ->'),
       { id: 't', kind: 'declare', template: 'response', activities: ['Approve'] },
@@ -112,7 +112,7 @@ describe('dining philosophers', () => {
     // Complete runs end in the only deadlock LLL, reached after three left forks; in that run P1
     // took its left fork and never its right one. No shorter complete run exists.
     const space = await buildStateSpace(net);
-    const [result] = checkProperties(net, space, [
+    const [result] = await checkProperties(net, space, [
       declare('p', 'response(P1 takes left fork, P1 takes right fork)'),
     ]);
     expect(result?.verdict).toBe('violated');
@@ -127,7 +127,7 @@ describe('dining philosophers', () => {
 
   it('a property of the deadlock run holds: every complete run takes three left forks', async () => {
     const space = await buildStateSpace(net);
-    const [result] = checkProperties(net, space, [
+    const [result] = await checkProperties(net, space, [
       ltlf('p', 'F "P1 takes left fork" & F "P2 takes left fork" & F "P3 takes left fork"'),
     ]);
     expect(result?.verdict).toBe('holds');
@@ -139,7 +139,9 @@ describe('end states and prefixes', () => {
 
   it('with deadlocks as end states a net without deadlock holds vacuously and warns', async () => {
     const space = await buildStateSpace(net);
-    const [result] = checkProperties(net, space, [declare('p', 'response(produce, consume)')]);
+    const [result] = await checkProperties(net, space, [
+      declare('p', 'response(produce, consume)'),
+    ]);
     expect(result?.verdict).toBe('holds');
     expect(result?.vacuous).toBe(true);
     expect(result?.infiniteRuns).toBe(true);
@@ -148,15 +150,25 @@ describe('end states and prefixes', () => {
 
   it('with every state as end state each prefix is checked', async () => {
     const space = await buildStateSpace(net);
-    const [violated] = checkProperties(net, space, [declare('p', 'response(produce, deliver)')], {
-      final: 'all',
-    });
+    const [violated] = await checkProperties(
+      net,
+      space,
+      [declare('p', 'response(produce, deliver)')],
+      {
+        final: 'all',
+      },
+    );
     // The prefix "produce" has an unanswered produce.
     expect(violated?.verdict).toBe('violated');
     expect(violated?.counterexample?.activities).toEqual(['produce']);
-    const [holds] = checkProperties(net, space, [declare('q', 'precedence(produce, deliver)')], {
-      final: 'all',
-    });
+    const [holds] = await checkProperties(
+      net,
+      space,
+      [declare('q', 'precedence(produce, deliver)')],
+      {
+        final: 'all',
+      },
+    );
     expect(holds?.verdict).toBe('holds');
     expect(holds?.vacuous).toBe(false);
     expect(holds?.infiniteRuns).toBe(false);
@@ -168,7 +180,7 @@ describe('end states and prefixes', () => {
     const after = space.states[space.edges.find((e) => e.from === 0)!.to]!;
     const second = space.edges.find((e) => e.from === after.id)!;
     const target = space.states[second.to]!.marking;
-    const [fine, bad] = checkProperties(
+    const [fine, bad] = await checkProperties(
       net,
       space,
       [declare('a', 'succession(produce, deliver)'), declare('b', 'existence(consume, 1)')],
@@ -183,23 +195,23 @@ describe('end states and prefixes', () => {
   it('an initial marking that already ends the run gives the empty counterexample', async () => {
     const stuck = ptNet({ places: [['p']], transitions: ['t'], arcs: [['p', 't']] });
     const space = await buildStateSpace(stuck);
-    const [result] = checkProperties(stuck, space, [declare('a', 'existence(t, 1)')]);
+    const [result] = await checkProperties(stuck, space, [declare('a', 'existence(t, 1)')]);
     expect(result?.verdict).toBe('violated');
     expect(result?.counterexample?.steps).toEqual([]);
-    const [empty] = checkProperties(stuck, space, [declare('b', 'absence(t, 0)')]);
+    const [empty] = await checkProperties(stuck, space, [declare('b', 'absence(t, 0)')]);
     expect(empty?.verdict).toBe('holds');
   });
 
   it('is unknown when the state space is incomplete and no violation was found', async () => {
     const source = ptNet({ places: [['p']], transitions: ['arrive'], arcs: [['arrive', 'p']] });
     const space = await buildStateSpace(source, { maxStates: 10 });
-    const [short] = checkProperties(source, space, [declare('b', 'absence(arrive, 3)')], {
+    const [short] = await checkProperties(source, space, [declare('b', 'absence(arrive, 3)')], {
       final: 'all',
     });
     // ... and a violation is certain even though the space is cut off.
     expect(short?.verdict).toBe('violated');
     expect(short?.counterexample?.steps).toHaveLength(4);
-    const [open] = checkProperties(source, space, [declare('c', 'absence(arrive, 30)')], {
+    const [open] = await checkProperties(source, space, [declare('c', 'absence(arrive, 30)')], {
       final: 'all',
     });
     expect(open?.verdict).toBe('unknown');
@@ -352,7 +364,7 @@ describe('property: the product search equals checking every run', () => {
           net.transitions.map((t) => t.id),
         );
         fc.pre(compiled.error === null);
-        const result = checkCompiled(net, space, compiled);
+        const result = await checkCompiled(net, space, compiled);
         const failing = runs!.filter((run) => !satisfies(compiled, run));
         // The direct evaluation agrees with the automaton on every run.
         if (compiled.formula) {
