@@ -57,7 +57,7 @@ const LATIN_EXT_RANGE =
   'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF';
 /** Characters that the Latin subset lacks and the Latin Extended subset has: Ł, ź, ő, ǎ and the like. */
 const LATIN_EXT_CHARS =
-  /(?![\u0131\u0152\u0153\u02bb\u02bc\u02c6\u02da\u02dc\u0304\u0308\u0329])[\u0100-\u02ba\u02bd-\u02c5\u02c7-\u02cc\u02ce-\u02d7\u02dd-\u02ff\u1d00-\u1dbf\u1e00-\u1e9f\u1ef2-\u1eff\u2020\u20a0-\u20ab\u20ad-\u20c0\u2113\u2c60-\u2c7f\ua720-\ua7ff]/;
+  /(?![\u0131\u0152\u0153\u02bb\u02bc\u02c6\u02da\u02dc])[\u0100-\u02ba\u02bd-\u02c5\u02c7-\u02cc\u02ce-\u02d7\u02dd-\u02ff\u1d00-\u1dbf\u1e00-\u1e9f\u1ef2-\u1eff\u2020\u20a0-\u20ab\u20ad-\u20c0\u2113\u2c60-\u2c7f\ua720-\ua7ff]/;
 
 /**
  * True if a text has a character that only the Latin Extended subset of the fonts has. Umlauts
