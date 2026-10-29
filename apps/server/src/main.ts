@@ -74,9 +74,10 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   const logger = createLogger();
-  const app = createApp(config, { logger });
+  let app;
   let port: number;
   try {
+    app = await createApp(config, { logger });
     port = await app.start();
   } catch (error) {
     logger.error('cannot start', { error: messageOf(error) });

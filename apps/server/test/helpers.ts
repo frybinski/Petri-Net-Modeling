@@ -77,7 +77,7 @@ export async function startApp(
   const scratch = tempDir();
   const logs = captureLogs();
   const config = testConfig(scratch.dir, { ...overrides, PNM_PORT: overrides['PNM_PORT'] ?? '1' });
-  const app = createApp(
+  const app = await createApp(
     { ...config, port: 0 },
     { logger: logs, workerFile: WORKER_BUNDLE, ...deps },
   );

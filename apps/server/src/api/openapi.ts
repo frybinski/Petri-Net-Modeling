@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createProjectRequest, saveProjectRequest, shareRequest } from '../projects/routes';
 import { VERSION } from '../version';
 import {
   analyzeRequest,
@@ -50,6 +51,12 @@ const commonErrors: Record<string, Json> = {
   '403': errorResponse('The address of the client is not in PNM_ALLOWED_NETS.'),
   '413': errorResponse('The request is larger than PNM_MAX_BODY.'),
   '415': errorResponse('The body was not sent with the content type application/json.'),
+};
+
+/** The answers that every call can give. */
+const basicErrors: Record<string, Json> = {
+  '401': errorResponse('The server asks for a password (PNM_BASIC_AUTH).'),
+  '403': errorResponse('The address of the client is not in PNM_ALLOWED_NETS.'),
 };
 
 const jobErrors: Record<string, Json> = {
@@ -213,6 +220,169 @@ export function buildOpenApi(options: { publicUrl?: string } = {}): Json {
         },
       ),
     },
+    '/api/v1/projects': {
+      get: {
+        tags: ['Projects'],
+        summary: 'The stored projects, newest first',
+        responses: {
+          '200': json('`{ projects: [Project] }`.', {
+            type: 'object',
+            properties: { projects: { type: 'array', items: ref('Project') } },
+          }),
+          ...basicErrors,
+        },
+      },
+      post: {
+        tags: ['Projects'],
+        summary: 'Store a net as a new project (version 1)',
+        requestBody: body('CreateProjectRequest'),
+        responses: {
+          '201': json('`{ project, shares }`; Location and ETag are set.', ref('ProjectResult')),
+          '422': errorResponse('The document is no net (net_format).'),
+          ...commonErrors,
+        },
+      },
+    },
+    '/api/v1/projects/{id}': {
+      get: {
+        tags: ['Projects'],
+        summary: 'The newest version of a project',
+        description: 'The ETag is the version number; send it back as If-Match when saving.',
+        responses: {
+          '200': json('`{ project, shares, net }`.', ref('ProjectResult')),
+          '404': errorResponse('No such project.'),
+          ...basicErrors,
+        },
+      },
+      put: {
+        tags: ['Projects'],
+        summary: 'Save a new version; If-Match carries the version that the changes are based on',
+        description:
+          'Every save is a new, unchangeable version. `If-Match: "3"` says that the changes are based on version 3; if the project is at another version the answer is 409 with `details.currentVersion`. `If-Match: *` overwrites whatever is there. Without the header the answer is 428.',
+        parameters: [
+          { name: 'If-Match', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: body('SaveProjectRequest'),
+        responses: {
+          '200': json('`{ project }` with the new version; the ETag is set.'),
+          '404': errorResponse('No such project.'),
+          '409': errorResponse('The project was changed in the meantime (conflict).'),
+          '422': errorResponse('The document is no net (net_format).'),
+          '428': errorResponse('If-Match is missing.'),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ['Projects'],
+        summary: 'Move a project to the trash',
+        description:
+          'Its share links stop working at once. It stays in the trash for PNM_TRASH_DAYS.',
+        responses: {
+          '204': { description: 'Moved.' },
+          '404': errorResponse('No such project.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/projects/{id}/versions': {
+      get: {
+        tags: ['Projects'],
+        summary: 'The saved versions of a project, newest first',
+        responses: {
+          '200': json('`{ versions: [Version] }`.'),
+          '404': errorResponse('No such project.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/projects/{id}/versions/{n}': {
+      get: {
+        tags: ['Projects'],
+        summary: 'One saved version of a project',
+        responses: {
+          '200': json('`{ project, version, net }`.'),
+          '404': errorResponse('No such project or version.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/projects/{id}/share': {
+      post: {
+        tags: ['Projects'],
+        summary: 'Make a share link for reading or for reading and writing',
+        description:
+          'The link is `/s/<token>` on this server and works without the password of PNM_BASIC_AUTH. A mode that has a link already gets the same link back unless `rotate` is true.',
+        requestBody: body('ShareRequest'),
+        responses: {
+          '200': json('The existing link: `{ mode, token, url, createdAt }`.'),
+          '201': json('A new link: `{ mode, token, url, createdAt }`.'),
+          '404': errorResponse('No such project.'),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ['Projects'],
+        summary: 'Remove the share link of one mode, or all links',
+        parameters: [
+          { name: 'mode', in: 'query', required: false, schema: { enum: ['read', 'write'] } },
+        ],
+        responses: {
+          '204': { description: 'Removed.' },
+          '404': errorResponse('No such project.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/trash': {
+      get: {
+        tags: ['Projects'],
+        summary: 'Projects in the trash',
+        responses: {
+          '200': json('`{ projects: [Project with deletedAt and purgeAt] }`.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/trash/{id}/restore': {
+      post: {
+        tags: ['Projects'],
+        summary: 'Take a project out of the trash',
+        responses: {
+          '200': json('`{ project }`.'),
+          '404': errorResponse('No such project in the trash.'),
+          ...basicErrors,
+        },
+      },
+    },
+    '/api/v1/shared/{token}': {
+      get: {
+        tags: ['Projects'],
+        summary: 'The newest version of the project behind a share link',
+        description: 'Needs no password. `mode` says what the link allows.',
+        responses: {
+          '200': json('`{ mode, project, net }`; the ETag is the version.'),
+          '404': errorResponse('The link does not exist or was removed.'),
+          '403': errorResponse('The address of the client is not in PNM_ALLOWED_NETS.'),
+        },
+      },
+      put: {
+        tags: ['Projects'],
+        summary: 'Save a new version through a share link that allows writing',
+        description: 'Like saving a project, with If-Match. A read-only link is answered with 403.',
+        parameters: [
+          { name: 'If-Match', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: body('SaveProjectRequest'),
+        responses: {
+          '200': json('`{ project }`.'),
+          '403': errorResponse('The link is read-only.'),
+          '404': errorResponse('The link does not exist or was removed.'),
+          '409': errorResponse('The project was changed in the meantime (conflict).'),
+          '428': errorResponse('If-Match is missing.'),
+          ...commonErrors,
+        },
+      },
+    },
     '/llm/v1/chat/completions': {
       post: {
         tags: ['Language model'],
@@ -305,6 +475,38 @@ export function buildOpenApi(options: { publicUrl?: string } = {}): Json {
     DomainCheckRequest: schemaOf(domainCheckRequest),
     DomainGenericRequest: schemaOf(domainGenericRequest),
     DomainGenerateRequest: schemaOf(domainGenerateRequest),
+    CreateProjectRequest: schemaOf(createProjectRequest),
+    SaveProjectRequest: schemaOf(saveProjectRequest),
+    ShareRequest: schemaOf(shareRequest),
+    Project: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        name: { type: 'string' },
+        version: { type: 'integer', description: 'The number of the newest version.' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+        places: { type: 'integer' },
+        transitions: { type: 'integer' },
+        arcs: { type: 'integer' },
+        bytes: { type: 'integer' },
+        shared: {
+          type: 'object',
+          properties: { read: { type: 'boolean' }, write: { type: 'boolean' } },
+        },
+      },
+    },
+    ProjectResult: {
+      type: 'object',
+      properties: {
+        project: ref('Project'),
+        shares: {
+          type: 'object',
+          description: 'The share links, by mode, with their token and address.',
+        },
+        net: { type: 'object', description: 'The net as a .pn.json document.' },
+      },
+    },
   };
 
   return buildDocument(paths, schemas, options);

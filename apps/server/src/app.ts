@@ -6,6 +6,9 @@ import { createBasicAuth } from './basic-auth';
 import { createJobPool, type JobPool } from './api/pool';
 import { registerApi } from './api/routes';
 import { createLlmProxy, type LlmProxy } from './llm/proxy';
+import { registerProjects } from './projects/routes';
+import { openProjectStore, type ProjectStore } from './projects/store';
+import type { FsOps } from './projects/fs-ops';
 import { createLogger, type Logger } from './logger';
 import { clientAddress, isAllowed, parseNetList } from './net-filter';
 import { Router, type RequestContext } from './router';
@@ -20,6 +23,8 @@ export interface AppDeps {
   fetch?: typeof fetch;
   /** The bundle that runs in a thread of the job pool; default `worker.js` next to this file. */
   workerFile?: string | URL;
+  /** Replaces the file operations of the project store (tests that make a write fail). */
+  fs?: FsOps;
 }
 
 export interface App {
@@ -27,6 +32,7 @@ export interface App {
   router: Router;
   llm: LlmProxy;
   pool: JobPool;
+  store: ProjectStore;
   /** Starts listening; resolves with the port. */
   start(): Promise<number>;
   /** Stops accepting requests, waits for running ones for `graceMs`, then cuts them off. */
@@ -41,7 +47,11 @@ function isPublicAsset(path: string): boolean {
 /** Methods that change something; they are only accepted from the server's own pages. */
 const CHANGING = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
-export function createApp(config: Config, deps: AppDeps = {}): App {
+/**
+ * Builds the application: opens the project store (and so fails early if the data folder cannot
+ * be written) and registers the routes. `start()` listens.
+ */
+export async function createApp(config: Config, deps: AppDeps = {}): Promise<App> {
   const logger = deps.logger ?? createLogger();
   const router = new Router();
   const allowed = parseNetList(config.allowedNets);
@@ -65,6 +75,14 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
     logger,
   });
   registerApi(router, { pool, llm, logger });
+  const store = await openProjectStore({
+    dataDir: config.dataDir,
+    maxVersions: config.projects.maxVersions,
+    trashDays: config.projects.trashDays,
+    logger,
+    ...(deps.fs !== undefined && { fs: deps.fs }),
+  });
+  registerProjects(router, { store, logger });
 
   /** The page of a share link is the app itself; the app reads the token from the address. */
   router.get(
@@ -219,6 +237,7 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
     router,
     llm,
     pool,
+    store,
     start() {
       return new Promise((resolve, reject) => {
         server.once('error', reject);
@@ -237,6 +256,7 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
         timer.unref();
         server.close(() => {
           clearTimeout(timer);
+          store.close();
           void pool.close().then(() => {
             resolve();
           });
