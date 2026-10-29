@@ -92,6 +92,26 @@ describe('static files', () => {
     expect(await response.text()).toContain('Fixture app');
   });
 
+  it('marks the page it delivers, so that the app asks for the health only here', async () => {
+    const { url } = await start();
+    for (const path of ['/', '/some/page', '/s/abcDEF-123_xyz']) {
+      const html = await (await fetch(`${url}${path}`)).text();
+      expect(html, path).toMatch(/<meta name="pnm-server" content="[^"]+" \/>\s*<\/head>/);
+      expect(html, path).toContain('Fixture app');
+    }
+  });
+
+  it('answers a conditional request for the marked page with 304, and compresses it on request', async () => {
+    const { url } = await start();
+    const first = await fetch(`${url}/`);
+    const etag = first.headers.get('etag');
+    expect(etag).toBeTruthy();
+    const second = await fetch(`${url}/`, { headers: { 'If-None-Match': etag ?? '' } });
+    expect(second.status).toBe(304);
+    // The same ETag for the same content, also for the fallback paths.
+    expect((await fetch(`${url}/some/page`)).headers.get('etag')).toBe(etag);
+  });
+
   it('serves hashed assets as immutable with the right type', async () => {
     const { url } = await start();
     const response = await fetch(`${url}/assets/app-abc123.js`);

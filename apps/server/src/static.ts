@@ -6,6 +6,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
 import { inlineScriptHashes } from './security';
+import { VERSION } from './version';
 
 const gzipAsync = promisify(gzip);
 
@@ -77,10 +78,33 @@ interface CachedGzip {
   body: Buffer;
 }
 
+/**
+ * The marker that tells the app it was delivered by a server. The app asks `api/health` only if it
+ * finds it, so that a page on GitHub Pages or the dev server makes no request that ends in a 404.
+ */
+export const SERVER_MARKER_NAME = 'pnm-server';
+
+/** `index.html` with the marker of the server in its head. */
+export function markServerPage(html: string): string {
+  const marker = `<meta name="${SERVER_MARKER_NAME}" content="${VERSION}" />`;
+  return /<\/head>/i.test(html)
+    ? html.replace(/<\/head>/i, `  ${marker}\n  </head>`)
+    : `${marker}\n${html}`;
+}
+
+interface IndexDocument {
+  mtimeMs: number;
+  checkedAt: number;
+  html: string;
+  body: Buffer;
+  etag: string;
+  scriptHashes: string[];
+}
+
 export function createStaticFiles(root: string): StaticFiles {
   const compressed = new Map<string, CachedGzip>();
   let compressedBytes = 0;
-  let hashes: { mtime: number; values: string[]; checkedAt: number } | null = null;
+  let index: IndexDocument | null = null;
 
   async function indexStat(): Promise<{ mtimeMs: number } | null> {
     try {
@@ -91,18 +115,40 @@ export function createStaticFiles(root: string): StaticFiles {
     }
   }
 
-  async function gzipped(file: string, etag: string): Promise<Buffer> {
-    const cached = compressed.get(file);
+  async function gzipped(name: string, etag: string, load: () => Promise<Buffer>): Promise<Buffer> {
+    const cached = compressed.get(name);
     if (cached?.key === etag) return cached.body;
-    const body = await gzipAsync(await readFile(file));
+    const body = await gzipAsync(await load());
     if (cached) compressedBytes -= cached.body.length;
     if (compressedBytes + body.length > CACHE_LIMIT_BYTES) {
       compressed.clear();
       compressedBytes = 0;
     }
-    compressed.set(file, { key: etag, body });
+    compressed.set(name, { key: etag, body });
     compressedBytes += body.length;
     return body;
+  }
+
+  /** The page of the app, read again when the file changes (at most every few seconds). */
+  async function indexDocument(): Promise<IndexDocument | null> {
+    if (index !== null && Date.now() - index.checkedAt < 3000) return index;
+    const info = await indexStat();
+    if (info === null) return null;
+    if (index?.mtimeMs === info.mtimeMs) {
+      index.checkedAt = Date.now();
+      return index;
+    }
+    const html = markServerPage(await readFile(join(root, 'index.html'), 'utf8'));
+    const body = Buffer.from(html, 'utf8');
+    index = {
+      mtimeMs: info.mtimeMs,
+      checkedAt: Date.now(),
+      html,
+      body,
+      etag: `W/"${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
+      scriptHashes: inlineScriptHashes(html),
+    };
+    return index;
   }
 
   return {
@@ -112,16 +158,7 @@ export function createStaticFiles(root: string): StaticFiles {
 
     async scriptHashes() {
       // Every answer asks; the file is looked at again at most every few seconds.
-      if (hashes !== null && Date.now() - hashes.checkedAt < 3000) return hashes.values;
-      const info = await indexStat();
-      if (info === null) return [];
-      if (hashes?.mtime === info.mtimeMs) {
-        hashes.checkedAt = Date.now();
-        return hashes.values;
-      }
-      const html = await readFile(join(root, 'index.html'), 'utf8');
-      hashes = { mtime: info.mtimeMs, values: inlineScriptHashes(html), checkedAt: Date.now() };
-      return hashes.values;
+      return (await indexDocument())?.scriptHashes ?? [];
     },
 
     async serve(req, res, requestPath) {
@@ -143,7 +180,11 @@ export function createStaticFiles(root: string): StaticFiles {
         servedPath = '/index.html';
       }
       const type = mimeType(file);
-      const etag = `W/"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
+      const page = file === resolve(root, 'index.html') ? await indexDocument() : null;
+      const size = page ? page.body.length : info.size;
+      const etag = page
+        ? page.etag
+        : `W/"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
       const headers: Record<string, string | number> = {
         'Content-Type': type,
         'Cache-Control': cacheControl(servedPath, type),
@@ -157,10 +198,12 @@ export function createStaticFiles(root: string): StaticFiles {
       }
       const wantsGzip =
         COMPRESSIBLE.test(type) &&
-        info.size >= COMPRESS_MIN &&
+        size >= COMPRESS_MIN &&
         /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
       if (wantsGzip) {
-        const body = await gzipped(file, createHash('sha1').update(etag).digest('hex'));
+        const body = await gzipped(file, createHash('sha1').update(etag).digest('hex'), () =>
+          page ? Promise.resolve(page.body) : readFile(file),
+        );
         res.writeHead(200, {
           ...headers,
           'Content-Encoding': 'gzip',
@@ -169,9 +212,13 @@ export function createStaticFiles(root: string): StaticFiles {
         res.end(req.method === 'HEAD' ? undefined : body);
         return true;
       }
-      res.writeHead(200, { ...headers, 'Content-Length': info.size });
+      res.writeHead(200, { ...headers, 'Content-Length': size });
       if (req.method === 'HEAD') {
         res.end();
+        return true;
+      }
+      if (page) {
+        res.end(page.body);
         return true;
       }
       await new Promise<void>((done) => {

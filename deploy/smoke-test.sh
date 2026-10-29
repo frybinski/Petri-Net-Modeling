@@ -74,6 +74,7 @@ grep -q '"llm":true' "$tmp/body" && llm=true
 
 request "web app (index.html)" 200 "$base/"
 contains "web app is the editor" 'Petri Net Modeler'
+contains "web app carries the marker of the server" '<meta name="pnm-server"'
 asset="$(sed -n 's/.*src="\(\/assets\/[^"]*\.js\)".*/\1/p' "$tmp/body" | head -n 1)"
 if [ -n "$asset" ]; then
   request "script of the web app" 200 "$base$asset"
