@@ -154,6 +154,19 @@ describe('structural classes', () => {
   });
 });
 
+describe('strong connectivity', () => {
+  it('says that a capacity can make a bounded net that is not strongly connected', () => {
+    const result = analyzeStructure(example('producer-consumer'));
+    const check = result.checks.find((c) => c.key === 'stronglyConnected');
+    expect(check?.holds).toBe(false);
+    expect(check?.explanation).toContain('capacit');
+    const plain = analyzeStructure(example('order-processing'));
+    expect(plain.checks.find((c) => c.key === 'stronglyConnected')?.explanation).toContain(
+      'cannot be both live and bounded',
+    );
+  });
+});
+
 describe('siphons and traps', () => {
   it('finds the minimal siphons and traps of a cycle', () => {
     // a -> t1 -> b -> t2 -> a: the only minimal siphon and trap is {a, b}.

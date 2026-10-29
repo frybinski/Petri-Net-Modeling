@@ -28,6 +28,7 @@ import {
   setDomainView as coreSetDomainView,
   setDomainViewGeneration as coreSetDomainViewGeneration,
   setProfile as coreSetProfile,
+  setProperties as coreSetProperties,
   setSimulationSettings as coreSetSimulationSettings,
   setTokens as coreSetTokens,
   setWeight,
@@ -41,6 +42,7 @@ import {
   type AlignMode,
   type Annotation,
   type Arc,
+  canonicalJson,
   type Binding,
   type BindingResult,
   type Diagnostic,
@@ -56,6 +58,7 @@ import {
   type Token,
   type Transition,
 } from '@pnm/core';
+import { markingKey, type Step } from '@pnm/analysis';
 import {
   initialMarking,
   isTimedNet,
@@ -71,7 +74,7 @@ import { en } from '../i18n/en';
 import { chainPosition } from '../lib/placement';
 import { createSimulationClientForEditor } from '../lib/sim-client';
 import { getViewApi } from '../lib/view-api';
-import { eventLog, publishSimEvents, publishSimJump } from './sim-log';
+import { archiveRun, clearArchive, eventLog, publishSimEvents, publishSimJump } from './sim-log';
 import { notify } from './ui-store';
 
 export type Tool = 'select' | 'place' | 'transition' | 'arc' | 'annotation';
@@ -103,6 +106,31 @@ export interface SimStep {
   transitionName: string;
   /** The binding that was fired; empty in P/T nets. */
   binding: Binding;
+}
+
+/** Wall-clock time between two steps while a replay plays. */
+export const REPLAY_STEP_MS = 650;
+
+/** A recorded firing sequence (a counterexample, the way to a deadlock) played back in the simulation. */
+export interface ReplayState {
+  label: string;
+  steps: Step[];
+  /** Number of steps fired so far. */
+  position: number;
+  /** The marking in which the sequence ends according to the analysis. */
+  target: Marking | null;
+  /** `diverged`: a step could not be fired because the net does not allow it any more. */
+  status: 'ready' | 'done' | 'diverged';
+  /** After the last step: does the simulation show the marking the analysis reported. */
+  reached: boolean | null;
+}
+
+export interface ReplayRequest {
+  label: string;
+  steps: Step[];
+  target?: Marking | null;
+  /** Fire all steps at once and stop at the end (to show a state of the state space). */
+  immediate?: boolean;
 }
 
 /** Maximum number of undo steps kept in memory. */
@@ -172,6 +200,11 @@ export interface EditorState {
   simIdle: boolean;
   /** The last warning of the engine, for the status bar. */
   simNotice: string | null;
+  /** The simulation ignores durations and arrival rates (the replay of an analysis trace). */
+  simUntimed: boolean;
+  /** The recorded firing sequence that is being played, if any. */
+  replay: ReplayState | null;
+  replayPlaying: boolean;
 
   diagnostics: Diagnostic[];
   clipboard: NetFragment | null;
@@ -226,6 +259,11 @@ export interface EditorState {
    * record) in one undo step.
    */
   replaceDomainView(view: unknown, generation: unknown): void;
+  /**
+   * Replaces the list of properties to check (one undo step). The list is not part of the net's
+   * structure, so it can be edited while a simulation runs; `undefined` removes it.
+   */
+  setProperties(properties: unknown): void;
   align(mode: AlignMode): void;
   distribute(axis: DistributeAxis): void;
   applyLayout(positions: Record<Id, Position>): void;
@@ -258,7 +296,8 @@ export interface EditorState {
   markSaved(fileName: string): void;
 
   // Simulation
-  startSimulation(): void;
+  /** Starts the simulation; `untimed` ignores durations and arrival rates. Resolves when it is ready. */
+  startSimulation(options?: { untimed?: boolean }): Promise<void>;
   stopSimulation(): void;
   /** Fires a transition: directly if it has one binding, otherwise opens the binding list. */
   fireTransition(id: Id): void;
@@ -278,6 +317,15 @@ export interface EditorState {
   setArrivalRate(transitionId: Id, perHour: number): void;
   /** Adds (+1) or withdraws (-1) a token of a place while running. */
   adjustPlaceTokens(placeId: Id, delta: number): void;
+  /** Plays a recorded firing sequence in the (untimed) simulation, starting it if needed. */
+  startReplay(request: ReplayRequest): Promise<void>;
+  /** Fires the next step of the replay. */
+  replayStep(): Promise<void>;
+  setReplayPlaying(playing: boolean): void;
+  /** Goes back to the initial marking and keeps the replay. */
+  restartReplay(): Promise<void>;
+  /** Leaves the replay; the simulation stays where it is. */
+  endReplay(): void;
   toggleTransitionBreakpoint(transitionId: Id): void;
   /** Pauses when the place holds `count` tokens or more; `null` removes the breakpoint. */
   setPlaceBreakpoint(placeId: Id, count: number | null): void;
@@ -347,6 +395,9 @@ function idleSimulation() {
     simLogVersion: 0,
     simIdle: false,
     simNotice: null as string | null,
+    simUntimed: false,
+    replay: null as ReplayState | null,
+    replayPlaying: false,
   };
 }
 
@@ -369,6 +420,7 @@ const runtime: {
   lastTick: number;
   lastEnabledAt: number;
   ticking: boolean;
+  replayTimer: ReturnType<typeof setTimeout> | undefined;
 } = {
   client: null,
   session: 0,
@@ -377,6 +429,7 @@ const runtime: {
   lastTick: 0,
   lastEnabledAt: 0,
   ticking: false,
+  replayTimer: undefined,
 };
 
 function clearPlayTimer(): void {
@@ -384,10 +437,27 @@ function clearPlayTimer(): void {
   runtime.timer = undefined;
 }
 
+function clearReplayTimer(): void {
+  if (runtime.replayTimer !== undefined) clearTimeout(runtime.replayTimer);
+  runtime.replayTimer = undefined;
+}
+
+/** The net without durations and arrival rates: every firing is atomic. */
+function withoutTime(net: PetriNet): PetriNet {
+  return {
+    ...net,
+    transitions: net.transitions.map((t) => {
+      const { timing: _timing, rate: _rate, ...rest } = t;
+      return rest;
+    }),
+  };
+}
+
 /** Stops the engine and everything that belongs to it. */
 function disposeRuntime(): void {
   runtime.session += 1;
   clearPlayTimer();
+  clearReplayTimer();
   runtime.pending = 0;
   runtime.ticking = false;
   runtime.client?.dispose();
@@ -445,6 +515,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
   ): void => {
     disposeRuntime();
     eventLog.clear();
+    clearArchive();
     set({
       net,
       // A different object than the net makes the document count as changed.
@@ -500,7 +571,22 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     const idle = events.some((e) => e.type === 'idle');
     const warning = [...events].reverse().find((e) => e.type === 'warning');
     if (view.enabled) runtime.lastEnabledAt = performance.now();
+    const replay = state.replay;
+    const replayAfter =
+      replay === null
+        ? null
+        : options.reset
+          ? { ...replay, position: 0, status: 'ready' as const, reached: null }
+          : options.truncate
+            ? {
+                ...replay,
+                position: Math.max(0, replay.position - 1),
+                status: 'ready' as const,
+                reached: null,
+              }
+            : replay;
     set({
+      ...(replay !== null && { replay: replayAfter }),
       simMarking: view.marking,
       simMeta: view.meta,
       ...(view.enabled && {
@@ -540,26 +626,36 @@ export const useEditorStore = create<EditorState>()((set, get) => {
   const command = (
     send: (client: SimulationClient) => Promise<SimResult>,
     options: { truncate?: boolean; reset?: boolean } = {},
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     const client = runtime.client;
-    if (!client) return Promise.resolve();
+    if (!client) return Promise.resolve(false);
     const session = runtime.session;
     runtime.pending += 1;
     set({ computing: true });
     return send(client).then(
       (result) => {
-        if (session !== runtime.session) return;
+        if (session !== runtime.session) return false;
         runtime.pending -= 1;
         apply(result, options);
         if (runtime.pending === 0) set({ computing: false });
+        return true;
       },
       (error: unknown) => {
-        if (session !== runtime.session) return;
+        if (session !== runtime.session) return false;
         runtime.pending -= 1;
         if (runtime.pending === 0) set({ computing: false });
         notify('error', error instanceof Error ? error.message : String(error));
+        return false;
       },
     );
+  };
+
+  /** The user took over from the replay: it stops, the simulation stays. */
+  const leaveReplay = (): void => {
+    if (get().replay !== null || get().replayPlaying) {
+      clearReplayTimer();
+      set({ replay: null, replayPlaying: false });
+    }
   };
 
   /** One step of the clock while playing. */
@@ -871,6 +967,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     setDomainView(view) {
       edit((net) => coreSetDomainView(net, view));
     },
+    setProperties(properties) {
+      commit(coreSetProperties(get().net, properties));
+    },
     replaceDomainView(view, generation) {
       edit((net) => coreSetDomainViewGeneration(coreSetDomainView(net, view), generation));
     },
@@ -994,13 +1093,16 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       set({ savedNet: get().net, fileName });
     },
 
-    startSimulation() {
+    startSimulation(options = {}) {
       const { net, simBreakpoints } = get();
       disposeRuntime();
+      archiveRun(net);
       eventLog.clear();
       const client = createSimulationClientForEditor();
       runtime.client = client;
-      const timed = isTimedNet(net);
+      const untimed = options.untimed === true;
+      const simNet = untimed ? withoutTime(net) : net;
+      const timed = isTimedNet(simNet);
       // Breakpoints on elements that no longer exist are dropped.
       const known = new Set([...net.places, ...net.transitions].map((n) => n.id));
       const breakpoints: Breakpoints = {
@@ -1017,8 +1119,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
         arcSource: null,
         renamingId: null,
         dragPositions: null,
-        simMarking: initialMarking(net),
+        simMarking: initialMarking(simNet),
         simTimed: timed,
+        simUntimed: untimed,
         simSpeed: timed ? 10 : 1,
         simBreakpoints: breakpoints,
         computing: true,
@@ -1027,8 +1130,8 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       const session = runtime.session;
       const hasBreakpoints =
         breakpoints.transitions.length > 0 || Object.keys(breakpoints.places).length > 0;
-      void client
-        .init(net, undefined)
+      return client
+        .init(simNet, undefined)
         .then(async (result) => {
           if (hasBreakpoints) await client.setBreakpoints(breakpoints, { enabled: false });
           return result;
@@ -1050,6 +1153,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     stopSimulation() {
       disposeRuntime();
+      archiveRun(get().net);
       eventLog.clear();
       set({ mode: 'edit', ...idleSimulation() });
     },
@@ -1067,6 +1171,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
       const chosen = enabled.get(id)?.bindings[index];
       if (!chosen) return;
       set({ picker: null });
+      leaveReplay();
       void command((client) => client.fire(id, chosen));
     },
     setPicker(id) {
@@ -1075,12 +1180,14 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     async stepRandom() {
       if (get().mode !== 'simulate' || get().computing) return;
+      leaveReplay();
       await command((client) => client.stepRandom(1));
       if (get().simIdle) notify('info', en.messages.noEnabled);
     },
     async stepNext() {
       if (get().mode !== 'simulate' || get().computing) return;
       get().setPlaying(false);
+      leaveReplay();
       await command((client) => client.step());
       if (get().simIdle) notify('info', en.simulation.finished);
     },
@@ -1136,6 +1243,118 @@ export const useEditorStore = create<EditorState>()((set, get) => {
           ? exampleToken(place.type === undefined ? undefined : net.types[place.type])
           : undefined;
       void command((client) => client.adjust(placeId, delta > 0 ? 1 : -1, sample));
+    },
+    async startReplay(request) {
+      const { mode, simUntimed, net } = get();
+      get().setPlaying(false);
+      clearReplayTimer();
+      // A fresh untimed run; the replay is shown on its trace and on the canvas.
+      if (
+        mode !== 'simulate' ||
+        !simUntimed ||
+        get().simHistory.length > 0 ||
+        get().replay !== null
+      ) {
+        await get().startSimulation({ untimed: true });
+      } else {
+        await command((client) => client.reset(), { reset: true });
+      }
+      if (get().mode !== 'simulate') return;
+      set({
+        replayPlaying: false,
+        replay: {
+          label: request.label,
+          steps: request.steps,
+          position: 0,
+          target: request.target ?? null,
+          status: request.steps.length === 0 ? 'done' : 'ready',
+          reached:
+            request.steps.length === 0 && request.target
+              ? markingKey(net, get().simMarking ?? {}) === markingKey(net, request.target)
+              : null,
+        },
+      });
+      if (request.immediate === true) {
+        while (get().replay?.status === 'ready') {
+          const before = get().replay?.position ?? 0;
+          await get().replayStep();
+          if ((get().replay?.position ?? 0) === before) break;
+        }
+      }
+    },
+    async replayStep() {
+      const state = get();
+      const replay = state.replay;
+      if (!replay || state.mode !== 'simulate' || state.computing || replay.status !== 'ready')
+        return;
+      const step = replay.steps[replay.position];
+      if (!step) return;
+      const wanted = canonicalJson(step.binding ?? {});
+      const chosen = state.enabled
+        .get(step.transitionId)
+        ?.bindings.find((candidate) => canonicalJson(candidate.binding) === wanted);
+      if (!chosen) {
+        clearReplayTimer();
+        set({ replay: { ...replay, status: 'diverged' }, replayPlaying: false });
+        notify('error', en.analysis.replayDiverged(nameOfElement(state.net, step.transitionId)));
+        return;
+      }
+      const ok = await command((client) => client.fire(step.transitionId, chosen));
+      const after = get().replay;
+      if (!ok || !after) return;
+      const position = after.position + 1;
+      const finished = position >= after.steps.length;
+      const reached =
+        finished && after.target
+          ? markingKey(get().net, get().simMarking ?? {}) === markingKey(get().net, after.target)
+          : null;
+      set({
+        replay: {
+          ...after,
+          position,
+          status: finished ? 'done' : 'ready',
+          reached,
+        },
+        ...(finished && { replayPlaying: false }),
+      });
+      if (finished) clearReplayTimer();
+    },
+    setReplayPlaying(playing) {
+      const { replay, replayPlaying } = get();
+      if (playing === replayPlaying) return;
+      clearReplayTimer();
+      if (!playing || !replay || replay.status !== 'ready') {
+        set({ replayPlaying: false });
+        return;
+      }
+      set({ replayPlaying: true });
+      const loop = async (): Promise<void> => {
+        runtime.replayTimer = undefined;
+        if (!get().replayPlaying) return;
+        await get().replayStep();
+        const next = get();
+        if (next.replayPlaying && next.replay?.status === 'ready') {
+          runtime.replayTimer = setTimeout(() => {
+            void loop();
+          }, REPLAY_STEP_MS);
+        } else if (next.replayPlaying) {
+          set({ replayPlaying: false });
+        }
+      };
+      runtime.replayTimer = setTimeout(() => {
+        void loop();
+      }, 0);
+    },
+    async restartReplay() {
+      const replay = get().replay;
+      if (!replay || get().mode !== 'simulate') return;
+      get().setReplayPlaying(false);
+      get().setPlaying(false);
+      await command((client) => client.reset(), { reset: true });
+    },
+    endReplay() {
+      clearReplayTimer();
+      set({ replay: null, replayPlaying: false });
     },
     toggleTransitionBreakpoint(transitionId) {
       const { simBreakpoints } = get();

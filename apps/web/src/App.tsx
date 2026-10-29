@@ -1,6 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react';
 import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { StateSpaceDialog } from './components/analysis/state-space-dialog';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { ExportDialog } from './components/export/export-dialog';
 import { ImportReportDialog } from './components/export/import-report-dialog';
@@ -134,6 +135,7 @@ export function App() {
         </div>
         <Toaster />
         <ConfirmDialog />
+        <StateSpaceDialog />
         <ShortcutsDialog />
         <ExportDialog />
         <ImportReportDialog />

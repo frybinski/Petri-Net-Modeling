@@ -30,7 +30,10 @@ describe('right panel tabs', () => {
   it('adds the domain panel next to the properties and back', async () => {
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.queryByRole('tablist', { name: 'Panels' })).toBeNull();
+    // The net view offers the properties and the analysis; the domain tab comes with the view.
+    expect(screen.getByRole('tablist', { name: 'Panels' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Analyze' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Domain view' })).toBeNull();
     expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('view-domain'));
@@ -44,7 +47,7 @@ describe('right panel tabs', () => {
     expect(screen.queryByTestId('domain-panel')).toBeNull();
 
     await user.click(screen.getByTestId('view-net'));
-    expect(screen.queryByRole('tablist', { name: 'Panels' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Domain view' })).toBeNull();
   });
 
   it('offers the simulation controls while simulating', async () => {

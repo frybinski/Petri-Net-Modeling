@@ -376,7 +376,9 @@ export function analyzeStructure(net: PetriNet, options: StructureOptions = {}):
       holds: strong,
       explanation: strong
         ? 'Every element can reach every other one. A live and bounded net always has this property.'
-        : 'Some element cannot reach another one. A net that is not strongly connected cannot be both live and bounded.',
+        : net.places.some((p) => p.capacity !== undefined)
+          ? 'Some element cannot reach another one. Without the capacities this would exclude a live, bounded net; a capacity bounds a place without any arc, so here it does not.'
+          : 'Some element cannot reach another one. A net that is not strongly connected cannot be both live and bounded.',
       elements: [],
     },
     {
