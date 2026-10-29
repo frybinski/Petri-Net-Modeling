@@ -733,18 +733,32 @@ export function drawSprite(
       break;
     }
     case 'person': {
+      // Seen from above, facing the +x direction: broad shoulders, a head in front of their middle.
       ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, s * 0.26, s * 0.46, 0, 0, Math.PI * 2);
+      const half = s * 0.46;
+      const depth = s * 0.34;
+      // A light shadow, a little to the side and down, lifts the figure off the floor.
+      roundRect(ctx, -depth * 0.45 + 0.8, -half + 1.4, depth, half * 2, depth / 2);
+      ctx.fillStyle = palette.shadow;
+      ctx.fill();
+      roundRect(ctx, -depth * 0.45, -half, depth, half * 2, depth / 2);
       ctx.fillStyle = palette.person;
       ctx.fill();
       ctx.strokeStyle = palette.personEdge;
       ctx.lineWidth = 1;
       ctx.stroke();
+      // The head is lighter than the shoulders and has its own outline: it reads as a head.
       ctx.beginPath();
-      ctx.arc(s * 0.04, 0, s * 0.21, 0, Math.PI * 2);
-      ctx.fillStyle = palette.personEdge;
+      ctx.arc(s * 0.07, 0, s * 0.21, 0, Math.PI * 2);
+      ctx.fillStyle = palette.person;
       ctx.fill();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = palette.personEdge;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
       break;
     }
     case 'vehicle': {
