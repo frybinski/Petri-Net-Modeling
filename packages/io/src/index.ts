@@ -1,4 +1,12 @@
-export { CSV_COLUMNS, eventLogRows, toEventLogCsv, toXes, type EventLogRow } from './event-log';
+export {
+  CSV_COLUMNS,
+  EventLogParseError,
+  eventLogRows,
+  parseEventLogCsv,
+  toEventLogCsv,
+  toXes,
+  type EventLogRow,
+} from './event-log';
 export * from './pnml';
 export {
   XmlParseError,

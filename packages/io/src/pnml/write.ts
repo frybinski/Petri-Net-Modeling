@@ -234,6 +234,7 @@ export function toPnml(net: PetriNet, options: PnmlWriteOptions = {}): string {
       annotations: net.annotations && net.annotations.length > 0 ? net.annotations : undefined,
       domainView: net.domainView,
       domainViewGeneration: net.domainViewGeneration,
+      properties: net.properties,
       strayMarking: Object.keys(stray).length > 0 ? stray : undefined,
     });
     if (payload) netChildren.push(payload);

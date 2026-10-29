@@ -58,6 +58,108 @@ export function toEventLogCsv(
   return `${lines.join('\n')}\n`;
 }
 
+/** Raised by `parseEventLogCsv` for text that is not an event log in the format of `toEventLogCsv`. */
+export class EventLogParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EventLogParseError';
+  }
+}
+
+/** Splits RFC 4180 text into records of fields; handles quotes, doubled quotes and CR LF. */
+function csvRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let record: string[] = [];
+  let field = '';
+  let quoted = false;
+  let started = false;
+  const endField = (): void => {
+    record.push(field);
+    field = '';
+  };
+  const endRecord = (): void => {
+    endField();
+    // A completely empty line is no record.
+    if (!(record.length === 1 && record[0] === '' && !started)) records.push(record);
+    record = [];
+    started = false;
+  };
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i]!;
+    if (quoted) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          quoted = false;
+        }
+      } else {
+        field += char;
+      }
+      continue;
+    }
+    if (char === '"' && field === '') {
+      quoted = true;
+      started = true;
+    } else if (char === ',') {
+      started = true;
+      endField();
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i += 1;
+      endRecord();
+    } else {
+      started = true;
+      field += char;
+    }
+  }
+  if (quoted) throw new EventLogParseError('A quoted field is not closed.');
+  if (started || field !== '' || record.length > 0) endRecord();
+  return records;
+}
+
+/**
+ * Reads the CSV of `toEventLogCsv` (and files with the same columns in any order) back into rows.
+ * The columns `case_id` and `activity` are required; `timestamp` and `lifecycle` are optional
+ * (`lifecycle` defaults to `complete`, a missing timestamp reads as the empty string). Rows keep
+ * the order of the file.
+ */
+export function parseEventLogCsv(text: string): EventLogRow[] {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const records = csvRecords(source);
+  const header = records[0];
+  if (header === undefined) throw new EventLogParseError('The event log is empty.');
+  const column = (name: string): number => header.findIndex((h) => h.trim() === name);
+  const caseColumn = column('case_id');
+  const activityColumn = column('activity');
+  if (caseColumn < 0 || activityColumn < 0) {
+    throw new EventLogParseError('The header needs the columns "case_id" and "activity".');
+  }
+  const timeColumn = column('timestamp');
+  const lifecycleColumn = column('lifecycle');
+  const rows: EventLogRow[] = [];
+  for (const [index, record] of records.slice(1).entries()) {
+    const lifecycle = (lifecycleColumn < 0 ? 'complete' : (record[lifecycleColumn] ?? '')).trim();
+    if (lifecycle !== 'start' && lifecycle !== 'complete') {
+      throw new EventLogParseError(
+        `Line ${index + 2}: the lifecycle must be "start" or "complete" (got "${lifecycle}").`,
+      );
+    }
+    const caseId = record[caseColumn] ?? '';
+    const activity = record[activityColumn] ?? '';
+    if (caseId === '' || activity === '') {
+      throw new EventLogParseError(`Line ${index + 2}: case_id and activity must not be empty.`);
+    }
+    rows.push({
+      caseId,
+      activity,
+      timestamp: timeColumn < 0 ? '' : (record[timeColumn] ?? ''),
+      lifecycle,
+    });
+  }
+  return rows;
+}
+
 /** True for the characters that XML 1.0 allows in text. */
 function allowedInXml(code: number): boolean {
   return (

@@ -345,6 +345,15 @@ describe('roundtrip through PNML', () => {
     expect(toPnml(net)).toBe(xml);
   });
 
+  it('keeps the list of properties', async () => {
+    const original = parseNetText(
+      readFileSync(join(examplesDir, 'producer-consumer.pn.json'), 'utf8'),
+    );
+    const properties = [{ id: 'p1', kind: 'ltlf', formula: 'G(produce -> F deliver)' }];
+    const { net } = await fromPnml(toPnml({ ...original, properties }));
+    expect(net.properties).toEqual(properties);
+  });
+
   it('keeps the standard part when the extension is left out', async () => {
     const original = parseNetText(
       readFileSync(join(examplesDir, 'producer-consumer.pn.json'), 'utf8'),
