@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<pnml>
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/pnmlcoremodel">
+    <name>
+      <text>Discovered Petri net</text>
+    </name>
+    <page id="n0">
+      <place id="source">
+        <name>
+          <text>source</text>
+        </name>
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+      </place>
+      <place id="sink">
+        <name>
+          <text>sink</text>
+        </name>
+      </place>
+      <place id="p_1-a9d0">
+        <name>
+          <text>p_1</text>
+        </name>
+      </place>
+      <transition id="a1f3-b">
+        <name>
+          <text>Create Fine</text>
+        </name>
+      </transition>
+      <transition id="skip_1">
+        <toolspecific tool="ProM" version="6.4" activity="$invisible$" localNodeID="b1c2"/>
+      </transition>
+      <transition id="send">
+        <name>
+          <text>Send Fine</text>
+        </name>
+      </transition>
+      <arc id="2001" source="source" target="a1f3-b"/>
+      <arc id="2002" source="a1f3-b" target="p_1-a9d0"/>
+      <arc id="2003" source="p_1-a9d0" target="skip_1"/>
+      <arc id="2004" source="p_1-a9d0" target="send"/>
+      <arc id="2005" source="skip_1" target="sink"/>
+      <arc id="2006" source="send" target="sink"/>
+    </page>
+    <finalmarkings>
+      <marking>
+        <place idref="sink">
+          <text>1</text>
+        </place>
+      </marking>
+    </finalmarkings>
+  </net>
+</pnml>

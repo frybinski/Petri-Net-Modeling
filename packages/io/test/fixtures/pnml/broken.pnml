@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<pnml><net id="n"><page id="p">
+<place id="a"><name><text>A</text></name>
+</page></net></pnml>
