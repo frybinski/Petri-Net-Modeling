@@ -1,0 +1,30 @@
+{
+  "name": "@pnm/server",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Server for a shared installation: web app, LLM proxy, HTTP API over the command line functions, project store with versions and share links",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && jiti scripts/run-build.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "@pnm/analysis": "workspace:*",
+    "@pnm/cli": "workspace:*",
+    "@pnm/core": "workspace:*",
+    "@pnm/domain": "workspace:*",
+    "@pnm/io": "workspace:*",
+    "@pnm/layout": "workspace:*",
+    "@pnm/llm": "workspace:*",
+    "@pnm/sim": "workspace:*",
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.28.2",
+    "jiti": "^2.7.0",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  }
+}
