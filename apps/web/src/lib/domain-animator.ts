@@ -5,17 +5,25 @@ import {
   buildStaticScene,
   EMPTY_ANIMATION,
   INSTANT,
+  emptyMoved,
   isAnimating,
   layoutContext,
+  mergeMoved,
+  movedEntries,
   layoutTokens,
   pruneAnimation,
+  sceneOnly,
+  sceneWithout,
   staticLayoutState,
   type AnimationState,
   type DomainView,
+  type DrawCommand,
   type DynamicOptions,
   type DynamicScene,
   type LayoutContext,
+  type Layer,
   type LayoutState,
+  type MovedEntries,
   type Scene,
   type SpriteSample,
   type StationInfo,
@@ -38,6 +46,18 @@ export interface ClockInput {
   nextEvent: number | null;
 }
 
+/** A drag of the mode "Edit layout" in progress: what follows the pointer, apart from the rest. */
+interface DragPreview {
+  /** The entries that differ from the view of the document, collected over the whole drag. */
+  moved: MovedEntries;
+  /** The scene of the previewed view, for the dynamic part of the frame (marks, tokens). */
+  scene: Scene;
+  context: LayoutContext;
+  layout: TokenLayout;
+  /** The commands of the moved entries, drawn above the static layer. */
+  layers: Record<Layer, DrawCommand[]>;
+}
+
 /**
  * The animation of the domain view as a plain object, so that it can be tested without a canvas:
  * it holds the static scene, the layout of the tokens and the animation state, takes the bundles
@@ -48,8 +68,12 @@ export class DomainAnimator {
   net: PetriNet | null = null;
   view: DomainView | null = null;
   context: LayoutContext | null = null;
+  /** The scene that the static layer shows; during a drag it lacks the entries that move. */
   staticScene: Scene | null = null;
   layout: TokenLayout | null = null;
+  /** The scene of the view of the document, whole (hit tests use it, also during a drag). */
+  private wholeScene: Scene | null = null;
+  private drag: DragPreview | null = null;
   anim: AnimationState = EMPTY_ANIMATION;
   /** Wall-clock time at which the latest bundle arrived. */
   receivedAt = 0;
@@ -64,14 +88,45 @@ export class DomainAnimator {
   setModel(net: PetriNet, view: DomainView | null, state: LayoutState): void {
     this.net = net;
     this.view = view;
+    this.drag = null;
     if (view) {
       this.context = layoutContext(net, view);
-      this.staticScene = buildStaticScene(net, view);
+      this.wholeScene = buildStaticScene(net, view);
+      this.staticScene = this.wholeScene;
     } else {
       this.context = null;
+      this.wholeScene = null;
       this.staticScene = null;
     }
     this.snap(state);
+  }
+
+  /**
+   * Shows `next` as the view of a drag without rebuilding the static layer for every move: the
+   * entries that differ from the view of the document leave the static scene (once, when the drag
+   * starts, and again if another entry joins) and are drawn on their own, so that a move costs the
+   * scene of the previewed view and not a new rendering of the whole sheet.
+   */
+  previewView(net: PetriNet, next: DomainView, state: LayoutState): void {
+    const base = this.view;
+    const whole = this.wholeScene;
+    if (!base || !whole) return;
+    const moved = this.drag?.moved ?? emptyMoved();
+    const grew = mergeMoved(moved, movedEntries(net, base, next));
+    if (grew || !this.drag) this.staticScene = sceneWithout(whole, moved);
+    const scene = buildStaticScene(net, next);
+    this.drag = {
+      moved,
+      scene,
+      context: layoutContext(net, next),
+      layout: layoutTokens(net, next, state),
+      layers: sceneOnly(scene, moved),
+    };
+  }
+
+  /** The commands that a drag draws above the static layer, or `null` when nothing is dragged. */
+  get dragLayers(): Record<Layer, DrawCommand[]> | null {
+    return this.drag?.layers ?? null;
   }
 
   /** All tokens jump to the layout of `state`; running motions end. */
@@ -115,9 +170,13 @@ export class DomainAnimator {
 
   /** The dynamic scene of the frame at `now`; drops what has ended. */
   frame(now: number, options: Omit<DynamicOptions, 'now'>): DynamicScene | null {
-    if (!this.context || !this.staticScene || !this.layout) return null;
+    const drag = this.drag;
+    const context = drag?.context ?? this.context;
+    const staticScene = drag?.scene ?? this.staticScene;
+    const layout = drag?.layout ?? this.layout;
+    if (!context || !staticScene || !layout) return null;
     this.anim = pruneAnimation(this.anim, now);
-    const scene = buildDynamicScene(this.context, this.staticScene, this.layout, this.anim, {
+    const scene = buildDynamicScene(context, staticScene, layout, this.anim, {
       ...options,
       now,
     });

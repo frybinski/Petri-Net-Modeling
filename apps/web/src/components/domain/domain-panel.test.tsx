@@ -37,6 +37,8 @@ describe('right panel tabs', () => {
     expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('view-domain'));
+
+    await screen.findByTestId('domain-view');
     expect(screen.getByRole('tab', { name: 'Domain view' })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -56,6 +58,7 @@ describe('right panel tabs', () => {
     open('complaint-handling');
     render(<App />);
     await user.click(screen.getByTestId('view-both'));
+    await screen.findByTestId('domain-view');
     store().startSimulation();
     await waitFor(() => {
       expect(screen.getByTestId('simulation-panel')).toBeInTheDocument();
@@ -71,6 +74,7 @@ describe('generated view in the panel', () => {
     open('complaint-handling');
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     await user.click(await screen.findByTestId('domain-generate'));
     await waitFor(() => {
       expect(store().net.domainView).toBeDefined();
@@ -86,6 +90,7 @@ describe('generated view in the panel', () => {
     store().setDomainView({ schemaVersion: 1 });
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     expect(await screen.findByTestId('domain-status')).toHaveTextContent('error');
   });
 });
@@ -95,6 +100,7 @@ describe('domain panel', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     // The panel is loaded on demand.
     await screen.findByTestId('domain-panel');
     return user;

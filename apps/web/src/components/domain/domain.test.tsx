@@ -38,14 +38,21 @@ describe('view switch', () => {
     expect(screen.queryByTestId('domain-pane')).toBeNull();
 
     await user.click(screen.getByTestId('view-domain'));
+
+    await screen.findByTestId('domain-view');
     expect(useUiStore.getState().viewMode).toBe('domain');
     expect(screen.getByTestId('domain-pane')).toBeInTheDocument();
-    expect(screen.getByTestId('net-pane')).toHaveAttribute('inert');
+    // The net editor is not mounted behind the domain view.
+    expect(screen.queryByTestId('net-pane')).toBeNull();
+    expect(document.querySelector('.react-flow')).toBeNull();
     // The tool palette belongs to the net editor.
     expect(screen.queryByRole('toolbar', { name: 'Tools' })).toBeNull();
 
     await user.click(screen.getByTestId('view-both'));
-    expect(screen.getByTestId('net-pane')).not.toHaveAttribute('inert');
+
+    await screen.findByTestId('domain-view');
+    expect(screen.getByTestId('net-pane')).toBeInTheDocument();
+    expect(document.querySelector('.react-flow')).not.toBeNull();
     expect(screen.getByTestId('domain-pane')).toBeInTheDocument();
     expect(screen.getByRole('separator')).toBeInTheDocument();
     expect(screen.getByRole('toolbar', { name: 'Tools' })).toBeInTheDocument();
@@ -70,6 +77,7 @@ describe('view switch', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByTestId('view-both'));
+    await screen.findByTestId('domain-view');
     const separator = screen.getByRole('separator');
     expect(separator).toHaveAttribute('aria-valuenow', '50');
     separator.focus();
@@ -86,9 +94,11 @@ describe('view switch', () => {
     render(<App />);
     expect(screen.queryByTestId('domain-zoom-level')).toBeNull();
     await user.click(screen.getByTestId('view-both'));
+    await screen.findByTestId('domain-view');
     expect(screen.getByTestId('zoom-level')).toBeInTheDocument();
     expect(screen.getByTestId('domain-zoom-level')).toBeInTheDocument();
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     expect(screen.queryByTestId('zoom-level')).toBeNull();
     expect(screen.getByTestId('domain-zoom-level')).toBeInTheDocument();
   });
@@ -100,6 +110,7 @@ describe('domain canvas', () => {
     open('complaint-handling');
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     expect(screen.getByTestId('domain-empty')).toHaveTextContent('No domain view yet');
     await user.click(screen.getByTestId('domain-generate'));
     await waitFor(() => {
@@ -113,6 +124,7 @@ describe('domain canvas', () => {
     open('parcel-center');
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     const canvas = screen.getByTestId('domain-canvas');
     expect(canvas).toHaveAttribute('role', 'img');
     expect(canvas).toHaveAttribute('aria-label', expect.stringContaining('12 places'));
@@ -143,6 +155,7 @@ describe('domain canvas', () => {
     store().setDomainView({ schemaVersion: 1 });
     render(<App />);
     await user.click(screen.getByTestId('view-domain'));
+    await screen.findByTestId('domain-view');
     expect(screen.getByTestId('domain-invalid')).toHaveTextContent('cannot be drawn');
   });
 });

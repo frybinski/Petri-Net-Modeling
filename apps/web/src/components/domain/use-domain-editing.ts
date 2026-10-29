@@ -249,7 +249,7 @@ export function useDomainEditing(args: Args) {
       );
       current.preview = next;
       setCursor(current.drag.handle?.cursor ?? 'move');
-      animator.setModel(
+      animator.previewView(
         latest.current.net,
         next,
         currentSimState() ?? staticLayoutState(latest.current.net),

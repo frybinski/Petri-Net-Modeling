@@ -46,6 +46,8 @@ interface Base {
   layer: Layer;
   /** The place, transition or arc of the net the command belongs to. */
   elementId?: Id;
+  /** The index in `view.decor` of the piece of decor the command belongs to. */
+  decor?: number;
 }
 
 export type DrawCommand = Base &
@@ -233,8 +235,13 @@ class Builder {
   };
   readonly hits: HitArea[] = [];
 
+  /** Set while the decor of the view is built: its commands remember which piece they are. */
+  decorIndex: number | null = null;
+
   push(command: DrawCommand): void {
-    this.layers[command.layer].push(command);
+    this.layers[command.layer].push(
+      this.decorIndex === null ? command : { ...command, decor: this.decorIndex },
+    );
   }
 
   hit(elementId: Id, kind: ElementKind, shape: Shape, priority: number): void {
@@ -289,7 +296,8 @@ function textLines(
 }
 
 function buildDecor(b: Builder, decor: readonly Decor[]): void {
-  for (const item of decor) {
+  for (const [index, item] of decor.entries()) {
+    b.decorIndex = index;
     switch (item.kind) {
       case 'room': {
         const [x, y, w, h] = item.rect;
@@ -436,6 +444,7 @@ function buildDecor(b: Builder, decor: readonly Decor[]): void {
       }
     }
   }
+  b.decorIndex = null;
 }
 
 /** The unit normal of the path at its middle that points downward (or to the right). */

@@ -1,5 +1,5 @@
 import { createSimulation, type SimEvent } from '@pnm/sim';
-import { layoutStateOf, type DomainView } from '@pnm/domain';
+import { layoutStateOf, moveEntry, ref, type DomainView } from '@pnm/domain';
 import { describe, expect, it } from 'vitest';
 import { loadExample } from '../test/domain-fixtures';
 import { DomainAnimator } from './domain-animator';
@@ -88,5 +88,70 @@ describe('DomainAnimator', () => {
     expect(animator.simTimeAt(at + 100, { ...clock, playing: false })).toBe(base);
     expect(animator.simTimeAt(at + 100, { ...clock, speed: 'max' })).toBe(base);
     expect(animator.simTimeAt(at + 100, { ...clock, speed: null })).toBe(base);
+  });
+});
+
+describe('the preview of a drag', () => {
+  const state = { time: 0, marking: parcel.marking, running: [] };
+  const moveSorter = (dx: number, dy: number): DomainView =>
+    moveEntry(view, ref('transitions', 't_sort'), [dx, dy], { snap: 0, net: parcel });
+
+  it('takes the moved entry out of the static scene and draws it on its own layers', () => {
+    const animator = new DomainAnimator();
+    animator.setModel(parcel, view, state);
+    const whole = animator.staticScene!;
+    expect(animator.dragLayers).toBeNull();
+    animator.previewView(parcel, moveSorter(40, 24), state);
+    const rest = animator.staticScene!;
+    const own = animator.dragLayers!;
+    const count = (layers: Record<string, readonly unknown[]>) =>
+      Object.values(layers).reduce((sum, list) => sum + list.length, 0);
+    expect(count(own)).toBeGreaterThan(0);
+    expect(count(rest.layers) + count(own)).toBe(count(whole.layers));
+    // Hit tests keep working on the whole scene, and the view of the document is untouched.
+    expect(rest.hits).toBe(whole.hits);
+    expect(animator.view).toBe(view);
+  });
+
+  it('keeps the static scene while the pointer goes on, so that it is not rendered again', () => {
+    const animator = new DomainAnimator();
+    animator.setModel(parcel, view, state);
+    animator.previewView(parcel, moveSorter(10, 0), state);
+    const rest = animator.staticScene;
+    const first = animator.dragLayers;
+    animator.previewView(parcel, moveSorter(60, 30), state);
+    animator.previewView(parcel, moveSorter(-20, 10), state);
+    expect(animator.staticScene).toBe(rest);
+    expect(animator.dragLayers).not.toBe(first);
+  });
+
+  it('lets another entry join the drag and then leaves the static scene once more', () => {
+    const animator = new DomainAnimator();
+    animator.setModel(parcel, view, state);
+    animator.previewView(parcel, moveSorter(10, 0), state);
+    const rest = animator.staticScene;
+    const both = moveEntry(moveSorter(10, 0), ref('transitions', 't_scan'), [10, 0], {
+      snap: 0,
+      net: parcel,
+    });
+    animator.previewView(parcel, both, state);
+    expect(animator.staticScene).not.toBe(rest);
+  });
+
+  it('moves the marks of the previewed entry with it', () => {
+    const animator = new DomainAnimator();
+    animator.setModel(parcel, view, state);
+    const before = animator.frame(0, {})!;
+    animator.previewView(parcel, moveSorter(200, 100), state);
+    const during = animator.frame(0, {})!;
+    expect(JSON.stringify(during.layers)).not.toBe(JSON.stringify(before.layers));
+  });
+
+  it('ends with the next model of the view', () => {
+    const animator = new DomainAnimator();
+    animator.setModel(parcel, view, state);
+    animator.previewView(parcel, moveSorter(40, 24), state);
+    animator.setModel(parcel, view, state);
+    expect(animator.dragLayers).toBeNull();
   });
 });

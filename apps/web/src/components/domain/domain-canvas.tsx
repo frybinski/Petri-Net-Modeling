@@ -226,6 +226,9 @@ export function DomainCanvas() {
           .join(';');
         if (canvas.dataset['cases'] !== cases) canvas.dataset['cases'] = cases;
       }
+      // The entries that a drag moves are drawn on their own, above the static layer.
+      const dragged = animator.dragLayers;
+      if (dragged) paintLayers(ctx, dragged, current, { scale: wanted, sprites: spriteCache });
       // Frame, handles and placeholders of the mode "Edit layout" stay crisp at any zoom.
       if (overlayRef.current !== EMPTY_OVERLAY) {
         paintEditOverlay(ctx, overlayRef.current, viewport.current, dpr, current);
