@@ -17,17 +17,18 @@ back at the first and the last one.
 until its close delay is over. It only shows with an automated pointer that jumps from one control to another, not with
 a hand.
 
-**Names are tight at 57 % zoom (5).** Names stay at a readable size on the screen while zoomed out (the net grows
+**Names are tight at 57 % zoom (5).** Names keep a readable size on the screen while zoomed out (the net gets
 smaller, the text does not). Between about 40 % and 70 % the names of nodes that are close together can touch. Zoom in
-a little or move the nodes apart; nothing is lost.
+a little or move the nodes apart; nothing is lost. Below 40 % the names fade out.
 
 **JSONata expressions are not interrupted inside a native operation (8).** The time limit of 1 s for a guard or an
 inscription is checked by JSONata between evaluation steps. A single long native operation, such as a pathological
 regular expression in `$match` or `$replace`, runs to its end. Evaluating the expressions in a Worker would remove the
 limit and is a candidate for a later release (see [ADR 0005](adr/0005-jsonata-expressions.md)).
 
-**An arc straight above its own guard pill still passes behind it (2).** Arcs keep clear of the guard pills of other
-transitions and bend away from the pill of the transition they belong to when the angle allows it. An arc that leaves a
+**An arc straight above its own guard pill still passes behind it (2, the part that stays).** Arcs keep clear of the
+guard pills of other transitions and bend away from the pill of the transition they belong to when the angle allows it
+(the token ring example). An arc that leaves a
 transition exactly along its vertical axis would need a bulge of more than 100 px to clear a wide pill; it is drawn with
 the best bulge it has, and the pill, which is opaque and has a ring in the color of the canvas, cuts it off cleanly.
 Move the transition a little sideways or give the arc a bend point to route it by hand.
@@ -36,21 +37,21 @@ Move the transition a little sideways or give the arc a bend point to route it b
 
 **An AND join can merge tokens of different cases (9).** In a P/T net the tokens of a place are matched by order (first
 in, first out). A transition with two input places takes the first token of each, and the case of the first one goes on.
-If the second place delivers tokens in another order than the first, a join can pair the tokens of two different cases:
-the paired case disappears from the key figures as a case of its own. A net in which cases overtake each other between
-a split and a join should be a JSON net with a case field in its tokens, where the join binds both tokens to the same
-value:
+If the second place delivers its tokens in another order than the first, a join can pair the tokens of two different
+cases: one of the cases is swallowed and does not finish on its own, and the key figures count one case too few. In a
+net where cases can overtake each other between a split and a join, use a JSON net with a case field in its tokens and
+bind the same variable on both input arcs of the join:
 
 ```
-input arcs:    a: {case: $c, ...}    b: {case: $c, ...}
+input arc from place A:   $o        input arc from place B:   $o        (only equal tokens pair)
 ```
 
-The example _Order processing_ does this. See [Simulation](simulation.md#limits).
+JSON nets match tokens by value; P/T nets have no values to match. See [Simulation](simulation.md#limits).
 
 **The event log keeps the latest 200 000 events (12).** Older ones are dropped and the trace says how many. The first
 time it happens in a run a toast says so. The key figures are computed by the engine and are not affected; the trace,
 the CSV and XES export and the check on the log use what is left. For longer runs, simulate on the command line
-(`pnm simulate --csv`), which writes every event.
+(`pnm simulate --csv`), which writes every event (up to 10 million).
 
 **Stepping back and reset jump (13).** In the domain view _Back_ and _Reset_ snap the picture to the earlier state
 instead of playing the events backwards. The engine rewinds by restoring a snapshot, which has no events to play. Going
@@ -82,15 +83,18 @@ so. A small server that keeps the key and forwards the requests is the plan for 
 **The command line is one file of 5 MB (25).** It contains every package, including the layout engine. It starts in
 about 0.2 s, which is fine for a command line; it is not worth the complexity of lazy parts.
 
-**Multi-page PNML offsets come from the nodes only (27).** A PNML page has no size of its own in the files that ProM,
-pm4py and WoPeD write. When a net with several pages is read, the pages are laid side by side by the positions of their
-nodes, not by a page offset; pages whose nodes overlap are moved apart (the import report says so). Nets with a single
-page, the common case, keep their positions.
+**Multi-page PNML offsets come from the nodes only (27).** A PNML file with several pages is read as one net, and the
+pages are laid out next to each other from the horizontal extent of their nodes and arc points plus a fixed gap (the
+import report says that the pages were merged). The files that ProM, pm4py and WoPeD write have no page size or page
+offset to use, and the vertical position is never shifted. Pages whose coordinates were meant to overlap are therefore
+separated sideways. A file with one page, the common case, keeps its positions.
 
-**Structure and invariants of JSON nets use the skeleton (28).** An input arc with an inscription counts as one token
-per binding in the incidence matrix, guards are ignored, and the panel says so. The state space is exact (it explores
-with the bindings), so deadlocks, boundedness and properties are exact; siphons, traps and invariants hold for the
-skeleton and say something about the JSON net only where the skeleton is a faithful picture of it.
+**Structure and invariants of JSON nets use the skeleton (28).** In the incidence matrix an input arc with an inscription
+counts as many tokens as the inscription has variables (`$l, $r` takes two), every other arc counts its weight, and
+guards and output inscriptions are ignored; the panel says so. The state space is exact, because it explores with the
+bindings, so deadlocks, boundedness, liveness and properties are exact. Siphons, traps, Commoner's condition and the
+invariants hold for the skeleton and say something about the JSON net only where the skeleton is a faithful picture of
+it.
 
 ## Not in 1.0.0
 

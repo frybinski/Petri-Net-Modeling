@@ -43,9 +43,10 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
-    // The release scripts run in Node and report on the console.
+    // The scripts run in Node and report on the console; the screenshots also hand functions to
+    // the browser.
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: globals.node },
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: { 'no-console': 'off' },
   },
   {

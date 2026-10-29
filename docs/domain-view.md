@@ -220,16 +220,19 @@ and every change is checked at once.
   there, or press and drag to add and place it in one move. A double click on a point removes it (a path keeps two).
   Slots are diamonds that move inside their station; wall segments have a handle at each end.
 - **Dragging.** The picture follows the pointer while you drag, nothing is written before you let go, and then the whole
-  drag is **one** undo step. `Esc` cancels a drag. The grid of the editor (8 px, key `G`) applies; `Alt` switches it
+  drag is **one** undo step. While you drag, only the moving entries (and the connectors that follow them) are drawn
+  anew, on a layer of their own; the rest of the sheet stays as it was rendered. `Esc` cancels a drag. The grid of the editor (8 px, key `G`) applies; `Alt` switches it
   off for the drag. `Shift` on a corner handle keeps the proportions. Coordinates are whole numbers and stay inside the
   canvas, boxes are at least 24 × 24 px, slots stay in their box, resizing scales slots and rooms with the box. A
   number next to the pointer shows where the entry is and how large.
 - **Arcs follow.** Moving an element moves the end of the arcs that touch it, and so does moving the end of a belt.
   Resizing leaves arcs where they are.
-- **Keys.** The arrow keys move the selection by 1 px, with `Shift` by 8 px. `Delete` does **not** delete the net
-  element: it hides the entry (`hidden`, reason _hidden by user_, a toast with _Undo_), and the element stays in the
-  net. Only decor is really removed. `F2` or a double click edits the label in place; an empty label brings the name of
-  the element back.
+- **Keys.** The arrow keys move the selection by 1 px, with `Shift` by 8 px. `Tab` and `Shift+Tab` select the next and
+  the previous entry (places, transitions, connectors, then decor; the picture scrolls to it) and give the key back at
+  the first and the last one, so that the focus can leave the picture. `Delete` does **not** delete the net element:
+  it hides the entry (`hidden`, reason _hidden by user_, a toast with _Undo_), and the element stays in the net. Only
+  decor is really removed. In Inspect mode `Delete` does nothing and says so: a net element is deleted in the net
+  view. `F2`, `Enter` or a double click edits the label in place; an empty label brings the name of the element back.
 - **Context menu.** On an entry: edit label, _Change kind_ (only the kinds that rule V4 allows for the role, converting
   the geometry: a box becomes a point at its middle, a point becomes a box around it), add or remove a point, add or
   remove a slot (at the click), hide or show, reset the entry to generic, edit JSON (selects the entry in the JSON
@@ -324,6 +327,8 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 - A floating bar at the top of the view starts the simulation (_Simulate_) and, while it runs, offers play and pause,
   step, back, reset, the speed (1x to 60x, max), the clock, the cases in the system and _Edit_. It uses the same actions
   and shortcuts as the simulation panel. A small button hides it together with the key figures.
+- In the view _Domain_ alone the net editor is not mounted, so that it does not redraw its nodes for every bundle of
+  events behind the picture; in _Both_ it stays.
 - The strip at the bottom right shows throughput per hour, mean cycle time and cases in the system (with a note during
   the warm-up). The picture is fitted so that the bar, the strip, the zoom buttons and the case card do not cover it.
 - The hover card of a belt shows the waiting cases, the mean wait and whether it is getting long; the card of a station

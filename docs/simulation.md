@@ -75,7 +75,9 @@ Resource and case can be forced per place in the properties panel.
 
 ## Key figures
 
-The _Metrics_ tab computes from the event stream, after the warm-up (a setting that leaves the start-up phase out):
+The _Metrics_ tab computes from the event stream, after the warm-up (a setting that leaves the start-up phase out;
+until it is over the tab shows a bar with the clock, _Warm-up 4:12 of 20:00_, and a link to the setting, which stops the
+simulation because the warm-up is fixed when it starts):
 
 - **Throughput** per hour: finished cases per hour of observed time.
 - **Mean cycle time**: from the arrival of a case to its first token in a sink.
@@ -153,12 +155,14 @@ come from one seeded generator (mulberry32), and every set is traversed in a sta
 - **Cases in P/T nets are matched by order.** Tokens of a place are taken first in, first out. At a join (AND join)
   the first token of each input place is taken, which can belong to different cases if the cases overtake each other
   on the way. The join then continues with the case of the first token. Typed tokens of JSON nets are matched by their
-  value instead.
+  value instead: bind the same variable on both input arcs of the join (say `$o` on each) and only tokens with equal
+  values pair, so put a case field in the tokens and use it.
 - **No capacity per transition.** A transition has no limit of parallel firings of its own; use a resource place.
 - **No travel time.** Time passes only in transitions. A walk or a conveyor that takes time is a transition.
 - **Arrivals that find no room are lost** (reported once per source).
-- **Memory.** The event log keeps the newest 200 000 events; older ones are dropped (the Trace tab says so) and are
-  missing from the export. _Back_ keeps 500 steps.
+- **Memory.** The event log keeps the newest 200 000 events; older ones are dropped (the Trace tab says so, and a toast
+  does the first time) and are missing from the export, while the key figures are not affected. _Back_ keeps 500
+  steps. Longer runs: `pnm simulate --csv` writes every event.
 - **JSON nets with durations** work like P/T nets: the binding is chosen when the transition starts and its output
   inscriptions are evaluated then; the results are put on the places at the end. Evaluating many bindings per instant
   is slower than for P/T nets.
