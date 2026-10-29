@@ -1,5 +1,8 @@
 import {
   Download,
+  FileCode,
+  FileInput,
+  FileJson,
   FilePlus2,
   FolderOpen,
   HelpCircle,
@@ -9,6 +12,7 @@ import {
   Play,
   Redo2,
   ShieldCheck,
+  Sigma,
   Sun,
   Undo2,
   Workflow,
@@ -19,7 +23,16 @@ import {
 } from 'lucide-react';
 import { en } from '../i18n/en';
 import { commandById, shortcutText } from '../lib/commands';
-import { chooseFile, exportSvg, newNetGuarded, openExampleGuarded, saveNet } from '../lib/files';
+import {
+  chooseFile,
+  exportJson,
+  newNetGuarded,
+  openExampleGuarded,
+  openExportImage,
+  openExportPnml,
+  openExportTikz,
+  saveNet,
+} from '../lib/files';
 import { listExamples } from '../lib/examples';
 import { runAutoLayout } from '../lib/layout-action';
 import { selectCanRedo, selectCanUndo, selectIsDirty, useEditorStore } from '../store/editor-store';
@@ -88,11 +101,40 @@ export function Header() {
           onSelect: saveNet,
         },
         {
-          id: 'export-svg',
-          label: en.menu.exportSvg,
+          id: 'import',
+          label: en.menu.import,
+          icon: <FileInput size={14} />,
+          onSelect: chooseFile,
+        },
+      ],
+    },
+    {
+      title: en.menu.exportTitle,
+      items: [
+        {
+          id: 'export-image',
+          label: en.menu.exportImage,
           icon: <ImageDown size={14} />,
-          shortcut: shortcutOf('export-svg'),
-          onSelect: exportSvg,
+          shortcut: shortcutOf('export-image'),
+          onSelect: openExportImage,
+        },
+        {
+          id: 'export-pnml',
+          label: en.menu.exportPnml,
+          icon: <FileCode size={14} />,
+          onSelect: openExportPnml,
+        },
+        {
+          id: 'export-tikz',
+          label: en.menu.exportTikz,
+          icon: <Sigma size={14} />,
+          onSelect: openExportTikz,
+        },
+        {
+          id: 'export-json',
+          label: en.menu.exportJson,
+          icon: <FileJson size={14} />,
+          onSelect: exportJson,
         },
       ],
     },

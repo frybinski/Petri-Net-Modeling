@@ -1,13 +1,19 @@
 import { addPlace, createEmptyNet, serializeNet } from '@pnm/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from '../store/editor-store';
+import { useExportStore } from '../store/export-store';
+import { useImportStore } from '../store/import-store';
 import { useUiStore } from '../store/ui-store';
 import {
-  exportSvg,
+  exportJson,
   fileStem,
   guardUnsaved,
   netFileName,
+  looksLikePnml,
   newNetGuarded,
+  openExportImage,
+  openExportPnml,
+  openExportTikz,
   openFile,
   openFileGuarded,
   saveNet,
@@ -132,11 +138,82 @@ describe('saving and exporting', () => {
     expect(useEditorStore.getState().fileName).toBe('My-Net.pn.json');
   });
 
-  it('downloads an SVG', async () => {
+  it('opens the image export instead of downloading an SVG directly', () => {
+    useEditorStore.getState().addPlace({ x: 10, y: 10 });
+    openExportImage();
+    expect(useExportStore.getState().open).toEqual({ kind: 'image', source: 'net' });
+    openExportPnml();
+    expect(useExportStore.getState().open).toEqual({ kind: 'pnml', source: 'net' });
+    openExportTikz();
+    expect(useExportStore.getState().open).toEqual({ kind: 'tikz', source: 'net' });
+    useExportStore.getState().close();
+  });
+
+  it('exports the net as JSON without marking it saved', async () => {
     const downloads = captureDownloads();
     useEditorStore.getState().addPlace({ x: 10, y: 10 });
-    exportSvg();
-    expect(downloads[0]?.name).toBe('Untitled-net.svg');
-    expect(await downloads[0]?.blob.text()).toContain('<svg');
+    exportJson();
+    expect(downloads[0]?.name).toBe('Untitled-net.pn.json');
+    expect(JSON.parse((await downloads[0]?.blob.text()) ?? '{}')).toMatchObject({ version: '1.0' });
+    expect(useEditorStore.getState().net).not.toBe(useEditorStore.getState().savedNet);
+  });
+});
+
+const PNML = `<?xml version="1.0"?>
+<pnml><net id="n" type="http://www.pnml.org/version-2009/grammar/ptnet">
+<name><text>Imported</text></name>
+<page id="p"><place id="a"><name><text>A</text></name><graphics><position x="0" y="0"/></graphics><initialMarking><text>1</text></initialMarking></place>
+<transition id="t"><name><text>T</text></name><graphics><position x="100" y="0"/></graphics></transition>
+<arc id="x" source="a" target="t"/></page></net></pnml>`;
+
+describe('importing PNML', () => {
+  beforeEach(() => {
+    useImportStore.getState().close();
+  });
+
+  it('recognises PNML by its content and its name', () => {
+    expect(looksLikePnml('<?xml version="1.0"?><pnml/>', 'whatever')).toBe(true);
+    expect(looksLikePnml('\ufeff  <pnml/>', 'x.json')).toBe(true);
+    expect(looksLikePnml('{"version":"1.0"}', 'x.pnml')).toBe(false);
+    expect(looksLikePnml('', 'net.pnml')).toBe(true);
+    expect(looksLikePnml('', 'net.pn.json')).toBe(false);
+  });
+
+  it('opens a PNML file as an unsaved document and says so with a toast', async () => {
+    await openFile(new File([PNML], 'imported.pnml', { type: 'application/xml' }));
+    const state = useEditorStore.getState();
+    expect(state.net.name).toBe('Imported');
+    expect(state.net.places).toHaveLength(1);
+    expect(state.net.marking['a']).toEqual([1]);
+    expect(state.fileName).toBeNull();
+    // Not saved as .pn.json yet.
+    expect(state.net).not.toBe(state.savedNet);
+    expect(toasts().at(-1)?.message).toBe('Imported imported.pnml');
+    expect(useImportStore.getState().report).toBeNull();
+  });
+
+  it('shows the remarks of the import in a dialog', async () => {
+    const withArc = PNML.replace('</page>', '<arc id="y" source="t" target="nowhere"/></page>');
+    await openFile(new File([withArc], 'odd.pnml'));
+    const report = useImportStore.getState().report;
+    expect(report?.fileName).toBe('odd.pnml');
+    expect(report?.places).toBe(1);
+    expect(report?.warnings.some((w) => w.includes('nowhere'))).toBe(true);
+    expect(toasts().at(-1)?.message).toContain('remark');
+  });
+
+  it('reports a layout that had to be computed', async () => {
+    const noPositions = PNML.replace(/<graphics>.*?<\/graphics>/g, '');
+    await openFile(new File([noPositions], 'plain.pnml'));
+    expect(useImportStore.getState().report?.laidOut).toBe(true);
+  });
+
+  it('rejects files that are not PNML with a message', async () => {
+    await openFile(new File(['<html></html>'], 'page.xml'));
+    expect(toasts().at(-1)).toMatchObject({ kind: 'error', message: 'Could not open page.xml' });
+    expect(toasts().at(-1)?.details?.[0]).toContain('not a PNML document');
+    await openFile(new File(['<pnml><net></pnml>'], 'broken.pnml'));
+    expect(toasts().at(-1)?.details?.[0]).toContain('not well-formed');
+    expect(useEditorStore.getState().net.name).not.toBe('Imported');
   });
 });

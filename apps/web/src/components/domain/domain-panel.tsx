@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCircle2,
+  ImageDown,
   RotateCcw,
   ScrollText,
   Settings,
@@ -42,6 +43,7 @@ import { getViewApi } from '../../lib/view-api';
 import { selectedEntry } from '../../lib/domain-edit';
 import { useDomainEditStore } from '../../store/domain-edit-store';
 import { useEditorStore } from '../../store/editor-store';
+import { useExportStore } from '../../store/export-store';
 import { useUiStore } from '../../store/ui-store';
 import { EntryEditor } from './domain-entry-editor';
 import { useGenerationStore } from '../../store/generation-store';
@@ -583,6 +585,17 @@ export function DomainPanel() {
             data-testid="domain-update-hash"
           >
             {en.domain.updateHash}
+          </Button>
+          <Button
+            icon={<ImageDown size={14} aria-hidden="true" />}
+            onClick={() => {
+              useExportStore.getState().openDialog('image', 'domain');
+            }}
+            disabled={!view || analysis.validation?.ok !== true}
+            title={en.domain.exportImageTip}
+            data-testid="domain-export-image"
+          >
+            {en.domain.exportImage}
           </Button>
           <Button
             variant="danger"

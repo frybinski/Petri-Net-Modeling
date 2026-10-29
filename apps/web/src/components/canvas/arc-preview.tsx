@@ -1,7 +1,7 @@
 import { canConnect, type Id, type Position } from '@pnm/core';
 import { ViewportPortal } from '@xyflow/react';
 import { useEditorStore } from '../../store/editor-store';
-import { PLACE_SHAPE, TRANSITION_SHAPE, boundaryPoint } from '../../lib/geometry';
+import { PLACE_SHAPE, TRANSITION_SHAPE, boundaryPoint } from '@pnm/layout/geometry';
 
 interface ArcPreviewProps {
   cursor: Position | null;

@@ -352,3 +352,65 @@ tokens, guards that join two places, and array results:
 spaces of indentation and ends with a newline, so that files diff cleanly in
 version control. Marking entries follow the order of the places; empty entries
 are omitted.
+
+## PNML
+
+PNML is the interchange format for Petri nets. `@pnm/io` writes (`toPnml`) and reads (`fromPnml`) it; the app does so in
+_File > Import_ and _File > Export > PNML_, the command line with `pnm import` and `pnm export --format pnml`.
+
+### Mapping
+
+The structure follows PNML 2009 (ISO/IEC 15909-2) with the net type `ptnet`, so ProM, pm4py, WoPeD and other tools can
+read the file:
+
+| Model                 | PNML                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| net name              | `<net><name><text>`                                                                    |
+| place, transition     | `<place>`, `<transition>` with `<name><text>` and `<graphics><position x y/>` (center) |
+| initial marking       | `<initialMarking><text>n</text>`, the number of tokens                                 |
+| arc, weight           | `<arc source target>`, `<inscription><text>w</text>` only if the weight is not 1       |
+| bend points of an arc | `<graphics><position/>` elements of the arc                                            |
+
+There is one `<page id="page1">`. Element ids become XML ids: `n_` plus the id, characters outside `A-Z a-z 0-9 . - _`
+as `_x<hex>_`. The output is deterministic and indented with two spaces.
+
+### The `pnm` extension
+
+Everything that PNML has no place for travels in `<toolspecific tool="pnm" version="1">` elements as JSON in a CDATA
+section (so no XML escaping is needed). Other tools skip them; `fromPnml` reads them back completely, so a net survives
+export and import unchanged.
+
+| Where      | Fields                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| net        | `profile`, `version`, `name` (if it does not survive as text), `types`, `simulation`, `annotations`, `domainView`, `domainViewGeneration`, `strayMarking` |
+| place      | `id` (the original), `type`, `capacity`, `role`, `tokens` (the values; JSON nets, or values other than `1`)                                               |
+| transition | `id`, `guard`, `timing`, `priority`, `rate`                                                                                                               |
+| arc        | `id`, `inscription`                                                                                                                                       |
+
+With the option `toolspecific: false` (_Include data that only this tool understands_ in the dialog,
+`--no-toolspecific` on the command line) none of this is written; the file then holds the structure, names, markings,
+weights and positions only. A file without the extension is read as a P/T net (`pt-net`).
+
+### Reading other tools' files
+
+The reader is lenient. It accepts `ptnet`, `pnmlcoremodel`, `ptNetb` and `epnml` types and, with a warning, others;
+several pages (merged and placed side by side); nodes directly under `<net>`; `referencePlace` and
+`referenceTransition` (arcs are redirected to the referenced node); names without `<text>`; initial markings and
+inscriptions as numbers or as text that contains one ("Default,2"); invisible transitions of ProM (`$invisible$`, named
+`τ` if unnamed); inhibitor, reset and read arcs (read as normal arcs, with a note on the canvas and a warning). Not
+understood: high-level markings, final markings (warning). Fractions or numbers below 1 as arc weights give the
+weight 1 and a warning; arcs to missing nodes are skipped with a warning; duplicate ids get a suffix.
+
+If positions are missing (or all equal) the net is laid out automatically (ELK, left to right) and the result says so;
+`layout: 'auto'` always lays out. The import fails only for text that is not well-formed XML, is not PNML or contains no
+`<net>`. The findings of `validate` on the result are appended to the warnings.
+
+The XML reader is part of `@pnm/io` (elements, attributes, text, CDATA, comments, namespace prefixes ignored; a DOCTYPE
+is skipped, entities are never expanded beyond the five predefined ones and character references) and is the same in
+the browser and in Node.
+
+### Limits
+
+Capacities, types, guards, inscriptions, timing, roles, simulation settings, notes and the domain view are not part of
+PNML `ptnet`; other tools lose them. Arcs of other kinds than normal arcs are not modeled. Token values of JSON nets
+are exported as counts in the standard part.

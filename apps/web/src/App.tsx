@@ -2,6 +2,8 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { FileUp } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ConfirmDialog } from './components/confirm-dialog';
+import { ExportDialog } from './components/export/export-dialog';
+import { ImportReportDialog } from './components/export/import-report-dialog';
 import { Header } from './components/header';
 import { GenerateDialog } from './components/llm/generate-dialog';
 import { GenerationLogDialog } from './components/llm/generation-log-dialog';
@@ -133,6 +135,8 @@ export function App() {
         <Toaster />
         <ConfirmDialog />
         <ShortcutsDialog />
+        <ExportDialog />
+        <ImportReportDialog />
         <GenerateDialog />
         <GenerationLogDialog />
         <LlmSettingsDialog />
@@ -149,7 +153,7 @@ export function App() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".json,application/json"
+          accept=".json,.pnml,.xml,application/json,application/xml,text/xml"
           className="hidden"
           aria-hidden="true"
           tabIndex={-1}

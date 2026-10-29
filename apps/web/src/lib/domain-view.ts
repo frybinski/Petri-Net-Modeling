@@ -29,6 +29,16 @@ export function analyseDomainView(net: PetriNet): DomainAnalysis {
   return { present: true, validation: validateDomainView(net, net.domainView) };
 }
 
+/** The domain view of the net if it has one without errors, else null. */
+export function validDomainView(net: PetriNet): DomainView | null {
+  const validation = analyseDomainView(net).validation;
+  return validation?.ok && validation.view ? validation.view : null;
+}
+
+export function hasValidDomainView(net: PetriNet): boolean {
+  return validDomainView(net) !== null;
+}
+
 export function countSeverities(diagnostics: readonly DomainDiagnostic[]): {
   errors: number;
   warnings: number;

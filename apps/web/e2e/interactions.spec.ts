@@ -503,7 +503,10 @@ test('toasts: saving shows one that is replaced by the next, opening an example 
   const box = await toast.boundingBox();
   const viewport = page.viewportSize();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan((viewport?.width ?? 0) - 40);
+  // The image export is a dialog now; its download gives the next toast.
   await page.keyboard.press('Control+Shift+e');
+  await page.getByTestId('export-format-svg').click();
+  await page.getByTestId('export-download').click();
   await expect(page.getByTestId('toast-success')).toHaveCount(1);
   await expect(page.getByTestId('toast-success')).toContainText('.svg');
   // Gone after about 2.5 s.

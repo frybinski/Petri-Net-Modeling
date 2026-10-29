@@ -1,10 +1,12 @@
 import { NetFormatError, parseNetText, serializeNet, validate, type PetriNet } from '@pnm/core';
-import { eventLogRows, toEventLogCsv, toXes } from '@pnm/io';
+import { eventLogRows, fromPnml, toEventLogCsv, toXes } from '@pnm/io';
 import { en } from '../i18n/en';
 import { selectIsDirty, useEditorStore } from '../store/editor-store';
 import { eventLog } from '../store/sim-log';
+import { useExportStore } from '../store/export-store';
+import { useImportStore } from '../store/import-store';
 import { notify, useUiStore } from '../store/ui-store';
-import { netToSvg } from './svg-export';
+import { hasValidDomainView } from './domain-view';
 
 export const NET_EXTENSION = '.pn.json';
 
@@ -25,7 +27,10 @@ export function netFileName(name: string): string {
 }
 
 export function downloadText(fileName: string, text: string, mime: string): void {
-  const blob = new Blob([text], { type: mime });
+  downloadBlob(fileName, new Blob([text], { type: mime }));
+}
+
+export function downloadBlob(fileName: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -47,17 +52,30 @@ export function saveNet(): void {
   notify('success', en.files.saved(fileName));
 }
 
-export function exportSvg(): void {
-  const { net, mode, simMarking } = useEditorStore.getState();
-  const dark = useUiStore.getState().theme === 'dark';
-  const fileName = `${fileStem(net.name)}.svg`;
-  const svg = netToSvg(net, {
-    dark,
-    inscriptions: useUiStore.getState().showInscriptions,
-    ...(mode === 'simulate' && simMarking ? { marking: simMarking } : {}),
-  });
-  downloadText(fileName, svg, 'image/svg+xml');
+/** Downloads the net as a .pn.json file without marking it as saved (File > Export > JSON). */
+export function exportJson(): void {
+  const { net } = useEditorStore.getState();
+  const fileName = netFileName(net.name);
+  downloadText(fileName, serializeNet(net), 'application/json');
   notify('success', en.files.exported(fileName));
+}
+
+/**
+ * Opens the dialog for the export of an image. In the domain view, and when the net has a valid
+ * domain view, the image is of the domain view; the dialog lets the person switch.
+ */
+export function openExportImage(): void {
+  const { net } = useEditorStore.getState();
+  const domain = useUiStore.getState().viewMode === 'domain' && hasValidDomainView(net);
+  useExportStore.getState().openDialog('image', domain ? 'domain' : 'net');
+}
+
+export function openExportPnml(): void {
+  useExportStore.getState().openDialog('pnml');
+}
+
+export function openExportTikz(): void {
+  useExportStore.getState().openDialog('tikz');
 }
 
 /**
@@ -100,11 +118,47 @@ export function openNet(net: PetriNet, fileName: string | null): void {
   if (errors > 0) notify('error', en.files.loadedWithErrors(errors));
 }
 
-/** Reads and opens a file chosen by the user. Shows an error message for invalid files. */
+/** True for text that is PNML rather than a net file: it is XML. */
+export function looksLikePnml(text: string, fileName: string): boolean {
+  const first = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).trimStart().charAt(0);
+  if (first === '<') return true;
+  if (first === '{') return false;
+  return /\.(pnml|xml)$/i.test(fileName);
+}
+
+/**
+ * Imports PNML text as a new document. The document counts as unsaved, because the file is not a
+ * `.pn.json` yet. Remarks of the import are shown in a dialog; a clean import only gets a toast.
+ */
+export async function importPnmlText(text: string, fileName: string): Promise<void> {
+  const result = await fromPnml(text);
+  useEditorStore.getState().loadNet(result.net, null, { unsaved: true });
+  const { net, warnings, laidOut } = result;
+  if (warnings.length === 0 && !laidOut) {
+    notify('success', en.files.imported(fileName));
+    return;
+  }
+  notify('info', en.files.importedWithWarnings(fileName, warnings.length));
+  useImportStore.getState().show({
+    fileName,
+    netName: net.name,
+    places: net.places.length,
+    transitions: net.transitions.length,
+    arcs: net.arcs.length,
+    laidOut,
+    warnings,
+  });
+}
+
+/** Reads and opens a file chosen by the user: a net file or PNML. Shows an error message for invalid files. */
 export async function openFile(file: File): Promise<void> {
   try {
-    const net = parseNetText(await file.text());
-    openNet(net, file.name);
+    const text = await file.text();
+    if (looksLikePnml(text, file.name)) {
+      await importPnmlText(text, file.name);
+      return;
+    }
+    openNet(parseNetText(text), file.name);
   } catch (error) {
     if (error instanceof NetFormatError) {
       notify('error', en.files.openFailed(file.name), { details: error.issues });

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="noID" type="http://www.informatik.hu-berlin.de/top/pntd/ptNetb">
+    <toolspecific tool="WoPeD" version="3.8.0">
+      <bounds>
+        <location x="0" y="0"/>
+        <dimension x="800" y="600"/>
+      </bounds>
+      <scale>100</scale>
+      <treeWidthRight>200</treeWidthRight>
+      <overallFontSize>12</overallFontSize>
+      <verticalLayout>false</verticalLayout>
+    </toolspecific>
+    <place id="in">
+      <name>
+        <text>Receipt</text>
+        <graphics><offset x="10" y="45"/></graphics>
+      </name>
+      <graphics>
+        <position x="60" y="80"/>
+        <dimension x="40" y="40"/>
+      </graphics>
+      <toolspecific tool="WoPeD" version="3.8.0">
+        <initialMarking>1</initialMarking>
+      </toolspecific>
+      <initialMarking><text>1</text></initialMarking>
+    </place>
+    <place id="buffer">
+      <name><text>Buffer</text></name>
+      <graphics><position x="320" y="80"/><dimension x="40" y="40"/></graphics>
+    </place>
+    <referencePlace id="buffer_ref" ref="buffer">
+      <graphics><position x="320" y="200"/><dimension x="40" y="40"/></graphics>
+    </referencePlace>
+    <place id="out">
+      <name><text>Done</text></name>
+      <graphics><position x="580" y="80"/><dimension x="40" y="40"/></graphics>
+    </place>
+    <transition id="check">
+      <name><text>Check</text></name>
+      <graphics><position x="190" y="80"/><dimension x="40" y="40"/></graphics>
+      <toolspecific tool="WoPeD" version="3.8.0">
+        <trigger id="" type="200"/>
+        <transitionResource roleName="clerk" organizationalUnitName=""/>
+      </toolspecific>
+    </transition>
+    <transition id="archive">
+      <name><text>Archive</text></name>
+      <graphics><position x="450" y="80"/><dimension x="40" y="40"/></graphics>
+    </transition>
+    <arc id="e1" source="in" target="check">
+      <inscription><text>1</text></inscription>
+      <graphics/>
+      <toolspecific tool="WoPeD" version="3.8.0">
+        <probability>1.0</probability>
+        <displayProbabilityOn>false</displayProbabilityOn>
+      </toolspecific>
+    </arc>
+    <arc id="e2" source="check" target="buffer_ref">
+      <inscription><text>1</text></inscription>
+    </arc>
+    <arc id="e3" source="buffer" target="archive">
+      <inscription><text>3</text></inscription>
+    </arc>
+    <arc id="e4" source="archive" target="out"/>
+  </net>
+</pnml>

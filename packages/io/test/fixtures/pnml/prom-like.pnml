@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Written by ProM style tooling: pages, graphics, dimensions and tool specific parts. -->
+<pnml>
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/pnmlcoremodel">
+    <name>
+      <text>Order handling (discovered)</text>
+    </name>
+    <page id="n0">
+      <name>
+        <text>Page 1</text>
+      </name>
+      <place id="start">
+        <name>
+          <text>start</text>
+          <graphics><offset x="0" y="-20"/></graphics>
+        </name>
+        <graphics>
+          <position x="40.5" y="120"/>
+          <dimension x="20" y="20"/>
+          <fill color="white"/>
+          <line color="black" width="1.0"/>
+        </graphics>
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+        <toolspecific tool="ProM" version="6.4" localNodeID="a1b2c3"/>
+      </place>
+      <place id="mid">
+        <name><text>in progress</text></name>
+        <graphics><position x="240" y="120"/><dimension x="20" y="20"/></graphics>
+      </place>
+      <place id="end">
+        <name><text>end</text></name>
+        <graphics><position x="560" y="120"/></graphics>
+      </place>
+      <transition id="register">
+        <name><text>Register order</text></name>
+        <graphics>
+          <position x="140" y="120"/>
+          <dimension x="25" y="20"/>
+          <fill color="rgb(255,255,255)"/>
+        </graphics>
+        <toolspecific tool="ProM" version="6.4" activity="Register order" localNodeID="d4e5f6"/>
+      </transition>
+      <transition id="skip">
+        <name><text>skip</text></name>
+        <graphics><position x="340" y="60"/></graphics>
+        <toolspecific tool="ProM" version="6.4" activity="$invisible$" localNodeID="0a0b0c"/>
+      </transition>
+      <transition id="ship">
+        <name><text>Ship</text></name>
+        <graphics><position x="340" y="180"/></graphics>
+      </transition>
+      <arc id="a1" source="start" target="register">
+        <inscription><text>1</text></inscription>
+        <graphics><position x="90" y="120"/></graphics>
+      </arc>
+      <arc id="a2" source="register" target="mid">
+        <inscription>
+          <text>2</text>
+          <graphics><offset x="0" y="-8"/></graphics>
+        </inscription>
+      </arc>
+      <arc id="a3" source="mid" target="skip"/>
+      <arc id="a4" source="mid" target="ship"/>
+      <arc id="a5" source="skip" target="end"/>
+      <arc id="a6" source="ship" target="end"/>
+    </page>
+    <toolspecific tool="ProM" version="6.4">
+      <layout>automatic</layout>
+    </toolspecific>
+  </net>
+</pnml>

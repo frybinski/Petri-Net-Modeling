@@ -2,6 +2,40 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.9.0: Interchange and export
+
+Milestone M4. The file format stays `1.0`; nets of 0.8.0 work unchanged.
+
+### Added
+
+- **PNML** in both directions (`toPnml`, `fromPnml`, `parsePnml` in `@pnm/io`): PNML 2009 `ptnet` for places,
+  transitions, arcs, weights, markings and positions; types, guards, inscriptions, timing, roles, simulation settings,
+  notes, token values and the domain view in `toolspecific tool="pnm"` (JSON in CDATA), so a net survives a round trip
+  unchanged. The reader takes files of ProM, pm4py and WoPeD (pages, reference places, invisible transitions, markings
+  as text, inhibitor and reset arcs as notes), lays the net out when positions are missing and reports what it did not
+  understand. Own XML reader without dependencies, identical in browser and Node. See [format.md](docs/format.md#pnml).
+- **TikZ export** (`toTikz`): `tikzpicture` or standalone document, inline or external styles (`place`, `transition`,
+  `arc`, `token`), labels, tokens as dots or numbers, guards, inscriptions, weights, grayscale. See
+  [docs/tikz.md](docs/tikz.md).
+- **Command line `pnm`** (`apps/cli`, one bundled file): `validate`, `simulate` (CSV, XES, metrics, events), `export`
+  (svg, pnml, tikz, json), `import`, `layout`, `domain check|generic|generate`, `examples list|copy`. See
+  [docs/cli.md](docs/cli.md). The CSV equals that of the app for the same seed.
+- Web app: _File > Import_ and drag and drop accept `.pnml` (remarks in a dialog, the import is an unsaved document);
+  _File > Export_ has _Image_ (SVG or PNG at 1x, 2x, 3x, light or dark, solid or transparent, with preview and file
+  name), _PNML_, _TikZ_ (options, preview, copy, download) and _JSON_. The domain view exports as PNG from its panel and
+  its context menu. Fonts are embedded in the raster. `Ctrl+Shift+E` opens the image export.
+- [ADR 0012](docs/adr/0012-interchange-and-cli.md).
+
+### Changed
+
+- `netToSvg` moved to `@pnm/io` (new options `transparent`, `fontCss`, and `renderNetSvg` with the size); the drawing
+  geometry moved to `@pnm/layout/geometry`. The direct SVG export became the _Export image_ dialog.
+- The Playwright port can be set with `PNM_E2E_PORT`.
+
+### Fixed
+
+- The end-to-end test of unbound variables in output inscriptions no longer depends on timing under load.
+
 ## 0.8.0: Editing the domain view in place
 
 Milestone D4. The file format stays `1.0`; nets of 0.7.0 work unchanged.

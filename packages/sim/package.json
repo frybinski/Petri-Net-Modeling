@@ -1,6 +1,6 @@
 {
   "name": "@pnm/sim",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Timed discrete-event simulation of Petri nets with an event stream",
   "license": "MIT",

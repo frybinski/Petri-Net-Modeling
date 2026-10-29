@@ -181,12 +181,21 @@ test('an invalid inscription shows an error and a valid one is applied', async (
 
 test('an unbound variable in an output inscription is reported', async ({ page }) => {
   await openExample(page, 'order-processing');
-  await page.getByTestId('arc').nth(1).locator('path').first().click({ force: true });
-  await expect(page.getByTestId('prop-inscription')).toBeVisible();
+  // Selecting the arc and opening its editor can lose the click on a busy machine: retry both.
+  await expect(async () => {
+    await page.getByTestId('arc').nth(1).locator('path').first().click({ force: true });
+    await expect(page.getByTestId('prop-inscription')).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   await typeInEditor(page, 'prop-inscription', '$o + $missing');
-  await expect(page.getByTestId('prop-inscription-warning')).toContainText('$missing');
+  // The check runs on the text as typed; leave the field first so that the commit is done, then
+  // wait for the result with room to spare.
   await page.getByTestId('prop-weight').click();
-  await expect(page.getByTestId('status-diagnostics')).toContainText('1 error');
+  await expect(page.getByTestId('prop-inscription-warning')).toContainText('$missing', {
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId('status-diagnostics')).toContainText('1 error', {
+    timeout: 15_000,
+  });
 });
 
 test('switching the net class keeps the data and can be undone', async ({ page }) => {

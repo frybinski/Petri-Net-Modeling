@@ -7,7 +7,7 @@ import {
   PLACE_SIZE,
   TOKEN_DOT_RADIUS,
   tokenDotOffsets,
-} from '../../lib/geometry';
+} from '@pnm/layout/geometry';
 import { BreakpointMarker } from './breakpoint-marker';
 import { RING_OUTSIDE, NodeHandles } from './node-handles';
 import { useDropState } from './use-drop-state';

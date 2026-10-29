@@ -2,7 +2,7 @@ import type { LayoutDirection } from '@pnm/layout';
 import { en } from '../i18n/en';
 import { useEditorStore } from '../store/editor-store';
 import { notify } from '../store/ui-store';
-import { GRID_SIZE, snap } from './geometry';
+import { GRID_SIZE, snap } from '@pnm/layout/geometry';
 import { getViewApi } from './view-api';
 
 /** Runs the automatic layout as a single undo step. */

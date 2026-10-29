@@ -1,6 +1,6 @@
 {
   "name": "@pnm/llm",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "LLM generation of the domain view mapping: OpenAI-compatible provider, prompts and the repair loop",
   "license": "MIT",

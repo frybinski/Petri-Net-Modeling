@@ -1,5 +1,5 @@
 import { deleteSelection } from './delete';
-import { chooseFile, exportSvg, saveNet } from './files';
+import { chooseFile, openExportImage, saveNet } from './files';
 import { freePosition } from './placement';
 import { runAutoLayout } from './layout-action';
 import {
@@ -403,11 +403,11 @@ export const commands: Command[] = [
     inSimulation: true,
   },
   {
-    id: 'export-svg',
-    label: 'Export SVG',
+    id: 'export-image',
+    label: 'Export image',
     group: 'view',
     keys: [{ key: 'e', mod: true, shift: true }],
-    run: exportSvg,
+    run: openExportImage,
     inSimulation: true,
   },
   {

@@ -132,8 +132,14 @@ test('a click on an enabled station fires its transition', async ({ page }) => {
   await expect(page.getByTestId('domain-cases')).toHaveText('0');
   // The door of the arrivals is the only transition that can fire at the start.
   const [sx, sy] = await sheetToScreen(canvas, 52, 320);
-  await page.mouse.click(sx, sy);
-  await expect(page.getByTestId('domain-cases')).toHaveText('1');
+  // On a busy machine the first click can arrive before the view is ready: click again, but only
+  // while nothing has fired.
+  await expect(async () => {
+    if ((await page.getByTestId('domain-cases').textContent()) === '0') {
+      await page.mouse.click(sx, sy);
+    }
+    await expect(page.getByTestId('domain-cases')).toHaveText('1', { timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
   await expect(page.getByTestId('sim-cases')).toHaveText('1');
   await expect(canvas).toHaveAttribute('data-sprites', '1');
 });

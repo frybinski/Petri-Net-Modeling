@@ -1,5 +1,4 @@
 import { tokenLabel, type Id, type Marking, type PetriNet, type Position } from '@pnm/core';
-import { truncate } from './inscriptions';
 import {
   MAX_TOKEN_DOTS,
   NODE_STROKE,
@@ -14,7 +13,7 @@ import {
   obstaclesFor,
   tokenDotOffsets,
   type Endpoint,
-} from './geometry';
+} from '@pnm/layout/geometry';
 
 export interface SvgExportOptions {
   /** Marking to draw; defaults to the initial marking of the net. */
@@ -25,6 +24,20 @@ export interface SvgExportOptions {
   dark?: boolean;
   /** Draw guards, arc inscriptions and place types of JSON nets (default true). */
   inscriptions?: boolean;
+  /** Leave the background out, so that the drawing can be put on any page. Default false. */
+  transparent?: boolean;
+  /**
+   * CSS that is embedded in the file, for example `@font-face` rules with data URLs. A raster
+   * image made from the SVG has no other way to get at the fonts.
+   */
+  fontCss?: string;
+}
+
+export interface RenderedSvg {
+  svg: string;
+  /** Size of the drawing in pixels. */
+  width: number;
+  height: number;
 }
 
 interface Palette {
@@ -78,6 +91,12 @@ const SANS = "'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Rob
 export const NOTE_WIDTH = 180;
 export const NOTE_LINE_HEIGHT = 16;
 const NOTE_PADDING = 8;
+
+/** Shortens text for labels. */
+function truncate(text: string, max: number): string {
+  const single = text.replace(/\s+/g, ' ').trim();
+  return single.length <= max ? single : `${single.slice(0, max - 1)}…`;
+}
 
 export function escapeXml(text: string): string {
   return text
@@ -165,6 +184,11 @@ function round2(value: number): number {
 
 /** Renders a net as a standalone SVG document, drawn from the model rather than the DOM. */
 export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string {
+  return renderNetSvg(net, options).svg;
+}
+
+/** Like `netToSvg`, with the size of the drawing. */
+export function renderNetSvg(net: PetriNet, options: SvgExportOptions = {}): RenderedSvg {
   const palette = options.dark ? DARK : LIGHT;
   const padding = options.padding ?? 40;
   const marking = options.marking ?? net.marking;
@@ -347,15 +371,19 @@ export function netToSvg(net: PetriNet, options: SvgExportOptions = {}): string 
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" width="${width}" height="${height}" font-family="${SANS}" font-size="13">`,
   );
   out.push(`<title>${escapeXml(net.name)}</title>`);
-  out.push(
-    `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${palette.background}"/>`,
-  );
+  if (options.fontCss)
+    out.push(`<defs><style><![CDATA[${options.fontCss.replace(/]]>/g, ']] >')}]]></style></defs>`);
+  if (!options.transparent) {
+    out.push(
+      `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${palette.background}"/>`,
+    );
+  }
   // Annotations first, so that the net is drawn on top; the label pills of the arcs last.
   out.push(...notes);
   out.push(...body);
   out.push(...arcPills);
   out.push('</svg>');
-  return `${out.join('\n')}\n`;
+  return { svg: `${out.join('\n')}\n`, width, height };
 }
 
 function labelSvg(name: string, center: Position, offset: number, palette: Palette): string {
