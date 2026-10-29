@@ -71,3 +71,20 @@ describe('status bar notices of the engine', () => {
     store().stopSimulation();
   });
 });
+
+describe('status bar and the source of the simulation', () => {
+  it('says whether the engine runs, a log is replayed or a live feed is shown', async () => {
+    renderBar();
+    expect(screen.queryByTestId('status-mode')).toBeNull();
+    await store().startSimulation();
+    expect(await screen.findByTestId('status-mode')).toHaveTextContent('Simulating');
+    await store().startLiveFeed();
+    await vi.waitFor(() => {
+      expect(screen.getByTestId('status-mode')).toHaveTextContent('Live feed');
+    });
+    store().stopSimulation();
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId('status-mode')).toBeNull();
+    });
+  });
+});

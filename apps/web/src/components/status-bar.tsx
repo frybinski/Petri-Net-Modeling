@@ -39,6 +39,7 @@ export function StatusBar() {
   const sticky = useEditorStore((s) => s.toolSticky);
   const arcSource = useEditorStore((s) => s.arcSource);
   const notice = useEditorStore((s) => s.simNotice);
+  const source = useEditorStore((s) => s.simSource);
   const zoom = useStore((s) => s.transform[2]);
   const snapToGrid = useUiStore((s) => s.snapToGrid);
   const toggleSnap = useUiStore((s) => s.toggleSnap);
@@ -82,8 +83,15 @@ export function StatusBar() {
       </button>
 
       {mode === 'simulate' ? (
-        <span className="rounded-full bg-ok-soft px-2 py-0.5 font-medium text-ok">
-          {en.status.simulating}
+        <span
+          className="rounded-full bg-ok-soft px-2 py-0.5 font-medium text-ok"
+          data-testid="status-mode"
+        >
+          {source === 'log'
+            ? en.status.replaying
+            : source === 'live'
+              ? en.status.liveFeed
+              : en.status.simulating}
         </span>
       ) : null}
       {mode === 'simulate' && notice ? (

@@ -577,6 +577,8 @@ export const en = {
     gridOff: 'Grid snapping off',
     selected: (n: number) => `${n} selected`,
     simulating: 'Simulating',
+    replaying: 'Replaying a log',
+    liveFeed: 'Live feed',
   },
   files: {
     opened: (name: string) => `Opened ${name}`,
