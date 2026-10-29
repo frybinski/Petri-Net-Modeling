@@ -295,6 +295,7 @@ linked through the events:
 | `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                             |
 | `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                                                         |
 | `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                                                                |
+| `deviation` (replay)           | The station and the place flash red; the log notes it as a `flash`, or as `hidden` if nothing it concerns is drawn.                                                   |
 | anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                                                                       |
 
 Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
@@ -303,6 +304,11 @@ of the chain; the others light up their station. A move follows the connector of
 of the simulation. At most 60 tokens move at a time; further ones jump. A token that is moved again while it is under
 way continues from where it is. Speed _max_ and `prefers-reduced-motion` make every duration 0: tokens jump and nothing
 flashes, but counters, colors and cells follow the events all the same.
+
+**A replay of an event log** ([replay.md](replay.md)) produces the same events, so the view shows it like a run: the
+cases move along the starts and completes of the log. Where the log does not fit the net, the replay adds `deviation`
+events; the station and the place they concern flash in the danger color, and an ordinary flash that follows does not
+paint over it. The test of the renderer log (A2) runs on the events of a replay of the parcel center, too.
 
 **Log of handled events.** `AnimationState.handled` lists what the renderer did with every event that concerns a visible
 element: `motion`, `flash`, `counter` or `hidden`. Every motion, flash and counter carries the id of the event that

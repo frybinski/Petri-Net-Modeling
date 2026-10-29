@@ -1312,6 +1312,7 @@ export const useEditorStore = create<EditorState>()((set, get) => {
               mapping: log.mapping,
               completeOnly: log.completeOnly,
               ...(log.strict && { strict: true }),
+              ...(log.warmup !== undefined && { warmup: log.warmup }),
             },
           }),
       });

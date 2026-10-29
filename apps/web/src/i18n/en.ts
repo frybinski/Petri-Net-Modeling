@@ -401,6 +401,9 @@ export const en = {
     originCustom: 'Another time…',
     originCustomLabel: 'Time (ISO 8601 or Unix seconds)',
     originHint: 'The start time of the net gives the same times as the run that wrote the log.',
+    warmup: 'Warm-up (s)',
+    warmupHint: (net: number) =>
+      `Seconds at the start that are left out of the key figures. Empty: the warm-up of the net (${net} s).`,
     checkGuards: 'Check the guards',
     checkGuardsHint: 'Report an activity whose guard the tokens of the case do not satisfy.',
     cancel: 'Cancel',

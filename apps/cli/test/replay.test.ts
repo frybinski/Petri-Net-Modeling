@@ -4,6 +4,27 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readLog } from '@pnm/io';
 import { example, pnm, tempDir } from './helpers';
 
+/** The device log of docs/replay.md (the example for chapter 9). */
+const DEVICES = `device,event,time
+badge-17,arrival,2026-03-02T08:03:00Z
+badge-17,entry,2026-03-02T08:03:04Z
+badge-17,walk_to_desk,2026-03-02T08:03:24Z
+badge-17,work,2026-03-02T08:12:30Z
+badge-17,coffee,2026-03-02T08:13:40Z
+badge-17,leave,2026-03-02T08:13:50Z
+badge-23,arrival,2026-03-02T08:05:10Z
+badge-23,entry,2026-03-02T08:05:14Z
+badge-23,walk_to_room,2026-03-02T08:05:42Z
+badge-23,meeting,2026-03-02T08:20:50Z
+badge-23,coffee,2026-03-02T08:21:55Z
+badge-23,leave,2026-03-02T08:22:05Z
+badge-31,arrival,2026-03-02T08:07:00Z
+badge-31,entry,2026-03-02T08:07:05Z
+badge-31,walk_to_desk,2026-03-02T08:07:30Z
+badge-31,work,2026-03-02T08:16:00Z
+badge-31,leave,2026-03-02T08:16:10Z
+`;
+
 let scratch: ReturnType<typeof tempDir>;
 beforeAll(() => {
   scratch = tempDir();
@@ -287,5 +308,49 @@ describe('pnm replay', () => {
       // With span an activity is under way from the end of the last one: resources run short.
       else expect(json.missing).toBeGreaterThan(0);
     }
+  });
+
+  it('replays the device log of the documentation: columns and activities mapped by hand', async () => {
+    const log = tmp('devices.csv');
+    writeFileSync(log, DEVICES);
+    const result = await pnm([
+      'replay',
+      example('smart-office'),
+      log,
+      '--warmup',
+      '0',
+      '--case-column',
+      'device',
+      '--activity-column',
+      'event',
+      '--time-column',
+      'time',
+      '--map',
+      'arrival=Ankunft',
+      '--map',
+      'entry=Zutritt',
+      '--map',
+      'walk_to_desk=Weg Arbeitsplatz',
+      '--map',
+      'walk_to_room=Weg Meeting',
+      '--map',
+      'work=Arbeiten',
+      '--map',
+      'meeting=Meeting',
+      '--map',
+      'coffee=Kaffee holen',
+      '--map',
+      'leave=Verlassen',
+    ]);
+    expect(result.status).toBe(0);
+    // Only the missing lifecycle column is remarked; every activity is mapped.
+    expect(result.stderr).toContain('no lifecycle column');
+    expect(result.stderr).not.toContain('not mapped');
+    expect(result.stdout).toContain('17 events, 3 cases');
+    expect(result.stdout).toMatch(
+      /fitness\s+0\.9621\s+\(1 of 25 tokens had to be created, 1 of 28 were left behind\)/,
+    );
+    expect(result.stdout).toContain('missing    Verlassen found no token on Zum Ausgang');
+    expect(result.stdout).toMatch(/cases completed\s+3/);
   });
 });

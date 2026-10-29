@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-29 · Status: Version 1.0.0 (M0–M5 und D1–D4 fertig; D5 und M6 offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-29 · Status: Version 1.1.0 (M0–M5 und D1–D5 fertig; M6 offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -193,8 +193,9 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Erreichbarkeitsgraphen. Anschluss an Beitrag B3 der Dissertation.
 - Web Worker für rechenintensive Analysen, damit die Oberfläche flüssig bleibt.
 
-### D5 · Kopplung an echte Daten (optional) · offen
-- Replay eines Event Logs oder externe Ereignisquelle auf demselben Ereignisstrom.
+### D5 · Kopplung an echte Daten · fertig (1.1.0)
+- Replay eines Event Logs (CSV, XES) oder einer Live-Quelle auf demselben Ereignisstrom: `docs/replay.md`,
+  `docs/adr/0015-event-log-replay.md`, Plan `docs/plan/D5_Umsetzungsplan.md`.
 
 ### M6 · Backend, Teilen, Schnittstellen (optional, 3 Wochen) · offen
 - Server (Node, Fastify) mit Projektablage, Versionen, Freigabelinks.
@@ -247,12 +248,14 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.0.0 schließt M0 bis M5 und D1 bis D4 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.1.0 schließt M0 bis M5 und D1 bis D5 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
-Offen sind die beiden optionalen Bausteine:
+D5 ist mit 1.1.0 fertig: Event Logs und Live-Zuflüsse laufen als zweite Quelle der Simulation durch Netzansicht,
+Domänenansicht, Trace, Kennzahlen und Konformitätsprüfung (`docs/replay.md`). Eine Brücke von einem fremden Prozess in die
+Seite (WebSocket, `postMessage`) bleibt offen.
 
-1. **D5 · Kopplung an echte Daten:** Replay eines Event Logs oder einer externen Ereignisquelle auf demselben
-   Ereignisstrom (die Analyse spielt Abläufe schon in der Simulation ab, der Weg von außen fehlt noch).
-2. **M6 · Backend, Teilen, Schnittstellen:** Server für Projektablage und Freigabelinks, REST-API, Schlüsselverwaltung
+Offen ist der optionale Baustein:
+
+1. **M6 · Backend, Teilen, Schnittstellen:** Server für Projektablage und Freigabelinks, REST-API, Schlüsselverwaltung
    für den LLM-Anbieter (löst die Einschränkung zum Schlüssel im Browser) und Zusammenarbeit in Echtzeit.

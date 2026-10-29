@@ -14,6 +14,8 @@ export interface ReplayLog {
   completeOnly: CompleteOnly;
   /** Also check the guards of the transitions. */
   strict: boolean;
+  /** Seconds left out of the key figures; without it the warm-up of the net. */
+  warmup?: number;
 }
 
 /** Splits one line at `delimiter`; a field in double quotes may hold the delimiter. */

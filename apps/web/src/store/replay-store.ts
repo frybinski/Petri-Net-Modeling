@@ -25,6 +25,8 @@ export interface LogDraft {
   mapping: ActivityMapping;
   completeOnly: CompleteOnly;
   strict: boolean;
+  /** Seconds left out of the key figures; `undefined` is the warm-up of the net. */
+  warmup: number | undefined;
 }
 
 interface ReplayState {
@@ -62,6 +64,7 @@ export const useReplayStore = create<ReplayState>()((set, get) => ({
         mapping: {},
         completeOnly: 'zero',
         strict: false,
+        warmup: undefined,
       },
     });
   },

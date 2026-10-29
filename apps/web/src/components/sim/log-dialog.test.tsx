@@ -164,6 +164,34 @@ describe('the dialog that maps an event log to the net', () => {
     expect(screen.getByTestId('log-start')).toBeDisabled();
   });
 
+  it('takes the warm-up of the net unless another is given', async () => {
+    const user = userEvent.setup();
+    store().updateSimulationSettings({ warmup: 600 });
+    renderDialog();
+    open(csvOf(fittingLog()));
+    await screen.findByTestId('log-dialog');
+    const field = screen.getByTestId('log-warmup');
+    expect(field).toHaveValue('');
+    expect(field).toHaveAttribute('placeholder', '600');
+    await user.type(field, '0');
+    fireEvent.blur(field);
+    await user.click(screen.getByTestId('log-start'));
+    await waitFor(() => {
+      expect(store().simSource).toBe('log');
+    });
+    expect(useReplayStore.getState().log?.warmup).toBe(0);
+    await waitFor(() => {
+      expect(store().computing).toBe(false);
+    });
+    store().setSimSpeed('max');
+    store().setPlaying(true);
+    await waitFor(() => {
+      expect(store().simIdle).toBe(true);
+    });
+    // The log is 31 s long: with the warm-up of the net no case would count.
+    expect(store().simMetrics?.completedCases).toBe(3);
+  });
+
   it('closes with Cancel and leaves the simulation alone', async () => {
     const user = userEvent.setup();
     renderDialog();

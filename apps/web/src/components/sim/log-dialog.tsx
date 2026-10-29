@@ -16,7 +16,7 @@ import { useReplayStore, type ColumnChoice, type LogDraft } from '../../store/re
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Dialog } from '../ui/dialog';
-import { SelectField, TextField } from '../ui/fields';
+import { NumberField, SelectField, TextField } from '../ui/fields';
 
 type Read = { ok: true; log: ReadLogResult } | { ok: false; error: string };
 
@@ -155,6 +155,7 @@ export function LogDialog() {
       mapping,
       completeOnly: draft.completeOnly,
       strict: draft.strict,
+      ...(draft.warmup !== undefined && { warmup: draft.warmup }),
     };
     useReplayStore.getState().setLog(replayLog);
     close();
@@ -350,6 +351,18 @@ export function LogDialog() {
               ) : null}
             </div>
           </div>
+          <NumberField
+            label={t.warmup}
+            hint={t.warmupHint(net.simulation?.warmup ?? 0)}
+            value={draft.warmup}
+            allowEmpty
+            min={0}
+            placeholder={String(net.simulation?.warmup ?? 0)}
+            onCommit={(value) => {
+              update({ warmup: value });
+            }}
+            data-testid="log-warmup"
+          />
           {net.profile === 'json-net' ? (
             <Checkbox
               label={t.checkGuards}
