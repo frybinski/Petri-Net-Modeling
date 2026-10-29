@@ -64,6 +64,8 @@ describe('help and usage errors', () => {
     for (const command of [
       'validate',
       'simulate',
+      'analyze',
+      'check',
       'export',
       'import',
       'layout',
@@ -77,14 +79,21 @@ describe('help and usage errors', () => {
     expect(none.stderr).toContain('Usage: pnm');
   });
 
-  it.each(['validate', 'simulate', 'export', 'import', 'layout', 'domain', 'examples'])(
-    'prints help for %s',
-    async (command) => {
-      const result = await pnm([command, '--help']);
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain(`pnm ${command}`);
-    },
-  );
+  it.each([
+    'validate',
+    'simulate',
+    'analyze',
+    'check',
+    'export',
+    'import',
+    'layout',
+    'domain',
+    'examples',
+  ])('prints help for %s', async (command) => {
+    const result = await pnm([command, '--help']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`pnm ${command}`);
+  });
 
   it('exits with 2 for unknown commands and options and missing arguments', async () => {
     for (const args of [

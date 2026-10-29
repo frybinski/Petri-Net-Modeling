@@ -236,5 +236,33 @@
         "name": "Alan Turing"
       }
     ]
-  }
+  },
+  "properties": [
+    {
+      "id": "invoice-after-approval",
+      "kind": "declare",
+      "template": "response",
+      "activities": [
+        "Approve",
+        "Create invoice"
+      ],
+      "name": "Every approved order gets an invoice"
+    },
+    {
+      "id": "invoice-after-reject",
+      "kind": "declare",
+      "template": "precedence",
+      "activities": [
+        "Reject",
+        "Create invoice"
+      ],
+      "name": "No invoice before a rejection (violated on purpose)"
+    },
+    {
+      "id": "reject-happens",
+      "kind": "ltlf",
+      "formula": "F Reject",
+      "name": "A rejection happens"
+    }
+  ]
 }

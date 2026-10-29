@@ -217,7 +217,8 @@ export function validateDeclare(spec: DeclareSpec): string | null {
 }
 
 function quoteIfNeeded(name: string): string {
-  return /^[^\s,()"']+$/u.test(name)
+  // Spaces inside a name are fine (the list is split at commas); the edges and these characters are not.
+  return /^[^,()"'\\\s]([^,()"'\\]*[^,()"'\\\s])?$/u.test(name)
     ? name
     : `"${name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

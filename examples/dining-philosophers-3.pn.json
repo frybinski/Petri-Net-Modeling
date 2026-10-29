@@ -376,5 +376,27 @@
     "fork3": [
       1
     ]
-  }
+  },
+  "properties": [
+    {
+      "id": "left-then-right",
+      "kind": "declare",
+      "template": "response",
+      "activities": [
+        "P1 takes left fork",
+        "P1 takes right fork"
+      ],
+      "name": "Philosopher 1 gets both forks (violated by the deadlock)"
+    },
+    {
+      "id": "eat-before-release",
+      "kind": "declare",
+      "template": "precedence",
+      "activities": [
+        "P1 takes right fork",
+        "P1 releases forks"
+      ],
+      "name": "Forks are released only after eating"
+    }
+  ]
 }

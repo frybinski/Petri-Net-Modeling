@@ -1052,5 +1052,36 @@
         "at": "2026-10-28T09:00:00.000Z"
       }
     }
-  }
+  },
+  "properties": [
+    {
+      "id": "scan-sort",
+      "kind": "declare",
+      "template": "succession",
+      "activities": [
+        "Scannen",
+        "Sortieren"
+      ],
+      "name": "Scanned parcels are sorted, sorted parcels were scanned"
+    },
+    {
+      "id": "start",
+      "kind": "declare",
+      "template": "init",
+      "activities": [
+        "Anlieferung"
+      ],
+      "name": "Every parcel starts with delivery"
+    },
+    {
+      "id": "one-gate",
+      "kind": "declare",
+      "template": "notCoExistence",
+      "activities": [
+        "Weiche A",
+        "Weiche B"
+      ],
+      "name": "No parcel goes through both gates A and B"
+    }
+  ]
 }

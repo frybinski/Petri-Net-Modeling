@@ -2,7 +2,7 @@
   "name": "@pnm/cli",
   "version": "0.9.0",
   "private": true,
-  "description": "Command line for Petri nets: validate, simulate, export, import, layout, domain view",
+  "description": "Command line for Petri nets: validate, simulate, analyze, check, export, import, layout, domain view",
   "license": "MIT",
   "type": "module",
   "bin": {
