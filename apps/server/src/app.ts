@@ -3,6 +3,8 @@ import type { Config } from './config';
 import { ApiError, messageOf } from './errors';
 import { header, sendError } from './http';
 import { createBasicAuth } from './basic-auth';
+import { createJobPool, type JobPool } from './api/pool';
+import { registerApi } from './api/routes';
 import { createLlmProxy, type LlmProxy } from './llm/proxy';
 import { createLogger, type Logger } from './logger';
 import { clientAddress, isAllowed, parseNetList } from './net-filter';
@@ -16,12 +18,15 @@ export interface AppDeps {
   logger?: Logger;
   /** Replaces the global `fetch` for calls to the language model server (tests). */
   fetch?: typeof fetch;
+  /** The bundle that runs in a thread of the job pool; default `worker.js` next to this file. */
+  workerFile?: string | URL;
 }
 
 export interface App {
   server: Server;
   router: Router;
   llm: LlmProxy;
+  pool: JobPool;
   /** Starts listening; resolves with the port. */
   start(): Promise<number>;
   /** Stops accepting requests, waits for running ones for `graceMs`, then cuts them off. */
@@ -51,6 +56,15 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
     ...(deps.fetch !== undefined && { fetch: deps.fetch }),
   });
   llm.register(router);
+  const pool = createJobPool({
+    workerFile: deps.workerFile ?? new URL('./worker.js', import.meta.url),
+    size: config.jobs.workers,
+    timeoutMs: config.jobs.timeoutMs,
+    memoryMb: config.jobs.memoryMb,
+    maxQueue: config.jobs.maxQueue,
+    logger,
+  });
+  registerApi(router, { pool, llm, logger });
 
   /** The page of a share link is the app itself; the app reads the token from the address. */
   router.get(
@@ -204,6 +218,7 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
     server,
     router,
     llm,
+    pool,
     start() {
       return new Promise((resolve, reject) => {
         server.once('error', reject);
@@ -222,7 +237,9 @@ export function createApp(config: Config, deps: AppDeps = {}): App {
         timer.unref();
         server.close(() => {
           clearTimeout(timer);
-          resolve();
+          void pool.close().then(() => {
+            resolve();
+          });
         });
         server.closeIdleConnections();
       });

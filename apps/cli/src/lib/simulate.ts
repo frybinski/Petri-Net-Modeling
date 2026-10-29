@@ -57,6 +57,8 @@ export interface SimulateRequest {
   keepEvents: boolean;
   /** A prefix for the message when the simulation cannot be created (the file name). */
   label?: string;
+  /** How to shorten a run that produced too many events, in the words of the interface. */
+  shortenHint?: string;
 }
 
 export interface SimulateRun {
@@ -107,7 +109,7 @@ export async function runSimulation(net: PetriNet, request: SimulateRequest): Pr
     if (count > request.maxEvents) {
       throw new CommandError(
         `The run produced more than ${request.maxEvents} events by model time ${Math.round(simulation.state.time)} s; ` +
-          'shorten it with --seconds or raise --max-events.',
+          (request.shortenHint ?? 'shorten it with --seconds or raise --max-events.'),
       );
     }
   }

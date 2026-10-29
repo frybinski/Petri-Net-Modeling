@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -14,6 +15,7 @@ export const REPO = resolve(SERVER_ROOT, '..', '..');
 export const FIXTURE_WEB = join(here, 'fixtures', 'web');
 export const SERVER_BUNDLE = join(SERVER_ROOT, 'dist', 'server.js');
 export const WORKER_BUNDLE = join(SERVER_ROOT, 'dist', 'worker.js');
+export const CLI_BUNDLE = join(SERVER_ROOT, 'dist', 'pnm-cli.js');
 export const example = (name: string): string => join(REPO, 'examples', `${name}.pn.json`);
 
 /** A placeholder for a key in tests; it must never show up in an answer or a log line. */
@@ -75,7 +77,10 @@ export async function startApp(
   const scratch = tempDir();
   const logs = captureLogs();
   const config = testConfig(scratch.dir, { ...overrides, PNM_PORT: overrides['PNM_PORT'] ?? '1' });
-  const app = createApp({ ...config, port: 0 }, { logger: logs, ...deps });
+  const app = createApp(
+    { ...config, port: 0 },
+    { logger: logs, workerFile: WORKER_BUNDLE, ...deps },
+  );
   const port = await app.start();
   return {
     app,
@@ -142,3 +147,58 @@ export function chatBody(model: string, content = 'Say hello', extra: object = {
 }
 
 export const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+
+export interface CliResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/** Runs the command line `pnm` (the bundle built for the tests) like a user would. */
+export function pnm(args: string[], options: { stdin?: string } = {}): Promise<CliResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI_BUNDLE, ...args], {
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
+    child.on('error', reject);
+    child.on('close', (status) => {
+      resolve({ status, stdout, stderr });
+    });
+    child.stdin.on('error', () => undefined);
+    child.stdin.end(options.stdin ?? '');
+  });
+}
+
+/** POSTs JSON to the server. */
+export async function postJson(
+  url: string,
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return fetch(`${url}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+}
+
+/**
+ * A JSON answer that a test reads without a type for every field. `any` is deliberate here: the
+ * tests assert the shape of what comes back, which is what they are for.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Loose = Record<string, any>;
+
+export async function json(response: Response): Promise<Loose> {
+  return (await response.json()) as Loose;
+}

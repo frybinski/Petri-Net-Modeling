@@ -104,6 +104,10 @@ export interface LlmProxy {
   queuedFetch: typeof fetch;
   /** The models that may be used, or `null` for all. */
   allowedModels(): string[] | null;
+  /** Throws a 403 for a model that this server does not offer. */
+  assertModelAllowed(model: string): void;
+  /** The model for a request that names none. */
+  readonly defaultModel: string | null;
   readonly queue: SlotQueue;
   /** True if the proxy has an upstream server. */
   readonly enabled: boolean;
@@ -449,14 +453,50 @@ export function createLlmProxy(config: LlmConfig, deps: LlmDeps): LlmProxy {
 
   const queuedFetch: typeof fetch = async (input, init) => {
     const signal = init?.signal ?? new AbortController().signal;
-    const release = await slot(signal);
+    const queuedAt = performance.now();
+    let release: () => void;
+    try {
+      release = await queue.acquire(signal);
+    } catch (error) {
+      // A full queue is an answer, not a failure of the connection: the provider reads the status.
+      if (error instanceof QueueFullError) {
+        return new Response(
+          JSON.stringify({
+            error: { message: 'The language model is busy: too many requests are waiting.' },
+          }),
+          { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '10' } },
+        );
+      }
+      throw error;
+    }
+    const queuedMs = Math.round(performance.now() - queuedAt);
+    const started = performance.now();
+    let model = '';
+    try {
+      const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : null;
+      model =
+        typeof asRecord(body)?.['model'] === 'string' ? String(asRecord(body)?.['model']) : '';
+    } catch {
+      // A body that is not JSON has no model to log.
+    }
+    let status = 0;
+    let usage: { prompt?: number; completion?: number } | undefined;
     try {
       const response = await doFetch(input, init);
+      status = response.status;
       // Read it all while the slot is held; the provider reads it all anyway.
       const text = await response.text();
+      try {
+        usage = usageOf(JSON.parse(text));
+      } catch {
+        // No JSON, no counts.
+      }
       return new Response(text, { status: response.status, headers: response.headers });
     } finally {
       release();
+      if (model !== '') {
+        logRequest({ model, started, status, ...(usage && { usage }), queuedMs });
+      }
     }
   };
 
@@ -465,6 +505,8 @@ export function createLlmProxy(config: LlmConfig, deps: LlmDeps): LlmProxy {
     queue,
     queuedFetch,
     allowedModels: () => allowed,
+    assertModelAllowed: checkModel,
+    defaultModel: config.defaultModel,
     register(router) {
       router.post('/llm/v1/chat/completions', chat, {
         summary: 'Chat completion, passed to the language model of the server',

@@ -7,14 +7,15 @@ export const OUT_DIR = join(serverRoot, 'dist');
 
 /**
  * Bundles the server into ESM files that run on Node 22 without `node_modules`: `server.js` (the
- * service) and `fake-llm.js` (a stand-in for the language model server, for the local Compose file
- * and the tests). The workspace packages are TypeScript sources; esbuild compiles and includes them.
+ * service), `worker.js` (a thread of the job pool) and `fake-llm.js` (a stand-in for the language
+ * model server, for the local Compose file and the tests). The workspace packages are TypeScript sources; esbuild compiles and includes them.
  */
 export async function buildServer(outDir: string = OUT_DIR): Promise<string[]> {
   await mkdir(outDir, { recursive: true });
   await build({
     entryPoints: {
       server: join(serverRoot, 'src', 'main.ts'),
+      worker: join(serverRoot, 'src', 'api', 'worker.ts'),
       'fake-llm': join(serverRoot, 'src', 'fake-llm', 'main.ts'),
     },
     outdir: outDir,
@@ -34,5 +35,5 @@ export async function buildServer(outDir: string = OUT_DIR): Promise<string[]> {
       ].join('\n'),
     },
   });
-  return ['server.js', 'fake-llm.js'].map((name) => join(outDir, name));
+  return ['server.js', 'worker.js', 'fake-llm.js'].map((name) => join(outDir, name));
 }
