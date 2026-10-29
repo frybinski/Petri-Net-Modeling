@@ -109,3 +109,15 @@ export function saveApiKey(key: string): void {
 export function isConfigured(settings: LlmSettings): boolean {
   return settings.baseUrl.trim() !== '' && settings.model.trim() !== '';
 }
+
+/**
+ * True for an `http://` address on a page that is served over HTTPS: browsers may refuse such a
+ * request (mixed content), which is the case for the deployed app and a local provider.
+ */
+export function insecureFromSecurePage(baseUrl: string): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    /^http:\/\//i.test(baseUrl.trim())
+  );
+}

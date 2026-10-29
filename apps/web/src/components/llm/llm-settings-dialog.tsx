@@ -5,6 +5,7 @@ import { makeProvider, providerConfig } from '../../lib/domain-generation';
 import {
   JSON_MODES,
   PRESETS,
+  insecureFromSecurePage,
   isConfigured,
   presetBaseUrl,
   type LlmSettings,
@@ -322,18 +323,6 @@ function SettingsForm() {
 }
 
 /** The dialog for the language model server; mounted once, it renders while it is open. */
-/**
- * True for an `http://` address on a page that is served over HTTPS: browsers may refuse such a
- * request (mixed content), which is the case for the deployed app and a local provider.
- */
-export function insecureFromSecurePage(baseUrl: string): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    /^http:\/\//i.test(baseUrl.trim())
-  );
-}
-
 export function LlmSettingsDialog() {
   const open = useLlmStore((s) => s.settingsOpen);
   return open ? <SettingsForm /> : null;
