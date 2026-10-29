@@ -8,6 +8,7 @@ import {
   type Token,
 } from '@pnm/core';
 import type { ArcFlowEdge, FlowNode } from '../components/canvas/types';
+import { truncate } from './inscriptions';
 import { describeTiming } from './sim-format';
 import type { Bottleneck, RunInfo } from './sim-view';
 import {
@@ -18,6 +19,7 @@ import {
   TRANSITION_SHAPE,
   arcGeometry,
   arrowHeadPoints,
+  guardPillObstacle,
   obstaclesFor,
   type Endpoint,
 } from '@pnm/layout/geometry';
@@ -31,6 +33,11 @@ export const MAX_CARD_TOKENS = 10;
 
 export const INSCRIPTION_LABEL_LENGTH = 24;
 export const GUARD_LABEL_LENGTH = 28;
+
+/** The text of a guard pill: the guard on one line, shortened, in brackets. */
+export function guardPillText(guard: string): string {
+  return `[ ${truncate(guard, GUARD_LABEL_LENGTH)} ]`;
+}
 
 export type ChipSide = 'right' | 'left' | 'below';
 
@@ -232,9 +239,20 @@ export function buildFlowEdges(ctx: FlowContext): ArcFlowEdge[] {
       shape: TRANSITION_SHAPE,
     });
   }
-  const everyone = [...endpoints.entries()];
-  const directions = new Set(ctx.net.arcs.map((a) => `${a.source}>${a.target}`));
   const json = ctx.net.profile === 'json-net';
+  // The guard pills hang above their transitions: arcs keep clear of them like of nodes.
+  const everyone: Array<readonly [string, Endpoint]> = [...endpoints.entries()];
+  if (json && ctx.showInscriptions) {
+    for (const t of ctx.net.transitions) {
+      const guard = t.guard?.trim();
+      if (!guard) continue;
+      everyone.push([
+        `guard:${t.id}`,
+        guardPillObstacle(ctx.dragPositions?.[t.id] ?? t.position, guardPillText(guard).length),
+      ]);
+    }
+  }
+  const directions = new Set(ctx.net.arcs.map((a) => `${a.source}>${a.target}`));
 
   const edges: ArcFlowEdge[] = [];
   for (const arc of ctx.net.arcs) {

@@ -10,6 +10,7 @@ import {
   TRANSITION_WIDTH,
   arcGeometry,
   arrowHeadPoints,
+  guardPillObstacle,
   obstaclesFor,
   tokenDotOffsets,
   type Endpoint,
@@ -209,7 +210,19 @@ export function renderNetSvg(net: PetriNet, options: SvgExportOptions = {}): Ren
   };
   const body: string[] = [];
 
-  const everyone = [...endpoints.entries()];
+  const everyone: Array<readonly [string, Endpoint]> = [...endpoints.entries()];
+  if (showInscriptions) {
+    // The guard pills hang above their transitions: arcs keep clear of them like of nodes.
+    for (const t of net.transitions) {
+      const guard = (t.guard ?? '').trim();
+      if (guard !== '') {
+        everyone.push([
+          `guard:${t.id}`,
+          guardPillObstacle(t.position, `[ ${truncate(guard, 28)} ]`.length),
+        ]);
+      }
+    }
+  }
   const direction = new Set(net.arcs.map((a) => `${a.source}>${a.target}`));
 
   // Arcs, drawn first so that the nodes sit on top of their ends.

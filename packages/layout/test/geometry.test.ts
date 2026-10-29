@@ -12,6 +12,7 @@ import {
   arrowHeadPoints,
   boundaryPoint,
   distanceToNode,
+  guardPillObstacle,
   obstaclesFor,
   shapeSize,
   snap,
@@ -224,5 +225,32 @@ describe('obstaclesFor', () => {
     const g = arcGeometry({ source: a, target: b, obstacles: [blocker] });
     const free = arcGeometry({ source: a, target: b });
     expect(g.path).toBe(free.path);
+  });
+});
+
+describe('guardPillObstacle', () => {
+  it('sits centered above the transition, with the width of its text', () => {
+    const short = guardPillObstacle({ x: 100, y: 200 }, 11);
+    expect(short.center.x).toBe(100);
+    // The top of the transition is at y = 168; the pill ends 8 px above it and is 18 px high.
+    expect(short.center.y).toBe(168 - 8 - 9);
+    expect(short.shape).toMatchObject({ kind: 'rect', height: 18 });
+    const long = guardPillObstacle({ x: 100, y: 200 }, 32);
+    expect(long.shape.kind === 'rect' && short.shape.kind === 'rect').toBe(true);
+    if (long.shape.kind === 'rect' && short.shape.kind === 'rect') {
+      expect(long.shape.width).toBeGreaterThan(short.shape.width);
+    }
+  });
+
+  it('bends an arc that would run through the pill', () => {
+    // The token ring: the arc leaves the transition at the top, below its guard pill.
+    const place = { center: { x: 0, y: 0 }, shape: PLACE_SHAPE };
+    const transition = { center: { x: 70, y: 150 }, shape: TRANSITION_SHAPE };
+    const pill = guardPillObstacle(transition.center, 11);
+    const free = arcGeometry({ source: transition, target: place });
+    const around = arcGeometry({ source: transition, target: place, obstacles: [pill] });
+    expect(around.path).not.toBe(free.path);
+    // The curve leaves the transition towards the side instead of through the pill.
+    expect(around.start.y).toBeGreaterThan(pill.center.y + 9);
   });
 });
