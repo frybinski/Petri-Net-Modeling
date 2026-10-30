@@ -7,7 +7,7 @@ is a second view next to the net editor, drawn on a Canvas 2D from the net, a **
 The principle, which every part of the design follows: **the view shows, the net decides.** A mapping says _where_ and
 _as what_ an element is drawn. It contains no durations, weights, rates or conditions (the net has them), and nothing
 in it changes how the net behaves. The mapping is data that a person, a tool or a language model can write; it is
-checked against the net instead of trusted (rules V1 to V8 below).
+checked against the net instead of trusted (rules V1 to V9 below).
 
 The code lives in `packages/domain` (`@pnm/domain`). It depends on `@pnm/core` and `@pnm/layout` and has no React
 dependency; the core does not depend on it.
@@ -83,7 +83,9 @@ left corner. `Point` is `[x, y]`, `Rect` is `[x, y, width, height]`.
 | `source`, `sink` | `box`, `label?`  | A box with an arrow in or out and the number of tokens (a truck for parcels, a door for people).            |
 | `hidden`         | `reason`         | Not drawn.                                                                                                  |
 
-When more cases wait on a path than fit, the last place shows a counter `+n`.
+When more cases wait on a path than fit, the last place shows a counter `+n`. A `source` or `sink` box of at least
+200 x 72 px shows its number big, as a headline figure, with the arrow above it (the CO₂e counter of the example); smaller
+boxes are drawn as before.
 
 ### Transitions
 
@@ -121,6 +123,11 @@ place):
 | `sink`     | `sink`, `hidden`                                  |
 | `source`   | `source`, `queue`, `conveyor`, `buffer`, `hidden` |
 | `case`     | everything except `slots`                         |
+| `quantity` | `pool`, `source`, `sink`, `hidden` (rule V9)      |
+
+A place with the role `quantity` counts an amount (see [simulation.md](simulation.md#quantity-places)); it has no
+objects that could be drawn, so it is a counter or not drawn. It does not matter whether it is a source or a sink by its
+arcs: the role wins.
 
 A transition without input places (an arrival) must be a `door`, a `dock` or `hidden`. A place of kind `slots`
 names a transition (`of`) that it forms a loop with: arcs in both directions between them.
@@ -141,6 +148,7 @@ V1 passes, so it can still be drawn if other rules fail.
 | V6   | Room: a transition has at least as many slots as its resource place has initial tokens; a queue, conveyor or buffer is at least 160 px (ten tokens) long.          | warning  |
 | V7   | `netHash` matches the net, so the view is not out of date.                                                                                                         | warning  |
 | V8   | A place that holds cases (role `case`) is not `hidden`.                                                                                                            | warning  |
+| V9   | A place with the role `quantity` is a counter (`pool`, `source`, `sink`) or `hidden`, never a `queue`, `conveyor`, `buffer` or `slots`.                            | error    |
 
 The tests contain for every rule an example that triggers exactly this rule (`packages/domain/test/validate.test.ts`).
 
@@ -163,14 +171,15 @@ first draft of the feature asked for SHA-256, which would make the validation as
 - An arrival becomes a `door`, every other transition a `station` (56 px square; a resource with n initial tokens makes
   n slots in a grid and the box grows).
 - A resource place that loops with a transition becomes its `slots` (the first one per transition); other resources are
-  `pool`s. A sink is a `sink` box, a source place a `queue` towards its first transition, every other place a
+  `pool`s. A quantity place is a `pool` too, whatever its arcs are. A sink is a `sink` box, a source place a `queue` towards its first transition, every other place a
   `conveyor` from the middle between the transition before it and the place to the middle between the place and the
   transition behind it, at least 160 px long.
 - Arcs get a two-point path from border to border; the arcs of resource slots, which sit inside their transition, get
   none.
 - The scenery is a title label and a scale bar. Every entry has the provenance `generic`.
 
-It passes V1 to V5 for every net (a property test over 250 random nets with and without positions checks this) and
+It passes V1 to V5 and V9 for every net (a property test over 250 random nets with and without positions, with
+random roles including quantity, checks this) and
 may warn under V6 for crowded nets. `fillMissing(net, view)` completes a mapping for the current net: entries of
 elements that are gone are dropped, missing entries and entries that break V2 to V5 get generic ones.
 
@@ -288,15 +297,22 @@ firing. Pools, sources and sinks are numbers.
 **From event to picture.** The motion of a token is the difference between the layout before and after a bundle,
 linked through the events:
 
-| Event                          | What is shown                                                                                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spawn` through a door or dock | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                             |
-| `start`                        | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills. |
-| `complete`                     | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                             |
-| `complete` into a sink or pool | The case moves into it and disappears; the counter counts up when it arrives.                                                                                         |
-| `marking-edited`               | The place flashes; tokens that were added or removed appear or vanish.                                                                                                |
-| `deviation` (replay)           | The station and the place flash red; the log notes it as a `flash`, or as `hidden` if nothing it concerns is drawn.                                                   |
-| anything at a `hidden` element | Nothing is drawn; the log notes it as `hidden`.                                                                                                                       |
+| Event                                | What is shown                                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spawn` through a door or dock       | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                                                         |
+| `start`                              | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills.                             |
+| `complete`                           | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                                                         |
+| `complete` into a sink or pool       | The case moves into it and disappears; the counter counts up when it arrives.                                                                                                                     |
+| `start` or `complete` with an amount | No object moves. A flow marker runs along the connector, a dot with the number (`−3` out of a quantity place, `+1` into it); the counter pulses and shows the new number when the marker arrives. |
+| `marking-edited`                     | The place flashes; tokens that were added or removed appear or vanish.                                                                                                                            |
+| `deviation` (replay)                 | The station and the place flash red; the log notes it as a `flash`, or as `hidden` if nothing it concerns is drawn.                                                                               |
+| anything at a `hidden` element       | Nothing is drawn; the log notes it as `hidden`.                                                                                                                                                   |
+
+**Amounts** (quantity places) are no objects, so they do not move as sprites. For each firing and each quantity place
+that it takes from or puts on, one **flow marker** (`FlowMarker` in `AnimationState.flows`) runs from the counter to the
+station (`out`, at the `start`) or from the station to the counter (`in`, at the `complete`), along the connector of the
+view if it has one, else in a straight line. It carries the number of tokens (`+3`, `−3`), lasts as long as a motion,
+and there are at most 40 at a time (further ones are only logged). Quantity places that are `hidden` show nothing.
 
 Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
 of the chain; the others light up their station. A move follows the connector of the view (`arcs`, key
@@ -311,9 +327,11 @@ events; the station and the place they concern flash in the danger color, and an
 paint over it. The test of the renderer log (A2) runs on the events of a replay of the parcel center, too.
 
 **Log of handled events.** `AnimationState.handled` lists what the renderer did with every event that concerns a visible
-element: `motion`, `flash`, `counter` or `hidden`. Every motion, flash and counter carries the id of the event that
-caused it. The tests compare this log with the event stream (acceptance A2): over 30 simulated minutes of the parcel
-center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event.
+element: `motion`, `flash`, `counter`, `flow` or `hidden`. Every motion, flash, counter and flow marker carries the id of
+the event that caused it. The tests compare this log with the event stream (acceptance A2): over 30 simulated minutes of the parcel
+center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event. The same holds for the flow
+markers: every start and complete that moves an amount through a drawn station leaves a marker in the log, and every
+marker belongs to one event of the stream (tested on a small net and on the bicycle frame example).
 
 **States and colors.** A station is _busy_ when a slot is in use (green frame), _busy-full_ when all slots are in use and
 cases wait in front of it (amber frame, tint and bar), _blocked_ when, in addition, the waiting cases have reached the
@@ -336,7 +354,10 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 - In the view _Domain_ alone the net editor is not mounted, so that it does not redraw its nodes for every bundle of
   events behind the picture; in _Both_ it stays.
 - The strip at the bottom right shows throughput per hour, mean cycle time and cases in the system (with a note during
-  the warm-up). The picture is fitted so that the bar, the strip, the zoom buttons and the case card do not cover it.
+  the warm-up), then the **first four indicators** of the net ([simulation.md](simulation.md#indicators)) with their
+  units; with more than four a line says how many more there are in the Metrics tab. The figures wrap into further rows
+  when the view is narrow, so the strip stays inside it (at 1360 px the seven figures of the bicycle frame example are
+  one row). The picture is fitted so that the bar, the strip, the zoom buttons and the case card do not cover it.
 - The hover card of a belt shows the waiting cases, the mean wait and whether it is getting long; the card of a station
   its state, the slots in use, the waiting cases and the use of its resource; the card of a resource the free tokens.
 - A click on a case follows it: its sprite gets a ring, the stations it has been at a light frame, and a card at the
@@ -347,7 +368,7 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 ## Generating a view with an LLM
 
 A language model can propose the mapping, and the checking program decides whether it is used. This is the division of
-labour of the whole design: the model suggests, the rules V1 to V8 judge, and the net alone defines the behaviour. No
+labour of the whole design: the model suggests, the rules V1 to V9 judge, and the net alone defines the behaviour. No
 model takes part in a simulation; it is asked once, before, and the result is an ordinary mapping (ADR 0010).
 
 The code lives in `packages/llm` (`@pnm/llm`). It needs only `fetch`, so it runs in the browser and in Node, and it
@@ -362,10 +383,11 @@ depends on `@pnm/core`, `@pnm/domain` and `zod`.
    (`compactNet`: places and transitions with name, role, tokens and normalised editor position, arcs as pairs), the
    JSON Schema of the answer without `netHash` and `provenance`, and two worked examples (parcel center and smart
    office, shortened, never one that has the structure of the net itself). The prompts are in English; labels take the
-   language of the names in the net.
+   language of the names in the net. One line of the rules covers the role `quantity`: a counter (`pool`, `source` or
+   `sink`), labelled with the unit, or `hidden`; the worked examples do not change.
 2. **Answer.** The reply is read as JSON, also from a Markdown code block or from the first complete object in a text.
    The tool sets `netHash` and writes provenance `llm` with the model name and the time on every entry.
-3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V8.
+3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V9.
 4. **Repair.** If there are errors, they go back as a repair request: each finding with its rule, path and text, and the
    entries it is about. The model returns only a partial object (`places`, `transitions`, `arcs`, `decor` with the
    corrected entries), which replaces exactly those entries. Warnings (V6, V8) do not trigger a repair. At most three
@@ -428,7 +450,7 @@ server, and a scripted provider checks the repair in round 2 for both examples w
 Editing by dragging in the view (D4) is still missing. A generated mapping is only as good as the model: the rules check
 that it fits the net, not that it is beautiful, and what stays invalid after three rounds is replaced by the generic
 entries. Tokens
-of JSON nets show as plain cases, a transition's `slots` have no order beyond their index, and a firing that holds no
+of JSON nets show as plain cases (and the amounts of quantity places are numbers, not objects), a transition's `slots` have no order beyond their index, and a firing that holds no
 case (work on resources only) is shown as a busy slot without a sprite. Stepping back or resetting snaps the picture to
 the state instead of playing backwards. The motion of a token that is taken again within one bundle is attributed to the
 last event of the chain.

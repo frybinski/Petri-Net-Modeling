@@ -1,10 +1,11 @@
 # Known limitations
 
-What 1.2.0 does not do, and why. Each entry was found during development and decided in the release step: what could
+What 1.3.0 does not do, and why. Each entry was found during development and decided in the release step: what could
 be fixed cheaply was fixed (see the [changelog](../CHANGELOG.md)), what could not is listed here with the reason and,
 where there is one, the way forward. The numbers are those of the [release plan](plan/Release-1.0_Umsetzungsplan.md)
 (in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md), those
-of the server (S1 to S7) from the [plan of M6](plan/M6_Umsetzungsplan.md). Entries 8, 22 and 23 are **fixed in server
+of the server (S1 to S7) from the [plan of M6](plan/M6_Umsetzungsplan.md), those of the quantity places and indicators
+(N1 to N4) from the [plan of N1](plan/N1_Umsetzungsplan.md). Entries 8, 22 and 23 are **fixed in server
 mode**: they remain for the app on GitHub Pages and for local use, and say what the server changes.
 
 ## Editor and interface
@@ -100,6 +101,31 @@ warm-up of the net (changeable in the dialog and with `--warmup`). To get the ti
 the log, choose _the start time of the net_ as time 0. The exported times are whole milliseconds, so mean times agree to a
 millisecond, not to the last digit.
 
+## Quantity places and indicators
+
+The rules are in [simulation.md](simulation.md#quantity-places) and [simulation.md](simulation.md#indicators).
+
+**Firings without a case are not in the event log (N1).** CSV and XES hold only events that belong to a case. A firing that
+only moves amounts (the delivery of steel, recycling) has none and is missing from an exported log, so the log of the
+bicycle frame example shows what happens to the frames and nothing of the deliveries. Process mining tools see the
+frames only. The key figures and the event stream of the engine have these firings; the export does not.
+
+**A replay cannot know what happens without a case (N2).** A replay is driven by the log, so it does not see the
+deliveries that fill a quantity place. It makes up what the log takes from a quantity place and the net lacks (no
+deviation, the stock never below zero), and indicators that depend on such firings (CO₂e per frame includes the CO₂e of
+the deliveries) differ from those of the run that wrote the log. See [replay.md](replay.md#limits).
+
+**Indicators count tokens, not values (N3, D6).** An indicator on a place of a JSON net counts its tokens whatever they
+contain; a figure over the data of the tokens (the sum of an amount field, say) is not possible yet. For the amounts of
+this increment, tokens are the right unit (1 token = 1 kg). A figure over token data belongs to the extension of the
+indicators to higher nets (D6).
+
+**Older versions reject a net with quantity places (N4).** The role `quantity` is a new value of `role`. A version before
+1.3.0 reads the file with `Invalid net file: places[3].role: Invalid option: expected one of "case"|"resource"` and does
+not open it; nothing is lost, the file stays as it is. The format stays `1.0`. A net that only has indicators opens in
+an older version, which drops the indicators when it reads the file (the unknown key of the simulation settings is
+ignored), so saving it there loses them.
+
 ## Domain view
 
 **A resource place with cells edits its station (20).** The cells of a resource (desks, rooms, machines) sit on the card
@@ -178,7 +204,7 @@ for analyses with a large limit. The analysis in the browser runs in a worker as
 validators with `new Function`. The policy allows only scripts of the own origin, so this is no way for foreign code to run,
 but it is weaker than a policy without it. Removing it needs standalone validators or another library for JSON Schema.
 
-## Not in 1.2.0
+## Not in 1.3.0
 
 - Accounts, private projects, and an audit trail on the server.
 - Co-editing and a second user in the same net.

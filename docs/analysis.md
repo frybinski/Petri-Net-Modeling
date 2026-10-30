@@ -193,7 +193,8 @@ the key figures of the replay checks the properties on the log you have just rep
 A log of a running simulation ends with cases that are still on their way. Such an **open case** violates `response`
 only because the log stopped, so cases whose last activity is not an **end activity** are left out by default (and counted
 as open). The end activities of a net are the transitions that put a token on a sink place (a place nothing takes tokens
-from); "Count unfinished cases" and `--include-open` turn this off.
+from; a quantity place such as CO₂e that nothing empties is no sink, its tokens belong to no case); "Count unfinished
+cases" and `--include-open` turn this off.
 
 ## Limits and caveats
 

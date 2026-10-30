@@ -93,6 +93,13 @@ The replay is descriptive: the log says what happened, and the net is made to fo
 5. **Cases without an end** stay in the net when the log ends. They count as open.
 6. **Determinism.** The same log, mapping and options give the same events. The seed only chooses among free tokens of a
    resource.
+7. **Quantity places** (role `quantity`, [simulation.md](simulation.md#quantity-places)) are not checked against the log.
+   An activity takes the amount its arcs say from a quantity place, whichever case it belongs to, the oldest tokens
+   first, and puts the amount on the places it feeds. Tokens on them carry no case. If there are fewer tokens than the
+   arc asks for, the rest is **made up without a word**: no deviation of kind `missing` and nothing in `missing`, so the
+   stock never goes below zero. The reason is that the log does not mention the firings without a case (the delivery of
+   steel that fills the store up), so the replay cannot know where the amount came from. A quantity place is never an
+   input that starts a case, and a case that is waiting is never waiting for one.
 
 ### JSON nets
 
@@ -118,6 +125,10 @@ fitness = 1 - 1/2 * missing / consumed - 1/2 * remaining / produced
 - **missing**: tokens that had to be created because an activity found none,
 - **remaining**: tokens that cases which reached a **sink place** left behind on other places (resource places do not
   count). A case that has not reached a sink is open, and its tokens are still on their way.
+
+Tokens on quantity places count in none of the four: they are neither consumed nor produced, missing or left behind. The
+fitness is 1 for the exported log of the bicycle frame example (`examples/bike-frames.pn.json`), CSV and XES, although the
+log knows nothing of deliveries and recycling.
 
 The fitness is 1 when the log fits the net, and `null` until something was consumed or produced. A net without a sink
 place never finishes a case, so nothing remains and only the missing tokens lower the fitness. Skipped events and
@@ -309,6 +320,10 @@ decide how long the stations are busy.
 - **The tokens of the initial marking on case places** wait without a case and are taken over by the first cases; a token
   that nobody takes over stays.
 - **Fitness depends on the sink places.** `remaining` counts only tokens of cases that reached a sink place.
+- **Quantities are only as complete as the log.** A replay knows the amounts that the cases in the log take and make.
+  What happens without a case (deliveries, recycling) is not in an exported log, so the stock of a quantity place and
+  the indicators that depend on such firings differ from the run that wrote the log (CO₂e per frame is lower in the
+  replay of the example, because the CO₂e of the deliveries is missing).
 - **Resource tokens get new ids** each time they are returned, as in the engine; which token a resource gave is visible
   only through the seed.
 - **Memory.** The log is held in the page and sent to the worker once. A log of 150 000 events replays in a few seconds on
