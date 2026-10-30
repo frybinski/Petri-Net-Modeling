@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseNetText } from '@pnm/core';
+import { createEmptyNet, parseNetText } from '@pnm/core';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_THRESHOLDS,
+  counterOverflows,
   layoutTokens,
+  netHash,
   queueLevel,
   stationInfos,
   stationStatus,
@@ -122,5 +124,54 @@ describe('stationInfos', () => {
     expect(infos.has('t_scan')).toBe(true);
     expect(infos.has('t_rA')).toBe(false);
     expect(infos.has('t_arr')).toBe(false);
+  });
+});
+
+describe('counterOverflows (N2)', () => {
+  const net = createEmptyNet('Store');
+  net.places = [
+    { id: 'tubes', name: 'Tubes', position: { x: 0, y: 0 }, role: 'quantity' },
+    { id: 'scrap', name: 'Scrap', position: { x: 0, y: 0 }, role: 'quantity' },
+    { id: 'plain', name: 'Plain', position: { x: 0, y: 0 }, role: 'quantity' },
+  ];
+  const view: DomainView = {
+    schemaVersion: 1,
+    netHash: netHash(net),
+    meta: {
+      theme: 'T',
+      viewName: 'V',
+      entity: { singular: 'x', plural: 'x', sprite: 'dot' },
+      canvas: { width: 400, height: 300 },
+    },
+    places: {
+      tubes: {
+        kind: 'pool',
+        pos: [60, 60],
+        label: 'Rohrlager (kg)',
+        display: { style: 'fill', max: 200 },
+      },
+      scrap: { kind: 'pool', pos: [160, 60], display: { style: 'fill', max: 10 } },
+      plain: { kind: 'pool', pos: [260, 60] },
+    },
+    transitions: {},
+    provenance: {},
+  };
+  const marking = (tubes: number, scrap: number, plain: number) => ({
+    tubes: Array.from({ length: tubes }, () => 1),
+    scrap: Array.from({ length: scrap }, () => 1),
+    plain: Array.from({ length: plain }, () => 1),
+  });
+
+  it('lists the fill levels that are above their limit, with the name without the unit', () => {
+    expect(counterOverflows(net, view, marking(213, 3, 900))).toEqual([
+      { placeId: 'tubes', name: 'Rohrlager', count: 213, max: 200 },
+    ]);
+    expect(counterOverflows(net, view, marking(200, 10, 0))).toEqual([]);
+    expect(counterOverflows(net, view, marking(201, 11, 0)).map((o) => o.placeId)).toEqual([
+      'tubes',
+      'scrap',
+    ]);
+    // The name of the place stands in for a missing label.
+    expect(counterOverflows(net, view, marking(0, 11, 0))[0]).toMatchObject({ name: 'Scrap' });
   });
 });

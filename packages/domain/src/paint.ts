@@ -818,12 +818,16 @@ function drawFrameTubes(ctx: Ctx, r: Point, f: Point, width: number, colors: Spr
   ctx.setLineDash([]);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (const [layerColor, layerWidth] of [
-    [colors.edge, width + 1.7],
-    [colors.body, width],
+  // A faint light rim, then the dark casing, then the bright core: the tubes stand out from a
+  // dark belt as well as from a white card.
+  for (const [layerColor, layerWidth, alpha] of [
+    ['#ffffff', width + 3.2, 0.45],
+    [colors.edge, width + 1.7, 1],
+    [colors.body, width, 1],
   ] as const) {
     ctx.strokeStyle = layerColor;
     ctx.lineWidth = layerWidth;
+    ctx.globalAlpha = alpha;
     ctx.beginPath();
     for (const [a, b] of tubes) {
       ctx.moveTo(a[0], a[1]);
@@ -831,6 +835,7 @@ function drawFrameTubes(ctx: Ctx, r: Point, f: Point, width: number, colors: Spr
     }
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
   // The saddle and the grip.
   ctx.strokeStyle = colors.edge;
   ctx.lineWidth = width + 0.6;
