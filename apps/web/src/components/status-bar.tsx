@@ -16,6 +16,7 @@ import { getViewApi } from '../lib/view-api';
 import { useEditorStore, type Tool } from '../store/editor-store';
 import { useGenerationStore } from '../store/generation-store';
 import { useUiStore } from '../store/ui-store';
+import { LazyDomainOverflowStatus } from './lazy-parts';
 import { IconButton } from './ui/button';
 import { ServerStatus } from './server/server-status';
 import { Tooltip } from './ui/tooltip';
@@ -118,6 +119,7 @@ export function StatusBar() {
           </button>
         </span>
       ) : null}
+      {viewMode !== 'net' ? <LazyDomainOverflowStatus /> : null}
       {generating ? (
         <Tooltip content={en.llm.statusRunningTip} side="top">
           <button

@@ -155,3 +155,61 @@ describe('the preview of a drag', () => {
     expect(animator.dragLayers).toBeNull();
   });
 });
+
+describe('the history of a counter in the animator (N2)', () => {
+  const bikes = loadExample('bike-frames');
+  const bikeView = bikes.domainView as DomainView;
+
+  async function runBikes(seconds: number, bundle: number, animator = new DomainAnimator()) {
+    const sim = createSimulation(bikes);
+    animator.setModel(bikes, bikeView, layoutStateOf(sim.state));
+    let now = 1000;
+    for (let t = 0; t < seconds; t += bundle) {
+      const batch = await sim.advance(bundle);
+      animator.ingest(batch, layoutStateOf(sim.state), now);
+      now += 40;
+    }
+    return { animator, sim, now };
+  }
+
+  it('grows with the events, and ends with the count that is shown', async () => {
+    const { animator } = await runBikes(7200, 30);
+    const series = animator.anim.history?.['p_co2'] ?? [];
+    expect(series.length).toBeGreaterThan(10);
+    expect(series[series.length - 1]!.v).toBe(animator.layout!.counts.get('p_co2'));
+    // The frame draws the curve.
+    const frame = animator.frame(5000, { simTime: animator.layout!.time });
+    expect(frame!.layers.tokens.some((c) => c.op === 'spark')).toBe(true);
+  }, 30_000);
+
+  it('is cut at the time of the state when the simulation jumps back, and starts again on a reset', async () => {
+    const { animator, sim } = await runBikes(7200, 30);
+    const full = animator.anim.history!['p_co2']!;
+    const middle = full[Math.floor(full.length / 2)]!;
+    // A state at an earlier time (the engine steps back; the store snaps to what it shows).
+    animator.snap({
+      time: middle.t,
+      marking: { p_co2: Array.from({ length: middle.v }, () => 1) },
+      running: [],
+    });
+    const cut = animator.anim.history!['p_co2']!;
+    expect(cut[cut.length - 1]).toEqual({ t: middle.t, v: middle.v });
+    expect(cut.length).toBeLessThan(full.length);
+    // A reset: time 0, the initial marking.
+    animator.snap(layoutStateOf(createSimulation(bikes).state));
+    expect(animator.anim.history).toEqual({ p_co2: [{ t: 0, v: 0 }] });
+    void sim;
+  }, 30_000);
+
+  it('starts again with a new net or view', async () => {
+    const { animator } = await runBikes(3600, 60);
+    expect(animator.anim.history!['p_co2']!.length).toBeGreaterThan(2);
+    animator.setModel(bikes, bikeView, { time: 0, marking: bikes.marking, running: [] });
+    expect(animator.anim.history).toEqual({ p_co2: [{ t: 0, v: 0 }] });
+  }, 30_000);
+
+  it('a view without a history keeps no series', async () => {
+    const { animator } = await run(600, 6);
+    expect(animator.anim.history).toEqual({});
+  });
+});

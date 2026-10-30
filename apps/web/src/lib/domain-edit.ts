@@ -22,13 +22,19 @@ import {
   removePoint,
   removeSlot,
   resetEntry,
+  setAppearance,
   setBox,
+  setDisplay,
   setEntryKind,
   setLabel,
   setPass,
   setSensor,
   showEntry,
+  validateDomainView,
+  type Appearance,
+  type CounterDisplay,
   type Decor,
+  type DomainDiagnostic,
   type DomainView,
   type EntryRef,
   type Point,
@@ -239,6 +245,57 @@ export function changeSensor(entry: EntryRef, sensor: string): boolean {
 
 export function changePass(entry: EntryRef, pass: boolean | undefined): boolean {
   return editView((view) => setPass(view, entry, pass));
+}
+
+/**
+ * The errors of rules V10 and V11 (and of the schema inside the new fields) that a change of the
+ * place `entry` would cause at its `display` or `appearance`.
+ */
+function fieldErrors(
+  net: PetriNet,
+  next: DomainView,
+  entry: EntryRef,
+  field: 'display' | 'appearance',
+): DomainDiagnostic[] {
+  const prefix = `places.${entry.key}.${field}`;
+  return validateDomainView(net, next).diagnostics.filter(
+    (d) => d.severity === 'error' && (d.path === prefix || d.path.startsWith(`${prefix}.`)),
+  );
+}
+
+/**
+ * Sets how the counter of a place shows its amount (`undefined` is the plain number), as one undo
+ * step. A display that breaks a rule is not written: the errors come back, to be shown at the
+ * field that was changed.
+ */
+export function changeDisplay(
+  entry: EntryRef,
+  display: CounterDisplay | undefined,
+): DomainDiagnostic[] {
+  const view = getDomainView();
+  if (!view) return [];
+  const net = useEditorStore.getState().net;
+  const errors = fieldErrors(net, setDisplay(view, entry, display), entry, 'display');
+  if (errors.length > 0) return errors;
+  editView((current) => setDisplay(current, entry, display));
+  return [];
+}
+
+/**
+ * Sets how the cases on a place look (`undefined` is the entity of the view), as one undo step.
+ * Errors come back as with `changeDisplay`.
+ */
+export function changeAppearance(
+  entry: EntryRef,
+  appearance: Appearance | undefined,
+): DomainDiagnostic[] {
+  const view = getDomainView();
+  if (!view) return [];
+  const net = useEditorStore.getState().net;
+  const errors = fieldErrors(net, setAppearance(view, entry, appearance), entry, 'appearance');
+  if (errors.length > 0) return errors;
+  editView((current) => setAppearance(current, entry, appearance));
+  return [];
 }
 
 export function changeBox(entry: EntryRef, rect: Rect): boolean {

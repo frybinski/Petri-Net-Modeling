@@ -36,6 +36,7 @@ import {
   viewToText,
 } from '../../lib/domain-view';
 import { formatOrigin } from '../../lib/domain-hover';
+import { overflowMessages, useFillOverflows } from '../../lib/use-overflows';
 import { locateJsonPath, splitPath } from '../../lib/json-path';
 import { openGenerateDialog } from '../../lib/domain-generation';
 import { getViewApi } from '../../lib/view-api';
@@ -440,6 +441,7 @@ export function DomainPanel() {
   const generation = useMemo(() => parseGeneration(storedGeneration), [storedGeneration]);
   const setLogOpen = useGenerationStore((s) => s.setLogOpen);
   const openLlmSettings = useLlmStore((s) => s.openSettings);
+  const overflows = useFillOverflows();
 
   return (
     <aside
@@ -479,6 +481,20 @@ export function DomainPanel() {
                   : en.status.problems(errors, warnings)}
               </span>
             </div>
+            {overflows.length > 0 ? (
+              <ul
+                className="m-0 flex list-none flex-col gap-0.5 p-0 text-xs text-danger"
+                aria-label={en.domain.overflowList}
+                data-testid="domain-overflows"
+              >
+                {overflowMessages(overflows).map((message) => (
+                  <li key={message} className="flex items-start gap-1.5">
+                    <AlertTriangle size={13} aria-hidden="true" className="mt-0.5 shrink-0" />
+                    <span>{message}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             {origins ? (
               <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                 <dt className="text-muted">{en.domain.origin}</dt>
