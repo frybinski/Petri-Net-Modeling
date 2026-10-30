@@ -169,3 +169,43 @@ describe.each([
     expect(replay.metrics().replay?.fitness).toBe(1);
   });
 });
+
+describe('replay of the bicycle frame production (N1): quantity places are not checked against the log', () => {
+  it('replays the exported event log of eight hours with fitness 1, in CSV and in XES', async () => {
+    const net = load('bike-frames');
+    const seconds = 8 * 3600;
+    const sim = createSimulation(net, { seed: 1 });
+    const events: SimEvent[] = [...sim.initialEvents];
+    while (sim.state.time < seconds) events.push(...(await sim.advance(600)));
+    const settings = { ...net.simulation };
+    const files = [
+      ['CSV', { csv: toEventLogCsv(events, net, settings) }],
+      ['XES', { xes: toXes(events, net, settings) }],
+    ] as const;
+    for (const [format, file] of files) {
+      const log = readLog(file, { timeOrigin: net.simulation?.startTime ?? 'first' });
+      expect(log.warnings, format).toEqual([]);
+      // Deliveries and recycling belong to no case: they are not in the file.
+      expect(log.activities, format).not.toContain('Primärstahl anliefern');
+      expect(log.activities, format).not.toContain('Schrott aufbereiten');
+      const { mapping, unmatched } = autoMapActivities(net, log.activities);
+      expect(unmatched, format).toEqual([]);
+      const replay = createReplay(net, log.events, { mapping });
+      const played = await instants(replay, seconds, false);
+      expect(
+        played.events.filter((e) => e.type === 'deviation' || e.type === 'warning'),
+        format,
+      ).toEqual([]);
+      const metrics = replay.metrics();
+      expect(metrics.replay, format).toMatchObject({
+        fitness: 1,
+        missing: 0,
+        remaining: 0,
+        ignored: 0,
+      });
+      expect(metrics.completedCases, format).toBe(sim.metrics().completedCases);
+      expect(metrics.casesInSystem, format).toBe(sim.metrics().casesInSystem);
+      for (const place of metrics.places) expect(place.current, format).toBeGreaterThanOrEqual(0);
+    }
+  }, 60_000);
+});
