@@ -4,19 +4,19 @@ An index of everything in `docs/`. The README in the repository root is the firs
 
 ## Using the tool
 
-| Document                                   | What it is                                                                                                             |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| [format.md](format.md)                     | The `.pn.json` format, types, inscriptions, evaluation rules, validation codes, the P/T firing rule and PNML.          |
-| [expressions.md](expressions.md)           | A short guide to guards and inscriptions (JSONata) for modelers.                                                       |
-| [simulation.md](simulation.md)             | Durations, resources, arrivals, cases, key figures, the event log and its export, controls and limits.                 |
-| [replay.md](replay.md)                     | Replay of event logs (CSV, XES) and live feeds on a net: formats, mapping, rules, fitness, deviations, live API.       |
-| [domain-view.md](domain-view.md)           | The domain view: the mapping and its rules, drawing, animation, editing in place and generation by a language model.   |
-| [analysis.md](analysis.md)                 | Structure, invariants, state space, coverability, DECLARE and LTLf properties, counterexamples, event logs and limits. |
-| [tikz.md](tikz.md)                         | The TikZ export for LaTeX: styles, options and what the output looks like.                                             |
-| [cli.md](cli.md)                           | The command line `pnm`: install from a release or build, every command with its options and exit statuses.             |
-| [server.md](server.md)                     | The server: web app, language model proxy, HTTP interface, project store, security, settings and what the app adds.    |
-| [../deploy/README.md](../deploy/README.md) | Setting up the server with Docker Compose: registry, ingress, update, backup, key rotation, troubleshooting.           |
-| [limitations.md](limitations.md)           | What 1.2.0 does not do, with the reason for each limitation and the way forward.                                       |
+| Document                                   | What it is                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [format.md](format.md)                     | The `.pn.json` format, types, inscriptions, evaluation rules, validation codes, the P/T firing rule and PNML.           |
+| [expressions.md](expressions.md)           | A short guide to guards and inscriptions (JSONata) for modelers.                                                        |
+| [simulation.md](simulation.md)             | Durations, resources, arrivals, cases, quantity places, key figures and indicators, the event log, controls and limits. |
+| [replay.md](replay.md)                     | Replay of event logs (CSV, XES) and live feeds on a net: formats, mapping, rules, fitness, deviations, live API.        |
+| [domain-view.md](domain-view.md)           | The domain view: the mapping and its rules, drawing, animation, editing in place and generation by a language model.    |
+| [analysis.md](analysis.md)                 | Structure, invariants, state space, coverability, DECLARE and LTLf properties, counterexamples, event logs and limits.  |
+| [tikz.md](tikz.md)                         | The TikZ export for LaTeX: styles, options and what the output looks like.                                              |
+| [cli.md](cli.md)                           | The command line `pnm`: install from a release or build, every command with its options and exit statuses.              |
+| [server.md](server.md)                     | The server: web app, language model proxy, HTTP interface, project store, security, settings and what the app adds.     |
+| [../deploy/README.md](../deploy/README.md) | Setting up the server with Docker Compose: registry, ingress, update, backup, key rotation, troubleshooting.            |
+| [limitations.md](limitations.md)           | What 1.3.0 does not do, with the reason for each limitation and the way forward.                                        |
 
 ## Decisions
 
@@ -41,6 +41,7 @@ consequences.
 | [0014](adr/0014-parts-load-on-demand.md)                   | Parts that most sessions never open (analysis, domain view, exports, LLM) load on demand. |
 | [0015](adr/0015-event-log-replay.md)                       | An event log is replayed as a simulation: token replay, deviations as events.             |
 | [0016](adr/0016-server.md)                                 | A small server on node:http: files, threads with hard limits, a positive-list proxy.      |
+| [0017](adr/0017-quantity-places-and-indicators.md)         | A role for amounts (tokens without a case) and indicators defined in the net.             |
 
 ## Plans
 
@@ -60,12 +61,13 @@ The plans of the increments, in German, written before the work and kept as the 
 | [Release 1.0](plan/Release-1.0_Umsetzungsplan.md)                  | The limitations, the consolidation and the release workflow of 1.0.0.                                                  |
 | [D5](plan/D5_Umsetzungsplan.md)                                    | Replay of event logs and live feeds: the simulation with a second source.                                              |
 | [M6](plan/M6_Umsetzungsplan.md)                                    | The server next to Ollama: proxy, interface, project store, image, Compose and ingress.                                |
+| [N1](plan/N1_Umsetzungsplan.md)                                    | The sustainability example: quantity places, indicators and the bicycle frame production.                              |
 
 ## Material
 
 - [eval](eval): the evaluation of language models for the domain view (acceptance A6, to be run with a real model) and of
   the event log export with pm4py (acceptance A8, [report of 2026-10-28](eval/pm4py-2026-10-28.md)).
 - [images](images): the screenshots of the README, made with `scripts/screenshots.mjs`, and [images/review](images/review),
-  the ten examples at three zoom levels and two window widths.
+  the eleven examples at three zoom levels and two window widths.
 - [mockups](mockups/domaenenansicht.html): the HTML mockup of the domain view from which D1 started.
 - [Changelog](../CHANGELOG.md) and [license](../LICENSE).

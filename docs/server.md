@@ -173,7 +173,7 @@ An unknown option is a 400 (a typo is not ignored). Examples (with the answers s
 
 ```sh
 $ curl -s https://pnm.example.org/api/health
-{"ok":true,"app":"petri-net-modeling","version":"1.2.0","name":"aifb-bis-gpu01",
+{"ok":true,"app":"petri-net-modeling","version":"1.3.0","name":"aifb-bis-gpu01",
  "features":{"api":true,"projects":true,"llm":true,"auth":false},
  "llm":{"models":["llama3.1:8b"],"defaultModel":"llama3.1:8b"}}
 

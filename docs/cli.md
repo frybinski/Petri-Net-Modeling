@@ -9,13 +9,13 @@ Every [release](https://github.com/frybinski/Petri-Net-Modeling/releases) carrie
 `pnm-<version>.js`, and its SHA-256 sum. Node 22 is all it needs:
 
 ```sh
-# download pnm-1.2.0.js and pnm-1.2.0.js.sha256 from the page of the release, then
-sha256sum --check pnm-1.2.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.2.0.js.sha256
-node pnm-1.2.0.js --help
-node pnm-1.2.0.js validate my-net.pn.json
+# download pnm-1.3.0.js and pnm-1.3.0.js.sha256 from the page of the release, then
+sha256sum --check pnm-1.3.0.js.sha256     # macOS: shasum -a 256 -c pnm-1.3.0.js.sha256
+node pnm-1.3.0.js --help
+node pnm-1.3.0.js validate my-net.pn.json
 ```
 
-The file starts with a shebang, so `chmod +x pnm-1.2.0.js` lets you call it as `./pnm-1.2.0.js`; put it on the `PATH`
+The file starts with a shebang, so `chmod +x pnm-1.3.0.js` lets you call it as `./pnm-1.3.0.js`; put it on the `PATH`
 under the name `pnm` to use the examples below as they are written. `pnm --version` prints the version.
 
 **Build it yourself.** In a clone of the repository:
@@ -38,7 +38,7 @@ colors unless standard output is a terminal (and `NO_COLOR` is unset).
 
 ### `pnm validate <net> [--json]`
 
-Checks the net (all diagnostic codes of the file format) and, if the net has a domain view, the rules V1 to V8.
+Checks the net (all diagnostic codes of the file format) and, if the net has a domain view, the rules V1 to V9.
 Errors give exit status 1, warnings do not.
 
 ```
@@ -46,7 +46,9 @@ $ pnm validate examples/parcel-center.pn.json
 examples/parcel-center.pn.json: valid (12 places, 9 transitions, 27 arcs, with domain view)
 ```
 
-`--json` prints `{ ok, errors, warnings, diagnostics, domainView: { present, ok, diagnostics } }`.
+`--json` prints `{ ok, errors, warnings, diagnostics, domainView: { present, ok, diagnostics } }`. An indicator that
+points to something the net does not have (`INDICATOR_INVALID`) is reported with its path, for example
+`simulation.indicators[0].measure.of`: in the table in place of the element, in the JSON as `path` of the diagnostic.
 
 ### `pnm simulate <net> [options]`
 
@@ -80,6 +82,30 @@ Paketzentrum: simulated 2 h 00 min (7200 s), seed 1
 PLACE           ROLE      NOW    MEAN  MAX   MEAN WAIT
 ...
 Wrote out.csv (6394 rows)
+```
+
+A net with **indicators** ([simulation.md](simulation.md#indicators)) gets a table of them before the tables of places
+and resources, and the JSON of `--metrics` has `metrics.indicators`, a list of `{ id, label, unit, value, digits }`
+(absent for other nets; `value` is `null` while there is nothing to relate to). `--metrics -` prints that JSON to
+standard output, which is what a script reads (there is no separate `--json` for `simulate`). The same list is in the
+answer of `POST /api/v1/simulate`.
+
+```
+$ pnm simulate examples/bike-frames.pn.json --seconds 28800
+Fahrradrahmen-Fertigung: simulated 8 h 00 min (28800 s), seed 1
+  events             682
+  cases completed    39  (5.57 per hour)
+  cases in system    2
+  cycle time         mean 31 min 48 s, max 1 h 19 min
+
+INDICATOR             VALUE  UNIT
+CO₂e je Rahmen         13.4  kg
+Material je Rahmen      3.1  kg
+Recyclinganteil          29  %
+Restabfall je Rahmen   0.21  kg
+
+PLACE                 ROLE      NOW    MEAN  MAX   MEAN WAIT
+...
 ```
 
 ### `pnm replay <net> <log> [options]`
@@ -205,7 +231,7 @@ writes PNML.
 
 ### `pnm domain check|generic|generate <net>`
 
-- `check [--view file] [--json]`: rules V1 to V8 for the view of the net or for a view file. Exit 1 on errors or if there
+- `check [--view file] [--json]`: rules V1 to V9 for the view of the net or for a view file. Exit 1 on errors or if there
   is no view.
 - `generic [-o file] [--view-only]`: adds the generic view (a view written by a model is replaced).
 - `generate --description "…" --base-url <url> --model <name> [--api-key <key>] [-o file]`: lets a language model make
