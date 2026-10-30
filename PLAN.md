@@ -209,6 +209,11 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Voreinstellung „Server (Ollama)“ ohne Schlüssel im Browser.
 - Nicht Teil von M6: Echtzeit-Zusammenarbeit (Yjs), Konten, „Run on server“ in der App (siehe `docs/limitations.md`).
 
+### N1 · Beispiel Nachhaltigkeit (Mengenstellen und Kennzahlen) · geplant (1.3.0)
+- Beispiel „Fahrradrahmen-Fertigung“: CO₂e, Materialverbrauch, Recyclinganteil und Restabfall in Simulation und
+  Domänenansicht. Dafür Mengenstellen (`role: 'quantity'`, Marken ohne Fall) und frei definierbare Kennzahlen
+  (`simulation.indicators`). Plan `docs/plan/N1_Umsetzungsplan.md`.
+
 ## 5. Projektstruktur
 
 ```
@@ -260,6 +265,8 @@ M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im K
 die Schnittstelle für Werkzeuge und speichert Projekte; die Einschränkungen 8, 22 und 23 sind im Server-Modus behoben. Zum
 Betrieb am AIFB fehlen die Antworten der Betreiber (Ingress, Netznamen, Hostname, GitLab-Gruppe) und die Einrichtung nach
 `deploy/README.md`.
+
+In Arbeit ist N1 (Beispiel Nachhaltigkeit, `docs/plan/N1_Umsetzungsplan.md`).
 
 Offen sind optionale Bausteine:
 
