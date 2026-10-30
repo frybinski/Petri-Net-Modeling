@@ -7,7 +7,8 @@
 //   node scripts/screenshots.mjs --review [--out docs/images/review] [--themes light]
 //
 // With `--review` it makes the review pictures instead: every example at three zoom levels
-// (detail 100 %, mid 55 %, far 30 %) and two window widths (`<example>_<theme>_<width>_<level>.png`).
+// (detail 100 %, mid 55 %, far 30 %) and two window widths (`<example>_<theme>_<width>_<level>.png`);
+// `--only bike-frames` makes them for one example.
 //
 // Without PNM_CHROMIUM_PATH the browser that Playwright installed is used. The simulations are
 // seeded, so the pictures only differ by the moment at which they are taken.
@@ -254,7 +255,8 @@ try {
     const { readdirSync } = await import('node:fs');
     const ids = readdirSync(join(root, 'examples'))
       .filter((file) => file.endsWith('.pn.json'))
-      .map((file) => file.replace(/\.pn\.json$/, ''));
+      .map((file) => file.replace(/\.pn\.json$/, ''))
+      .filter((id) => only.length === 0 || only.includes(id));
     for (const theme of themes) {
       for (const [width, height] of Object.entries(WIDTHS)) {
         for (const id of ids) {

@@ -17,7 +17,7 @@
       "name": "Rohrlager (kg)",
       "role": "quantity",
       "position": {
-        "x": 200,
+        "x": 260,
         "y": 400
       }
     },
@@ -281,7 +281,7 @@
         "max": 3600
       },
       "position": {
-        "x": 60,
+        "x": 40,
         "y": 400
       }
     }
