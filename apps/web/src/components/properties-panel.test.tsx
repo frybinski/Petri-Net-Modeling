@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../store/editor-store';
+import { useUiStore } from '../store/ui-store';
 import { PropertiesPanel } from './properties-panel';
 import { TooltipProvider } from './ui/tooltip';
 
@@ -197,6 +198,21 @@ describe('the quantity role of a place', () => {
     await user.selectOptions(screen.getByTestId('prop-role-quantity'), '');
     expect(store().net.places.find((p) => p.id === done)).not.toHaveProperty('role');
     expect(screen.getByTestId('prop-role-fixed')).toHaveTextContent('Sink');
+  });
+});
+
+describe('indicators in the net properties', () => {
+  it('have a section of their own under the simulation settings', async () => {
+    const user = userEvent.setup();
+    build();
+    store().select([]);
+    renderPanel();
+    expect(screen.getByTestId('indicators-section')).toBeInTheDocument();
+    expect(screen.getByTestId('indicator-empty')).toBeInTheDocument();
+    // The button opens the dialog (which the app mounts), through the UI store.
+    await user.click(screen.getByTestId('indicator-add'));
+    expect(useUiStore.getState().indicatorDialog).toEqual({ index: null });
+    useUiStore.getState().closeIndicatorDialog();
   });
 });
 

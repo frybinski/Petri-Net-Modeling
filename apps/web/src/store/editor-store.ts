@@ -29,6 +29,7 @@ import {
   setDomainViewGeneration as coreSetDomainViewGeneration,
   setProfile as coreSetProfile,
   setProperties as coreSetProperties,
+  setIndicators as coreSetIndicators,
   setSimulationSettings as coreSetSimulationSettings,
   setTokens as coreSetTokens,
   setWeight,
@@ -55,6 +56,7 @@ import {
   type Place,
   type Position,
   type Profile,
+  type Indicator,
   type SimulationSettings,
   type Token,
   type Transition,
@@ -279,6 +281,8 @@ export interface EditorState {
   renameNet(name: string): void;
   /** Changes the simulation settings of the net; a key set to `undefined` is removed. */
   updateSimulationSettings(patch: Partial<SimulationSettings>): void;
+  /** Replaces the indicators of the net (an empty list removes them): one undo step. */
+  setIndicators(indicators: readonly Indicator[]): void;
   /** Sets the domain view of the net, or removes it with `undefined`. One undo step. */
   setDomainView(view: unknown): void;
   /**
@@ -1146,6 +1150,9 @@ export const useEditorStore = create<EditorState>()((set, get) => {
     },
     updateSimulationSettings(patch) {
       edit((net) => coreSetSimulationSettings(net, patch));
+    },
+    setIndicators(indicators) {
+      edit((net) => coreSetIndicators(net, indicators));
     },
     setDomainView(view) {
       edit((net) => coreSetDomainView(net, view));

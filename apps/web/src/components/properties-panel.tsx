@@ -20,6 +20,7 @@ import { NumberField, SelectField, TextField } from './ui/fields';
 import { TokensSection } from './tokens/tokens-section';
 import { TypesSection } from './types/types-section';
 import { useUiStore } from '../store/ui-store';
+import { IndicatorsSection } from './indicators/indicators-section';
 import { InscriptionField } from './inscription-field';
 import { arcDirection, boundVariables } from '../lib/inscriptions';
 import {
@@ -109,6 +110,9 @@ function NetProperties() {
         </Section>
       ) : null}
       <SimulationSettingsSection />
+      <Section title={en.indicators.title}>
+        <IndicatorsSection />
+      </Section>
       <Section title={en.properties.nothingSelected}>
         <p className="m-0 text-sm text-muted">{en.properties.nothingSelectedHint}</p>
       </Section>
