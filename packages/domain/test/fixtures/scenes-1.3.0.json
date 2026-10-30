@@ -1,0 +1,20 @@
+{
+  "parcel-center": {
+    "static": "343247eba1aef1d7aeb7f2880089c3211642f0ddade622964c16b299eb228865",
+    "marking": "5b6db075e79d60ceb329b36e9dd21b0314e3b1962edcb6d93c3217d39599a723",
+    "frames": "4ef6ed2ee90c19f70f37e8c8322548b806454e1174db1c64835eac66197d9b9d",
+    "frameCount": "73"
+  },
+  "smart-office": {
+    "static": "2cfd963581002ef98b8c8ca08d78ce4caf298939df52c43b02ed7784384c553a",
+    "marking": "ccaa904dd218def34a82523db99b866be5358596723a79d15c3edefb3a57cd2e",
+    "frames": "6a753d284800b8260e9f7d95867033bac9c6b37431f57f8ef5cb1e331da8c45f",
+    "frameCount": "73"
+  },
+  "bike-frames": {
+    "static": "1af2c4e2e587a6ec65f74997d7afddf48953b707afc7a8494b344cf826c17aba",
+    "marking": "3f353cdc49f415e3a774b30ed0ce2c4fa92e0297bae2c38a3fd9120955265040",
+    "frames": "5dfec3f87333355ab1a6aef1d18a5bdff8b0a08afa016d9579b1521dbd0fd473",
+    "frameCount": "73"
+  }
+}
