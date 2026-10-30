@@ -14,6 +14,7 @@ import { distance, pointInRect } from './geometry';
 import {
   cellSize,
   cellStyleOf,
+  counterBoxLayout,
   spriteSize,
   withHighlight,
   type CellState,
@@ -182,19 +183,17 @@ export function buildDynamicScene(
       });
       continue;
     }
-    const [x, y, w, h] = entry.box;
-    const small = h < 56 || w < 70;
-    const textX = small ? x + w - 8 : x + w / 2;
-    const textY = small ? y + h / 2 : y + h / 2 + 14;
+    const boxLayout = counterBoxLayout(entry.box);
+    const [textX, textY] = boxLayout.text;
     if (pulse > 0) {
       layers.tokens.push({
         layer: 'tokens',
         elementId: place.id,
         op: 'rect',
-        x: textX - (small ? 24 : 20),
-        y: textY - 11,
-        w: small ? 28 : 40,
-        h: 22,
+        x: boxLayout.large ? textX - 70 : textX - (boxLayout.small ? 24 : 20),
+        y: boxLayout.large ? textY - 22 : textY - 11,
+        w: boxLayout.large ? 140 : boxLayout.small ? 28 : 40,
+        h: boxLayout.large ? 44 : 22,
         radius: 6,
         fill: 'ok',
         alpha: 0.35 * pulse,
@@ -207,10 +206,10 @@ export function buildDynamicScene(
       x: textX,
       y: textY,
       text: String(shown),
-      size: small ? 13 : 15,
+      size: boxLayout.textSize,
       weight: 700,
       tone: 'ink',
-      align: small ? 'right' : 'center',
+      align: boxLayout.align,
       baseline: 'middle',
       mono: true,
     });

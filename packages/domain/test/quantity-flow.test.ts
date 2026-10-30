@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_ANIMATION,
   buildDynamicScene,
+  buildScene,
   buildStaticScene,
+  counterBoxLayout,
   INSTANT,
   applyEvents,
   flowEnd,
@@ -267,6 +269,63 @@ describe('flow markers for amounts on quantity places', () => {
     // A later bundle keeps a marker that has not ended.
     const next = applyEvents(anim, [], afterStart, afterStart, 1100, options);
     expect(next.flows).toEqual(anim.flows);
+  });
+});
+
+describe('counter boxes', () => {
+  it('keep the layout of 1.2.0 for small and ordinary boxes', () => {
+    // A strip of 72 x 36, as the office exit of the smart office is.
+    expect(counterBoxLayout([34, 472, 72, 36])).toEqual({
+      small: true,
+      large: false,
+      glyph: [48, 490],
+      glyphSize: 16,
+      text: [98, 490],
+      textSize: 13,
+      align: 'right',
+    });
+    // A column of 78 x 440, as the loading area of the parcel center is.
+    expect(counterBoxLayout([1096, 100, 78, 440])).toEqual({
+      small: false,
+      large: false,
+      glyph: [1135, 308],
+      glyphSize: 26,
+      text: [1135, 334],
+      textSize: 15,
+      align: 'center',
+    });
+  });
+
+  it('draw the number of a large box (200 x 72 px or more) as a headline figure', () => {
+    const large = counterBoxLayout([900, 18, 276, 76]);
+    expect(large).toMatchObject({ small: false, large: true, textSize: 32, align: 'center' });
+    expect(large.text[0]).toBe(1038);
+    // The glyph above the number, both inside the box.
+    expect(large.glyph[1]).toBeLessThan(large.text[1]);
+    expect(large.text[1] + large.textSize / 2).toBeLessThanOrEqual(18 + 76);
+    // 199 px wide or 71 px high is not large.
+    expect(counterBoxLayout([0, 0, 199, 80]).large).toBe(false);
+    expect(counterBoxLayout([0, 0, 240, 71]).large).toBe(false);
+  });
+
+  it('are drawn the same way in the static and the dynamic scene', () => {
+    const big = structuredClone(view);
+    big.places['co2'] = { kind: 'sink', box: [500, 20, 276, 76], label: 'CO2e (kg)' };
+    const emptyLayout = layoutTokens(net, big, state({}));
+    const sceneOfBig = buildStaticScene(net, big);
+    // The editor draws the initial marking with `buildScene`.
+    const staticText = buildScene(net, big, { co2: [1] }).layers.tokens.find(
+      (c) => c.op === 'text' && c.elementId === 'co2',
+    );
+    const dynamicText = buildDynamicScene(
+      layoutContext(net, big),
+      sceneOfBig,
+      emptyLayout,
+      EMPTY_ANIMATION,
+      { now: 0 },
+    ).layers.tokens.find((c) => c.op === 'text' && c.elementId === 'co2');
+    expect(staticText).toMatchObject({ size: 32, x: 638 });
+    expect(dynamicText).toMatchObject({ size: 32, x: 638, y: (staticText as { y: number }).y });
   });
 });
 
