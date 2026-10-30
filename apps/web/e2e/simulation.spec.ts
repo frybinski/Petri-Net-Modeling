@@ -171,6 +171,10 @@ test('keyboard: Space plays and pauses, period steps, comma steps back, R resets
   const t = await clockSeconds(page);
   await page.keyboard.press('.');
   await expect.poll(() => clockSeconds(page)).toBeGreaterThanOrEqual(t);
+  // The step is computed asynchronously and only then is there something to step back from: a comma
+  // that is pressed before it has landed finds an empty history, and the step lands afterwards.
+  await expect(page.getByTestId('sim-back')).toBeEnabled();
+  await expect(page.getByTestId('sim-step-next')).toBeEnabled();
   await page.keyboard.press(',');
   await expect.poll(() => clockSeconds(page)).toBe(t);
   await page.keyboard.press('r');
