@@ -1,6 +1,14 @@
 export * from './types';
 export * from './random';
 export * from './metrics';
+export {
+  counterKey,
+  formatIndicatorValue,
+  indicatorValue,
+  indicatorValues,
+  type IndicatorInput,
+  type IndicatorValue,
+} from './indicators';
 export { createSimulation, initialMarking, isTimedNet } from './engine';
 export { DEFAULT_CASE_PREFIX, DEFAULT_START_TIME } from './engine';
 export * from './protocol';

@@ -3,6 +3,7 @@ import {
   countsToMarking,
   findEnabled,
   findEnabledPt,
+  isCaselessRole,
   isSourceTransition,
   markingToCounts,
   placeRoles,
@@ -79,6 +80,29 @@ export function isTimedNet(net: PetriNet): boolean {
   );
 }
 
+/**
+ * The source transitions that bring in no case: those that put tokens on quantity places and on
+ * nothing but quantity and resource places (a delivery of steel). Their arrivals fire without a
+ * `spawn` and without a case. A source transition with other outputs, or with none, brings in
+ * cases as before.
+ */
+export function caselessSourceIds(
+  net: PetriNet,
+  roles: ReadonlyMap<Id, PlaceRole>,
+  sourceIds: ReadonlySet<Id>,
+): Set<Id> {
+  const result = new Set<Id>();
+  for (const id of sourceIds) {
+    const outputs = net.arcs
+      .filter((a) => a.source === id && roles.has(a.target))
+      .map((a) => roles.get(a.target));
+    if (outputs.includes('quantity') && outputs.every((role) => isCaselessRole(role))) {
+      result.add(id);
+    }
+  }
+  return result;
+}
+
 function timingMax(timing: Timing): number {
   switch (timing.kind) {
     case 'fixed':
@@ -114,6 +138,7 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
   const sourceIds = new Set(
     transitions.filter((t) => isSourceTransition(net, t.id)).map((t) => t.id),
   );
+  const caselessSources = caselessSourceIds(net, roles, sourceIds);
   const bounded = net.places.filter((p) => p.capacity !== undefined);
 
   let seed = options.seed ?? settings.seed ?? 1;
@@ -187,13 +212,14 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
     history = [];
     metrics.setState(createMetrics(net, warmup).getState());
     out = [];
-    // Tokens that are there from the start belong to cases of their own (resources do not).
+    // Tokens that are there from the start belong to cases of their own (resources and
+    // quantities do not).
     for (const place of net.places) {
       const tokens = s.marking[place.id] ?? [];
       if (tokens.length === 0) continue;
-      const resource = roles.get(place.id) === 'resource';
+      const caseless = isCaselessRole(roles.get(place.id));
       s.meta[place.id] = tokens.map(() => {
-        if (resource) return newMeta(undefined, 0);
+        if (caseless) return newMeta(undefined, 0);
         const id = newCase();
         emit({ type: 'spawn', caseId: id });
         return newMeta(id, 0);
@@ -379,7 +405,7 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
     const caseIds: string[] = [];
     if (forcedCase !== undefined) caseIds.push(forcedCase);
     for (const ref of consumed) {
-      if (ref.caseId !== undefined && roles.get(ref.placeId) !== 'resource') {
+      if (ref.caseId !== undefined && !isCaselessRole(roles.get(ref.placeId))) {
         if (!caseIds.includes(ref.caseId)) caseIds.push(ref.caseId);
       }
     }
@@ -417,11 +443,11 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
     const inherited = firing.caseIds[0];
     const produced: TokenRef[] = [];
     for (const [placeId, tokens] of Object.entries(firing.binding.produces)) {
-      const resource = roles.get(placeId) === 'resource';
+      const caseless = isCaselessRole(roles.get(placeId));
       const values = [...(s.marking[placeId] ?? [])];
       const metas = [...(s.meta[placeId] ?? [])];
       for (const token of tokens) {
-        const meta = newMeta(resource ? undefined : inherited, s.time);
+        const meta = newMeta(caseless ? undefined : inherited, s.time);
         values.push(token);
         metas.push(meta);
         produced.push({
@@ -484,6 +510,11 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
       return;
     }
     blocked.delete(transition.id);
+    if (caselessSources.has(transition.id)) {
+      // A delivery of material or the like: it belongs to no case.
+      begin(binding);
+      return;
+    }
     const id = newCase();
     emit({ type: 'spawn', transitionId: transition.id, caseId: id });
     begin(binding, id);
@@ -656,7 +687,7 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
     remember();
     idleReported = false;
     startsPending = true;
-    if (sourceIds.has(transitionId)) {
+    if (sourceIds.has(transitionId) && !caselessSources.has(transitionId)) {
       const id = newCase();
       emit({ type: 'spawn', transitionId, caseId: id });
       begin(binding, id);
@@ -675,7 +706,7 @@ export function createSimulation(net: PetriNet, options: SimOptions = {}): Simul
     remember();
     idleReported = false;
     startsPending = true;
-    if (sourceIds.has(binding.transitionId)) {
+    if (sourceIds.has(binding.transitionId) && !caselessSources.has(binding.transitionId)) {
       const id = newCase();
       emit({ type: 'spawn', transitionId: binding.transitionId, caseId: id });
       begin(binding, id);

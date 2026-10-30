@@ -1,5 +1,6 @@
 import {
   computeBindings,
+  isCaselessRole,
   isSourceTransition,
   placeRoles,
   type EnabledBinding,
@@ -128,6 +129,9 @@ export function buildReplay(
   const sourceIds = new Set(
     net.transitions.filter((t) => isSourceTransition(net, t.id)).map((t) => t.id),
   );
+
+  /** Quantities are not checked against the log: they count neither as consumed nor as produced. */
+  const counts = (ref: TokenRef): boolean => roles.get(ref.placeId) !== 'quantity';
 
   const countOf = (inscription: string | undefined, weight: number, input: boolean): number => {
     if (isPt || !input || inscription === undefined || inscription.trim() === '') return weight;
@@ -398,7 +402,7 @@ export function buildReplay(
       binding: {},
       consumed: refs,
     });
-    consumed += refs.length;
+    consumed += refs.filter(counts).length;
     return firing;
   }
 
@@ -407,21 +411,23 @@ export function buildReplay(
     s.running = s.running.filter((f) => f.id !== firing.id);
     const inherited = firing.caseIds[0];
     const tokensOfCase = Object.entries(firing.binding.consumes)
-      .filter(([placeId]) => roles.get(placeId) !== 'resource')
+      .filter(([placeId]) => !isCaselessRole(roles.get(placeId)))
       .flatMap(([, tokens]) => tokens);
     const base = tokensOfCase[0];
     const refs: TokenRef[] = [];
     for (const { placeId, count } of outputsOf.get(firing.transitionId) ?? []) {
       const resource = roles.get(placeId) === 'resource';
+      const caseless = isCaselessRole(roles.get(placeId));
       // A resource is given back as it was taken.
       const returned = resource ? [...(firing.binding.consumes[placeId] ?? [])] : [];
       const values = [...(s.marking[placeId] ?? [])];
       const metas = [...(s.meta[placeId] ?? [])];
       for (let k = 0; k < count; k += 1) {
-        const value: Token = resource
+        // A quantity is a plain count: its tokens carry neither a case nor data.
+        const value: Token = caseless
           ? (returned.shift() ?? 1)
           : tokenValue(inherited ?? '', attributes, base);
-        const meta = newMeta(resource ? undefined : inherited, s.time);
+        const meta = newMeta(caseless ? undefined : inherited, s.time);
         values.push(value);
         metas.push(meta);
         refs.push({
@@ -440,7 +446,7 @@ export function buildReplay(
       caseIds: [...firing.caseIds],
       produced: refs,
     });
-    produced += refs.length;
+    produced += refs.filter(counts).length;
   }
 
   // --- the beginning of a case ---------------------------------------------------------------------
@@ -461,7 +467,7 @@ export function buildReplay(
     seenOrder.push(caseId);
     s.counters.case += 1;
     const inputs = (inputsOf.get(transition.id) ?? []).filter(
-      (f) => roles.get(f.placeId) !== 'resource',
+      (f) => !isCaselessRole(roles.get(f.placeId)),
     );
     if (inputs.length === 0) {
       emit({
@@ -557,7 +563,7 @@ export function buildReplay(
     // An activity that joins several case places takes the oldest token of each, whichever case
     // it belongs to (cases overtake each other). The log then lists the activity once per case,
     // at the same time: those cases carry out one firing.
-    const joins = inputs.filter((f) => roles.get(f.placeId) !== 'resource').length >= 2;
+    const joins = inputs.filter((f) => !isCaselessRole(roles.get(f.placeId))).length >= 2;
     const fellows = joins ? fellowsOf(item) : null;
     /** The cases whose tokens the firing takes, in the order of consumption. */
     const participants: string[] = [];
@@ -565,10 +571,14 @@ export function buildReplay(
     const consumes: Record<Id, Token[]> = {};
     for (const { placeId, count } of inputs) {
       const resource = roles.get(placeId) === 'resource';
+      const quantity = roles.get(placeId) === 'quantity';
       const values = [...(s.marking[placeId] ?? [])];
       const metas = [...(s.meta[placeId] ?? [])];
       const picked: number[] = [];
-      if (resource) {
+      if (quantity) {
+        // An amount belongs to no case: the oldest tokens, whichever they are.
+        for (let i = 0; i < values.length && picked.length < count; i += 1) picked.push(i);
+      } else if (resource) {
         const free = values.map((_, i) => i);
         while (picked.length < count && free.length > 0) {
           const at = useRandom
@@ -604,17 +614,20 @@ export function buildReplay(
           metas.splice(index, 1);
         });
       setPlace(placeId, values, metas);
-      // What the activity found missing is created, reported, and taken on the spot.
+      // What the activity found missing is created, reported, and taken on the spot. A quantity
+      // is made up without a word: the log does not mention the deliveries that fill it up.
       for (let k = picked.length; k < count; k += 1) {
-        const meta = newMeta(resource ? undefined : caseId, s.time);
-        const value: Token = resource ? 1 : tokenValue(caseId, item.attributes);
-        missing += 1;
-        missingBy = { ...missingBy, [placeId]: (missingBy[placeId] ?? 0) + 1 };
-        deviate(
-          'missing',
-          `"${nameOfTransition(transition.id)}" of case ${caseId} found no token on "${nameOfPlace(placeId)}"; one was created.`,
-          { caseId, transitionId: transition.id, placeId, activity: item.activity },
-        );
+        const meta = newMeta(resource || quantity ? undefined : caseId, s.time);
+        const value: Token = resource || quantity ? 1 : tokenValue(caseId, item.attributes);
+        if (!quantity) {
+          missing += 1;
+          missingBy = { ...missingBy, [placeId]: (missingBy[placeId] ?? 0) + 1 };
+          deviate(
+            'missing',
+            `"${nameOfTransition(transition.id)}" of case ${caseId} found no token on "${nameOfPlace(placeId)}"; one was created.`,
+            { caseId, transitionId: transition.id, placeId, activity: item.activity },
+          );
+        }
         taken.push(value);
         refs.push({
           placeId,
@@ -841,7 +854,7 @@ export function buildReplay(
     let remaining = 0;
     for (const [placeId, metas] of Object.entries(s.meta)) {
       const role = roles.get(placeId);
-      if (role === 'sink' || role === 'resource') continue;
+      if (role === 'sink' || isCaselessRole(role)) continue;
       for (const meta of metas)
         if (meta.caseId !== undefined && finished.has(meta.caseId)) remaining += 1;
     }

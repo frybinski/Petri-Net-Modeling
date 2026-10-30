@@ -345,6 +345,56 @@ describe('roundtrip through PNML', () => {
     expect(toPnml(net)).toBe(xml);
   });
 
+  it('keeps the quantity role and the indicators', async () => {
+    const original = parseNetText(
+      readFileSync(join(examplesDir, 'producer-consumer.pn.json'), 'utf8'),
+    );
+    // An arc from a transition to a place, for `via`.
+    const output = original.arcs.find((a) => original.transitions.some((t) => t.id === a.source))!;
+    const first = original.places.find((p) => p.id === output.target)!;
+    first.role = 'quantity';
+    original.simulation = {
+      seed: 4,
+      indicators: [
+        {
+          id: 'share',
+          label: 'Share',
+          unit: '%',
+          measure: { kind: 'inflow', of: first.id, via: output.source },
+          per: { kind: 'tokens', of: first.id },
+          factor: 100,
+          digits: 2,
+        },
+        {
+          id: 'rate',
+          label: 'Rate',
+          measure: { kind: 'firings', of: original.transitions[0]!.id },
+          per: 'hour',
+        },
+      ],
+    };
+    const xml = toPnml(original);
+    const { net, warnings } = await fromPnml(xml);
+    expect(net.places.find((p) => p.id === first.id)!.role).toBe('quantity');
+    expect(net.simulation).toEqual(original.simulation);
+    expect(serializeNet(net)).toBe(serializeNet(original));
+    expect(warnings.filter((w) => /indicator/i.test(w))).toEqual([]);
+  });
+
+  it('leaves out indicators that are not valid and says so', async () => {
+    const original = parseNetText(
+      readFileSync(join(examplesDir, 'producer-consumer.pn.json'), 'utf8'),
+    );
+    original.simulation = { seed: 2 };
+    const xml = toPnml(original).replace(
+      '"seed":2',
+      '"seed":2,"indicators":[{"id":"x","label":"x","measure":{"kind":"average","of":"p"}}]',
+    );
+    const { net, warnings } = await fromPnml(xml);
+    expect(net.simulation).toEqual({ seed: 2 });
+    expect(warnings.some((w) => /indicators in the file are not valid/.test(w))).toBe(true);
+  });
+
   it('keeps the list of properties', async () => {
     const original = parseNetText(
       readFileSync(join(examplesDir, 'producer-consumer.pn.json'), 'utf8'),
