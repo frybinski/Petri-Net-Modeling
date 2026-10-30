@@ -76,9 +76,9 @@ the registry can stay inside the KIT network. The pipeline is `.gitlab-ci.yml` i
    runner. If the runners cannot reach Docker Hub or `gcr.io`, set the variables `NODE_IMAGE` (base of the container
    image), `CHECK_IMAGE` (runs lint and tests, default `node:22-bookworm-slim`) and `KANIKO_IMAGE` under _Settings > CI/CD >
    Variables_ (for example `NODE_IMAGE=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22-alpine`).
-5. **A release builds an image.** When a tag `v1.3.0` arrives through the mirror, the pipeline runs lint, format check,
+5. **A release builds an image.** When a tag `v1.4.0` arrives through the mirror, the pipeline runs lint, format check,
    typecheck, tests and build, builds the image from `deploy/Dockerfile` and pushes it as
-   `<registry>/<group>/<project>:1.3.0`, `:1.3.0-<short commit>` and `:latest` (not for pre-releases). The job log and the
+   `<registry>/<group>/<project>:1.4.0`, `:1.4.0-<short commit>` and `:latest` (not for pre-releases). The job log and the
    artifact `image.txt` say which image it is. Branches and merge requests run the same checks and build the image without
    pushing it. The first run is also the test of the pipeline file itself: look at _Build > Pipelines_ and, if GitLab
    complains about the file, at _Build > Pipeline editor_.
@@ -117,7 +117,7 @@ On `aifb-bis-gpu01`, as the user that runs Docker:
 
 ```sh
 # 1. The deploy folder. Any way to get these files here is fine; the mirror needs a login, GitHub does not.
-git clone --depth 1 --branch v1.3.0 https://github.com/frybinski/Petri-Net-Modeling.git
+git clone --depth 1 --branch v1.4.0 https://github.com/frybinski/Petri-Net-Modeling.git
 cd Petri-Net-Modeling/deploy
 ```
 
@@ -143,7 +143,7 @@ What to set in `.env` (every variable is explained in the file):
 | Variable                                  | Value                                                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `PNM_IMAGE`                               | `<registry>/<group>/<project>` from step 1.3                                                                    |
-| `PNM_VERSION`                             | a fixed version, for example `1.3.0`. Never `latest`                                                            |
+| `PNM_VERSION`                             | a fixed version, for example `1.4.0`. Never `latest`                                                            |
 | `PNM_INGRESS_NETWORK`                     | the Docker network of the ingress (see below)                                                                   |
 | `PNM_PUBLIC_URL`                          | the address users type, `https://<host name>`                                                                   |
 | `PNM_HOST`                                | the host name, if you use `compose.traefik.yaml`                                                                |
@@ -178,7 +178,7 @@ If you want a password for the whole instance as well (share links keep working 
 `PNM_BASIC_AUTH`:
 
 ```sh
-printf '%s' 'the password' | docker run --rm -i registry.gitlab.kit.edu/<group>/petri-net-modeling:1.3.0 node server.js hash-password alice
+printf '%s' 'the password' | docker run --rm -i registry.gitlab.kit.edu/<group>/petri-net-modeling:1.4.0 node server.js hash-password alice
 # prints alice:scrypt:<salt>:<hash>
 ```
 
@@ -343,7 +343,7 @@ An update is a change of the version, not a build on the host:
 
 ```sh
 # 1. Look at the changelog of the new version (CHANGELOG.md), then:
-$EDITOR .env                      # PNM_VERSION=1.3.0
+$EDITOR .env                      # PNM_VERSION=1.4.0
 docker compose pull
 docker compose up -d              # replaces the container; the data volume stays
 docker compose ps && ./smoke-test.sh https://pnm.example.org

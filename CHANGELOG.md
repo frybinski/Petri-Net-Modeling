@@ -2,6 +2,85 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.4.0: Quantities as graphics, cases by stage
+
+Increment N2. Amounts no longer have to be numbers only, and a case no longer looks the same from the first order to the
+shipment. A counter of the domain view can draw its amount as a **fill level** or as a **pictogram** with a curve over time,
+and a case is drawn as what it is at its stage: an order, tubes, a bare frame, a coated frame, a parcel. Both follow the
+fidelity of the method: the picture is proportional to the number of tokens, the scale is stated, an overflow is reported
+and not hidden (K3), and a picture exists only for the role that can have it (K4). The file format stays `1.0`; all new
+fields are optional and the views of 1.3.0 draw as before. The rules are in [docs/domain-view.md](docs/domain-view.md), the
+reasons in [ADR 0018](docs/adr/0018-quantity-graphics-and-appearance.md), the plan in
+[docs/plan/N2_Umsetzungsplan.md](docs/plan/N2_Umsetzungsplan.md).
+
+### Added
+
+- **`display` of a counter** (`pool`, `source`, `sink`): `style: 'fill'` (a container with the liquid at `min(count, max) /
+max`, yellow below `low`), `style: 'pictogram'` (Isotype: one symbol for every `per` tokens, the rest as a partly filled
+  symbol, a legend `1 ☁ = 50 kg` with the unit of `display.unit` or of the label, a visible `+N` when the symbols do not fit,
+  never made smaller) and `history: true` (a step curve of the count over the simulated time: one point per event, the last
+  eight hours, at most 500 points with the minimum and maximum of merged windows). The number is drawn in every style. A
+  count above `max` fills the container, draws a red border and a mark `213 > 200`, and is named in the status of the view
+  ("Fill level exceeded: Rohrlager 213 > 200", in the panel and in the status bar). Symbols for amounts: `co2` (a cloud),
+  `material`, `scrap`, `waste`, `energy`, `water` and `dot`; a sink of cases can use the sprites as symbols.
+- **Flow markers carry the symbol** of their place (a cloud of CO₂ rises a little while it goes) and the number.
+- **`appearance` of the cases on a place** (`queue`, `conveyor`, `buffer`, `source`, `sink`): a `sprite` and an optional
+  `tint`, which is a token of the palette (`accent`, `ok`, `warn`, `danger`, `info`, `neutral`), never a free color. A case is
+  drawn as the place it lies on looks; while a firing holds it, it keeps the look of the place it was taken from and
+  changes at the end of the firing within 250 ms (at once with reduced motion and at the top speed, and in a replay).
+  A case that goes into a counter without a look of its own is absorbed as it is. New sprites **`frame`** (a bicycle frame in
+  the diamond shape, no wheels), **`bicycle`** and **`bars`** (bundled tubes or bars).
+- **Rules V10 and V11.** V10, the display of a counter: `max` and `per` positive, `low` not above `max`, the symbol fits the
+  role (pictures of amounts for quantity places and sinks, sprites for places that hold cases, the dot for every counter), a
+  display only on counters (errors); `max` below the `capacity` of the place (hint). V11: an appearance only on places that
+  hold cases (error). Findings inside the new fields are told apart from the schema findings, with the path of the field.
+  They go into the repair round of the language model (a misplaced field is dropped and reported, the entry keeps its
+  geometry; a field that stays wrong is taken off, not the entry replaced), and the prompt has one short rule about the two
+  fields with the lists of symbols, sprites and tints. The worked examples of the prompt are unchanged.
+- **App.** In the inspector of the domain view: for a counter _Display_ (number, fill level, pictogram), the limit and the
+  yellow limit or the scale, the symbol (a choice of pictures drawn by the painter in the colors of the theme) and the
+  curve; for a place of cases the picture and the color of the cases ("like the entity of the view" takes the field away).
+  Every change is one undo step and marks the entry as made by hand; what V10 and V11 find wrong stands at the field and the
+  change is not written. A change of the kind keeps the fields that the new kind can have. The hover card names the limit and
+  how full the container is, the scale of a pictogram and the look of the cases. The canvas shows `data-graphics`,
+  `data-looks`, `data-flows` and `data-blending` for the tests.
+- **Example `bike-frames`.** The view shows an order as a document, tubes as bars, a welded frame as a grey frame, a coated
+  one (also while it is checked and reworked) as an indigo frame and the shipment as a parcel (`meta.entity.sprite` is
+  `frame`); the tube store is a fill level (`max` 200, yellow below 40), the scrap a fill level (`max` 10), CO₂e a pictogram
+  of clouds (1 = 50 kg) with a curve, the waste a pictogram of bins (1 = 1 kg) and the delivered frames a pictogram of
+  parcels (1 = 5). **The net, the properties and the simulation settings are unchanged**; the golden test pins the net and
+  the runs of the seeds 1 (that of the net), 3 and 42 to the hashes of 1.3.0. **Differences from the plan:** the boxes of CO₂e (336 x 92 px),
+  _Ausgeliefert_ (92 x 120 px) and _Restabfall_ (160 x 96 px) are larger than in 1.3.0 so that the symbols and the curve
+  fit, and the label of a large counter box stands inside it as a title; the tube store and the scrap are containers of
+  64 x 100 and 52 x 84 px instead of circles; some connectors were moved to leave room for them.
+- **Review pictures.** `scripts/screenshots.mjs --review` also takes pictures of the running domain view of an example that
+  has one (`_domain`, `_domain-busy` with more arrivals and a case in every stage, and `_domain-flow`, the canvas frozen on a
+  frame with a marker of an amount), in light and dark and at 1280 and 1920 px: `docs/images/review/bike-frames_*`.
+- **Tests.** The golden tests of the scenes (static scene, scene with the marking and every frame of a run) and of the
+  bicycle frame run, taken with the unchanged 1.3.0 code, and the tests of the new features in domain, llm, web and
+  Playwright. In all: 2382 unit and component tests (2246 before), 23 tests of the release scripts and 126
+  Playwright tests (122 before). The frame budget test is unchanged and a new one with every new picture (fills,
+  pictograms, curves, appearances; 200 cases) is held to the same 8 ms.
+
+### Changed
+
+- `SpriteSample` carries the look, the size and the place of a sprite, `hitSprite` uses the size of the sprite,
+  `DynamicScene.graphics` names what the counters show, `LaidOutToken.appearance` the look of a case, `Motion.appearance` the
+  change of look of a move, `FlowMarker.icon` the symbol, `AnimationState.history` the curves, and `buildScene` takes the
+  history and the time of its right end. `fillMissing` takes a `display` or `appearance` that breaks V10 or V11 off the entry.
+- Three sprites are drawn larger than the others (`frame` 20 px, `bicycle` 24 px, `bars` 18 px) because their tubes are thin;
+  a dark casing and a faint light rim keep them readable on dark belts and white cards.
+- `scripts/screenshots.mjs --review` runs the domain view of an example that has one as well.
+- All packages are at version 1.4.0.
+
+### Known limitations
+
+New entries G1 to G6 in [docs/limitations.md](docs/limitations.md): a look belongs to a place and not to token data (D6);
+`max` is compared with the capacity of the place but not with the invariants of the analysis; a pictogram holds as many
+symbols as its box; the curve is not part of an exported image and starts when the animation is set; the look of a case in a
+firing with several case inputs is matched by order; and a version before 1.4.0 refuses a view with `display` or `appearance`
+(its schema is strict) with a message that names the field, so nothing is lost and the file stays as it is.
+
 ## 1.3.0: Sustainability example
 
 Increment N1. A new example, _Fahrradrahmen-Fertigung_, shows in the simulation and in the domain view what a bicycle
