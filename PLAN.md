@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-30 · Status: Version 1.3.0 (M0–M6, D1–D5 und N1 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-30 · Status: Version 1.4.0 (M0–M6, D1–D5, N1 und N2 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -219,10 +219,18 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Plan `docs/plan/N1_Umsetzungsplan.md`, ADR 0017, Doku in `docs/simulation.md` (Mengenstellen, Kennzahlen),
   `docs/domain-view.md`, `docs/replay.md`, `docs/limitations.md` (N1 bis N4).
 
-### N2 · Mengen grafisch, Gegenstände nach Fertigungsstand · geplant (1.4.0)
-- Zähler als Füllstand oder Bildstatistik (mit Maßstab und Verlauf), Mengensymbole an Flüssen, Aussehen eines Falls
-  nach der Stelle, auf der er liegt (Auftrag, Rohre, Rohrahmen, Rahmen, Paket). Regeln V10 und V11 für Mengen- und
-  Rollentreue. Plan `docs/plan/N2_Umsetzungsplan.md`.
+### N2 · Mengen grafisch, Gegenstände nach Fertigungsstand · fertig (1.4.0)
+- Zähler als Füllstand (mit Obergrenze, Warnton unterhalb von `low`, sichtbarer Überlauf) oder Bildstatistik (Isotype: ein
+  Symbol je `per` Marken, Teilsymbol für den Rest, Legende mit Maßstab, sichtbares `+N` statt Verkleinern), wahlweise mit
+  Verlauf über die simulierte Zeit. Die Zahl bleibt in jedem Stil sichtbar. Symbole für Mengen (CO₂, Material, Schrott,
+  Abfall, Energie, Wasser) auch an den Flusspunkten.
+- Aussehen eines Falls nach der Stelle, auf der er liegt (`appearance`: Symbol und ein Farbtoken der Palette); während einer
+  Schaltung behält er das Aussehen der Eingangsstelle und wechselt an deren Ende in höchstens 250 ms (sofort bei reduzierter
+  Bewegung, ebenso im Replay). Neue Symbole `frame`, `bicycle`, `bars`. Das Beispiel „Fahrradrahmen-Fertigung“ zeigt
+  Auftrag, Rohre, Rohrahmen, beschichteten Rahmen und Paket; sein Netz bleibt unverändert.
+- Regeln V10 (Mengendarstellung) und V11 (Aussehen nur an Fallstellen) für Mengen- und Rollentreue, im Inspektor der
+  Domänenansicht am Feld, im Status der Ansicht (Überlauf) und in der Reparaturrunde des LLM. Plan
+  `docs/plan/N2_Umsetzungsplan.md`, ADR 0018, Doku in `docs/domain-view.md` und `docs/limitations.md` (G1 bis G6).
 
 ## 5. Projektstruktur
 
@@ -268,19 +276,25 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.3.0 schließt M0 bis M6, D1 bis D5 und N1 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.4.0 schließt M0 bis M6, D1 bis D5, N1 und N2 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
 M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im KIT-Netz aus, vermittelt LLM-Anfragen, bietet
-die Schnittstelle für Werkzeuge und speichert Projekte; die Einschränkungen 8, 22 und 23 sind im Server-Modus behoben. Zum
-Betrieb am AIFB fehlen die Antworten der Betreiber (Ingress, Netznamen, Hostname, GitLab-Gruppe) und die Einrichtung nach
-`deploy/README.md`.
+die Schnittstelle für Werkzeuge und speichert Projekte; die Einschränkungen 8, 22 und 23 sind im Server-Modus behoben. Der
+Betrieb am AIFB wird eingerichtet: der Eintrag im Ingress ist angelegt und das Image kommt über das KIT-GitLab; es folgen
+die übrigen Schritte nach `deploy/README.md`.
 
 N1 ist mit 1.3.0 fertig: die Rolle `quantity` für Mengen als Marken ohne Fall, Kennzahlen im Netz, Regel V9 und Flusspunkte
 in der Domänenansicht und das Beispiel „Fahrradrahmen-Fertigung“ (`docs/plan/N1_Umsetzungsplan.md`, ADR 0017). Zahlen
 des Beispiels gegenüber dem Plan: das Pulverbeschichten dauert 5 bis 7 statt 6 bis 8 Minuten, weil die Kabine sonst in
 mehreren Seeds über 80 % ausgelastet war und sich davor ein Stau bildete. Offen aus N1: Kennzahlen aus Markendaten
 höherer Netze (D6).
+
+N2 ist mit 1.4.0 fertig: Zähler als Füllstand oder Bildstatistik mit Maßstab und Verlauf, Mengensymbole an den
+Flusspunkten, das Aussehen eines Falls nach der Stelle (Auftrag, Rohre, Rohrahmen, Rahmen, Paket) und die Regeln V10 und V11
+(`docs/plan/N2_Umsetzungsplan.md`, ADR 0018). Gegenüber dem Plan: die Beschriftung eines großen Zählerkastens steht als
+Titel in ihm, und die Boxen von CO₂e, Ausgeliefert und Restabfall sind größer (siehe CHANGELOG). Offen aus N2: Aussehen aus
+Markendaten höherer Netze (D6) und der Abgleich von `max` mit den Invarianten der Analyse.
 
 Offen sind optionale Bausteine:
 
