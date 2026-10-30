@@ -113,7 +113,7 @@ function candidatePaths(candidate: Candidate): string[] {
 }
 
 /**
- * Asks the model for a domain view of the net, checks the answer with the rules V1 to V9 and sends
+ * Asks the model for a domain view of the net, checks the answer with the rules V1 to V11 and sends
  * the findings back as a repair request, at most `maxRounds` times in all. What is still wrong
  * afterwards is left out and filled in generically (`fillMissing`), so that the result always
  * passes the rules V1 to V5. Every entry carries its provenance: `llm` with the model, or `generic`.

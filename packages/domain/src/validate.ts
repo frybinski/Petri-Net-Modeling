@@ -5,6 +5,12 @@ import { netHash } from './hash';
 import {
   arcKey,
   domainViewSchema,
+  DISPLAY_ICONS,
+  QUANTITY_ICONS,
+  isItemIcon,
+  isQuantityIcon,
+  type CounterDisplay,
+  type DisplayIcon,
   type DomainView,
   type PlaceView,
   type Point,
@@ -12,7 +18,8 @@ import {
   type TransitionView,
 } from './schema';
 
-export type DomainRule = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9';
+export type DomainRule =
+  'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11';
 
 export const DOMAIN_RULES: readonly DomainRule[] = [
   'V1',
@@ -24,6 +31,8 @@ export const DOMAIN_RULES: readonly DomainRule[] = [
   'V7',
   'V8',
   'V9',
+  'V10',
+  'V11',
 ];
 
 export interface DomainDiagnostic {
@@ -73,25 +82,57 @@ function formatPath(path: ReadonlyArray<PropertyKey>): string {
   return out === '' ? '(root)' : out;
 }
 
+/** The kinds of place that can carry a `display`, and those that can carry an `appearance`. */
+const DISPLAY_KINDS = 'pool, source or sink';
+const APPEARANCE_KINDS = 'queue, conveyor, buffer, source or sink';
+
 /**
- * Turns the issues of a failed schema check into diagnostics of rule V1, with the element of the
- * net they are about. Fields that describe behaviour get a message that says so.
+ * Turns the issues of a failed schema check into diagnostics with the element of the net they are
+ * about. Most are rule V1. Fields that describe behaviour get a message that says so. What is
+ * wrong with a `display` is rule V10 and what is wrong with an `appearance` is rule V11, so that
+ * a language model is told which part of its answer to repair; `input` (the view that was
+ * checked) lets the message name the kind of the place.
  */
-export function schemaDiagnostics(net: PetriNet, error: ZodError): DomainDiagnostic[] {
+export function schemaDiagnostics(
+  net: PetriNet,
+  error: ZodError,
+  input?: unknown,
+): DomainDiagnostic[] {
   const placeIds = new Set(net.places.map((p) => p.id));
   const transitionIds = new Set(net.transitions.map((t) => t.id));
+  const places =
+    typeof input === 'object' && input !== null && 'places' in input
+      ? ((input as { places?: unknown }).places as Record<string, unknown> | undefined)
+      : undefined;
+  const kindOf = (key: unknown): string | undefined => {
+    const entry = typeof key === 'string' ? places?.[key] : undefined;
+    const kind =
+      typeof entry === 'object' && entry !== null ? (entry as { kind?: unknown }).kind : undefined;
+    return typeof kind === 'string' ? kind : undefined;
+  };
   const out: DomainDiagnostic[] = [];
   for (const issue of error.issues.slice(0, 50)) {
     const base = formatPath(issue.path);
-    const [section, key] = issue.path;
+    const [section, key, field] = issue.path;
     const elementId =
       typeof key === 'string' &&
       ((section === 'places' && placeIds.has(key)) ||
         (section === 'transitions' && transitionIds.has(key)))
         ? key
         : undefined;
-    const make = (path: string, message: string): DomainDiagnostic => ({
-      rule: 'V1',
+    // The rule of a problem inside the new fields of a place.
+    const fieldRule: DomainRule =
+      section === 'places' && field === 'display'
+        ? 'V10'
+        : section === 'places' && field === 'appearance'
+          ? 'V11'
+          : 'V1';
+    const make = (
+      path: string,
+      message: string,
+      rule: DomainRule = fieldRule,
+    ): DomainDiagnostic => ({
+      rule,
       severity: 'error',
       path,
       message,
@@ -100,14 +141,35 @@ export function schemaDiagnostics(net: PetriNet, error: ZodError): DomainDiagnos
     if (issue.code === 'unrecognized_keys') {
       for (const name of issue.keys) {
         const prefix = base === '(root)' ? '' : `${base}.`;
-        out.push(
-          make(
-            `${prefix}${name}`,
-            BEHAVIOUR_FIELDS.has(name)
-              ? `"${name}" describes behaviour and is not allowed in a domain view; behaviour belongs to the net`
-              : `Unknown field "${name}"`,
-          ),
-        );
+        const path = `${prefix}${name}`;
+        if (section === 'places' && issue.path.length === 2 && name === 'display') {
+          const kind = kindOf(key);
+          out.push(
+            make(
+              path,
+              `"display" is only for counters (${DISPLAY_KINDS})${kind ? `, not for kind "${kind}"` : ''}`,
+              'V10',
+            ),
+          );
+        } else if (section === 'places' && issue.path.length === 2 && name === 'appearance') {
+          const kind = kindOf(key);
+          out.push(
+            make(
+              path,
+              `"appearance" is only for places that hold cases (${APPEARANCE_KINDS})${kind ? `, not for kind "${kind}"` : ''}`,
+              'V11',
+            ),
+          );
+        } else {
+          out.push(
+            make(
+              path,
+              BEHAVIOUR_FIELDS.has(name)
+                ? `"${name}" describes behaviour and is not allowed in a domain view; behaviour belongs to the net`
+                : `Unknown field "${name}"`,
+            ),
+          );
+        }
       }
     } else {
       out.push(make(base, issue.message));
@@ -260,15 +322,44 @@ function slotsOfTransition(view: TransitionView | undefined): Point[] | undefine
   }
 }
 
+function iconHint(role: PlaceRole, icon: DisplayIcon): string {
+  if (role === 'resource') return '; a resource can only show the dot';
+  if (role === 'quantity') return `; use one of ${QUANTITY_ICONS.join(', ')}`;
+  if (isQuantityIcon(icon)) return '; the symbols of amounts are for quantity places and sinks';
+  return '';
+}
+
 /**
- * Checks a domain view against its net (rules V1 to V9). `view` is untrusted input: anything
+ * True if a counter of a place with this role may show this symbol (rule V10): the pictures of
+ * amounts for quantities and sinks, the pictures of objects for places that hold cases, and the
+ * dot for every counter.
+ */
+export function iconAllowed(role: PlaceRole, icon: DisplayIcon): boolean {
+  if (icon === 'dot') return true;
+  if (isQuantityIcon(icon)) return role === 'quantity' || role === 'sink';
+  if (isItemIcon(icon)) return role === 'case' || role === 'source' || role === 'sink';
+  return false;
+}
+
+/** The symbols that rule V10 allows for a counter of a place with this role. */
+export function allowedIcons(role: PlaceRole): DisplayIcon[] {
+  return DISPLAY_ICONS.filter((icon) => iconAllowed(role, icon));
+}
+
+/** True if a place with this role can hold cases, and so may have an `appearance` (rule V11). */
+export function roleHoldsCases(role: PlaceRole): boolean {
+  return role === 'case' || role === 'source' || role === 'sink';
+}
+
+/**
+ * Checks a domain view against its net (rules V1 to V11). `view` is untrusted input: anything
  * that was parsed from JSON. Errors make the view unusable for a faithful picture; warnings point
  * out things that look wrong (too few slots, stale hash, short queues).
  */
 export function validateDomainView(net: PetriNet, view: unknown): DomainValidation {
   const parsed = domainViewSchema.safeParse(view);
   if (!parsed.success) {
-    return { ok: false, diagnostics: schemaDiagnostics(net, parsed.error) };
+    return { ok: false, diagnostics: schemaDiagnostics(net, parsed.error, view) };
   }
   const data = parsed.data;
   const diagnostics: DomainDiagnostic[] = [];
@@ -546,6 +637,62 @@ export function validateDomainView(net: PetriNet, view: unknown): DomainValidati
         'error',
         `places.${place.id}.kind`,
         `Place "${place.name}" counts an amount and has no objects to draw; its kind must be ${allowedKinds('quantity')}, not "${entry.kind}"`,
+        place.id,
+      );
+    }
+  }
+
+  // V10: a counter shows its amount in a way that fits its role and its limits.
+  const capacityOf = new Map(net.places.map((p) => [p.id, p.capacity]));
+  for (const place of net.places) {
+    const entry = data.places[place.id];
+    if (!entry || !('display' in entry) || entry.display === undefined) continue;
+    const role = roles.get(place.id) ?? 'case';
+    const display: CounterDisplay = entry.display;
+    const base = `places.${place.id}.display`;
+    if (display.icon !== undefined && !iconAllowed(role, display.icon)) {
+      add(
+        'V10',
+        'error',
+        `${base}.icon`,
+        `Place "${place.name}" is a ${role} place; the symbol "${display.icon}" does not fit it${iconHint(role, display.icon)}`,
+        place.id,
+      );
+    }
+    if (display.style === 'fill') {
+      if (display.low !== undefined && display.low > display.max) {
+        add(
+          'V10',
+          'error',
+          `${base}.low`,
+          `"low" (${display.low}) must not be larger than "max" (${display.max})`,
+          place.id,
+        );
+      }
+      const capacity = capacityOf.get(place.id);
+      if (capacity !== undefined && display.max < capacity) {
+        add(
+          'V10',
+          'warning',
+          `${base}.max`,
+          `"max" (${display.max}) is below the capacity of "${place.name}" (${capacity}): the container can overflow although the net allows it`,
+          place.id,
+        );
+      }
+    }
+  }
+
+  // V11: only places that hold cases have an appearance.
+  for (const place of net.places) {
+    const entry = data.places[place.id];
+    if (!entry || !('appearance' in entry) || entry.appearance === undefined) continue;
+    const role = roles.get(place.id) ?? 'case';
+    if (!roleHoldsCases(role)) {
+      add(
+        'V11',
+        'error',
+        `places.${place.id}.appearance`,
+        `Place "${place.name}" is a ${role} place and holds no cases; only places that hold cases have an appearance`,
         place.id,
       );
     }

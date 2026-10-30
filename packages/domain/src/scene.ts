@@ -177,7 +177,10 @@ const BELT_WIDTH = 24;
 const BUFFER_WIDTH = 30;
 const LANE_WIDTH = 18;
 
-/** The size of a case on the canvas, 14 to 18 px depending on how much room the picture needs. */
+/**
+ * The size of a case on the canvas, 14 to 22 px depending on how much room the picture needs. The
+ * thin pictures of a frame and a bicycle are drawn larger, so that their tubes stay readable.
+ */
 export function spriteSize(sprite: Sprite): number {
   switch (sprite) {
     case 'person':
@@ -188,6 +191,12 @@ export function spriteSize(sprite: Sprite): number {
     case 'parcel':
     case 'document':
       return 16;
+    case 'bars':
+      return 18;
+    case 'frame':
+      return 22;
+    case 'bicycle':
+      return 24;
   }
 }
 const PRIORITY = { arc: 0, area: 1, path: 2, card: 2, box: 2, point: 3, cell: 4 };

@@ -12,7 +12,7 @@ export const DOMAIN_HELP = `Usage: pnm domain <check|generic|generate> <net> [op
 The domain view draws a net as a real place (a hall, an office) with stations, belts and queues.
 
   pnm domain check <net> [--view <file>] [--json]
-      Checks the rules V1 to V9 for the domain view in the net, or for the view in a JSON file.
+      Checks the rules V1 to V11 for the domain view in the net, or for the view in a JSON file.
       Exit status 1 if there are errors (warnings are fine) or no view.
 
   pnm domain generic <net> [-o <file>] [--view-only]

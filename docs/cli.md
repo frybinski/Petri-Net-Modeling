@@ -38,7 +38,7 @@ colors unless standard output is a terminal (and `NO_COLOR` is unset).
 
 ### `pnm validate <net> [--json]`
 
-Checks the net (all diagnostic codes of the file format) and, if the net has a domain view, the rules V1 to V9.
+Checks the net (all diagnostic codes of the file format) and, if the net has a domain view, the rules V1 to V11.
 Errors give exit status 1, warnings do not.
 
 ```
@@ -231,7 +231,7 @@ writes PNML.
 
 ### `pnm domain check|generic|generate <net>`
 
-- `check [--view file] [--json]`: rules V1 to V9 for the view of the net or for a view file. Exit 1 on errors or if there
+- `check [--view file] [--json]`: rules V1 to V11 for the view of the net or for a view file. Exit 1 on errors or if there
   is no view.
 - `generic [-o file] [--view-only]`: adds the generic view (a view written by a model is replaced).
 - `generate --description "…" --base-url <url> --model <name> [--api-key <key>] [-o file]`: lets a language model make

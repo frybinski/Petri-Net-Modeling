@@ -179,7 +179,7 @@ a file (the unknown key is dropped), so saving there loses them.
 `domainView` is an optional mapping that says how the net is drawn as a hall, a floor plan or a generic process picture:
 where each place and transition is, as what it is drawn, and some scenery. It contains no behaviour (no durations,
 weights, rates or conditions). `@pnm/core` reads, keeps and writes the value without looking at it (`setDomainView`
-changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V9) and draws it. The
+changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V11) and draws it. The
 file format version stays `1.0`; files without the field are valid.
 
 `domainViewGeneration` is an optional record next to the view that says how a language model generated it: model, server

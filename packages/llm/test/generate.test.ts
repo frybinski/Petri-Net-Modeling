@@ -426,3 +426,94 @@ describe('generation record', () => {
     expect(parseGeneration('text')).toBeNull();
   });
 });
+
+describe('display and appearance in the rounds (N2)', () => {
+  const { net, view } = loadExample('parcel-center');
+
+  /**
+   * An answer with three mistakes about the new fields: a display on a belt (V10, the entry is
+   * kept without it), a symbol of an amount on a place for cases (V10) and an appearance on a
+   * resource (V11).
+   */
+  function answerWithFlaws(): Record<string, unknown> {
+    const answer = modelAnswer(view);
+    const places = sectionOf(answer, 'places');
+    places['p_in'] = { ...(view.places['p_in'] as object), display: { style: 'fill', max: 10 } };
+    places['p_scanned'] = {
+      kind: 'pool',
+      pos: [420, 320],
+      display: { style: 'pictogram', per: 5, icon: 'co2' },
+    };
+    places['p_scanner'] = { kind: 'slots', of: 't_scan', appearance: { sprite: 'frame' } };
+    return answer;
+  }
+
+  it('A5: V10 and V11 findings go back in a repair round, which then passes', async () => {
+    const provider = createFakeProvider([
+      { json: answerWithFlaws() },
+      {
+        json: {
+          places: {
+            p_in: view.places['p_in'],
+            p_scanned: view.places['p_scanned'],
+            p_scanner: view.places['p_scanner'],
+          },
+        },
+      },
+    ]);
+    const result = await generateDomainView(net, provider, { description: 'x', now: clock() });
+    const first = result.rounds[0]!.diagnostics.filter((d) => d.severity === 'error');
+    expect(first.map((d) => `${d.rule} ${d.path}`).sort()).toEqual([
+      'V10 places.p_in.display',
+      'V10 places.p_scanned.display.icon',
+      'V11 places.p_scanner.appearance',
+    ]);
+    // The repair request names the findings and the rules in words.
+    const second = provider.calls[1]!;
+    expect(second.user).toContain('- V10 error at places.p_in.display:');
+    expect(second.user).toContain('- V10 error at places.p_scanned.display.icon:');
+    expect(second.user).toContain('- V11 error at places.p_scanner.appearance:');
+    expect(second.user).toContain('the display of a counter is wrong');
+    expect(result.rounds).toHaveLength(2);
+    expect(result.rounds[1]!.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(errorsOf(net, result.view)).toEqual([]);
+    expect(result.view.places['p_in']).toEqual(view.places['p_in']);
+    expect(result.dropped).toEqual([]);
+    expect(result.filled.filter((p) => !p.startsWith('arcs.'))).toEqual([]);
+  });
+
+  it('keeps the entry of a place when the model does not repair its display, without the display', async () => {
+    const provider = createFakeProvider([{ json: answerWithFlaws() }]);
+    const result = await generateDomainView(net, provider, { description: 'x', now: clock() });
+    expect(result.rounds).toHaveLength(3);
+    expect(errorsOf(net, result.view)).toEqual([]);
+    // The belt keeps its path and the model's provenance, only the display is gone.
+    expect(result.view.places['p_in']).toEqual(view.places['p_in']);
+    expect(result.view.provenance['places.p_in']?.source).toBe('llm');
+    // The pool keeps its position; the symbol that does not fit is taken off with the display.
+    expect(result.view.places['p_scanned']).toEqual({ kind: 'pool', pos: [420, 320] });
+    expect(result.view.provenance['places.p_scanned']?.source).toBe('llm');
+    expect(result.view.places['p_scanner']).toEqual(view.places['p_scanner']);
+    expect(result.view.provenance['places.p_scanner']?.source).toBe('llm');
+    expect(result.filled.filter((p) => !p.startsWith('arcs.'))).toEqual([]);
+  });
+
+  it('a valid display and appearance of the model pass unchanged', async () => {
+    const answer = modelAnswer(view);
+    const places = sectionOf(answer, 'places');
+    places['p_done'] = {
+      ...(view.places['p_done'] as object),
+      display: { style: 'pictogram', per: 5, icon: 'parcel', history: true },
+    };
+    places['p_scanned'] = {
+      ...(view.places['p_scanned'] as object),
+      appearance: { sprite: 'bars', tint: 'neutral' },
+    };
+    const provider = createFakeProvider([{ json: answer }]);
+    const result = await generateDomainView(net, provider, { description: 'x', now: clock() });
+    expect(result.rounds).toHaveLength(1);
+    expect(result.view.places['p_done']).toEqual(places['p_done']);
+    expect(result.view.places['p_scanned']).toEqual(places['p_scanned']);
+    expect(errorsOf(net, result.view)).toEqual([]);
+  });
+});

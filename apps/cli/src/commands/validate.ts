@@ -8,7 +8,7 @@ import { loadNet, reportImportWarnings } from '../net-file';
 export const VALIDATE_HELP = `Usage: pnm validate <net> [--json]
 
 Checks a net (a .pn.json or PNML file, or - for standard input) and, if the net has one, its
-domain view (rules V1 to V9).
+domain view (rules V1 to V11).
 
   --json    print the result as JSON
 
