@@ -127,6 +127,14 @@ function mapGeometry<T extends Value>(
 }
 
 const roundPoint = (p: Point): Point => [Math.round(p[0]), Math.round(p[1])];
+
+/**
+ * True if a path still has a length once it is stored, that is rounded to whole pixels (rule V5).
+ * A path of about a pixel would otherwise collapse to a single point.
+ */
+function hasLength(points: Point[]): boolean {
+  return pathLength(points.map(roundPoint)) > 0;
+}
 const roundRect = (r: Rect): Rect => [
   Math.round(r[0]),
   Math.round(r[1]),
@@ -557,7 +565,7 @@ export function movePoint(
   const next = points.slice();
   next[index] = moved;
   // A path without length cannot be drawn (rule V5).
-  if (!('kind' in value && value.kind === 'wall') && pathLength(next) <= 0) return view;
+  if (!('kind' in value && value.kind === 'wall') && !hasLength(next)) return view;
   let result = commitGeometry(view, target, withPoints(value, next), options);
   // The arcs that end at the end of a belt follow it.
   const net = options.net;
@@ -595,6 +603,7 @@ export function insertPoint(
   const spot: Point = at ?? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   const next = points.slice();
   next.splice(segmentIndex + 1, 0, spot);
+  if (!hasLength(next)) return view;
   return commitGeometry(view, target, withPoints(value, next), options);
 }
 
@@ -610,7 +619,7 @@ export function removePoint(
   const points = pointsOf(value);
   if (!points || points.length <= 2 || index < 0 || index >= points.length) return view;
   const next = points.filter((_, i) => i !== index);
-  if (pathLength(next) <= 0) return view;
+  if (!hasLength(next)) return view;
   return commitGeometry(view, target, withPoints(value, next), options);
 }
 

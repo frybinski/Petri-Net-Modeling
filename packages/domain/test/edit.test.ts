@@ -375,6 +375,38 @@ describe('points', () => {
     expect(back.provenance['places.q']).toEqual({ source: 'user', at: AT });
   });
 
+  it('refuses an edit that leaves a path of about a pixel without length once it is rounded', () => {
+    // Found by the property test: a generated arc of about one pixel collapsed to a point when a
+    // point was inserted, because the stored points are rounded to whole pixels (rule V5).
+    const key = ref('arcs', 'work>done');
+    const view: DomainView = {
+      ...smallView(),
+      arcs: {
+        'work>done': {
+          path: [
+            [288.5, 223.4],
+            [289.3, 222.8],
+          ],
+        },
+      },
+    };
+    expect(insertPoint(view, key, 0, undefined, OPTIONS)).toBe(view);
+    expect(movePoint(view, key, 1, [289.2, 223.1], OPTIONS)).toBe(view);
+    const bent: DomainView = {
+      ...view,
+      arcs: {
+        'work>done': {
+          path: [
+            [288.5, 223.4],
+            [400, 300],
+            [289.3, 222.8],
+          ],
+        },
+      },
+    };
+    expect(removePoint(bent, key, 1, OPTIONS)).toBe(bent);
+  });
+
   it('keeps at least two points', () => {
     const view = smallView();
     expect(removePoint(view, queue, 0, OPTIONS)).toBe(view);

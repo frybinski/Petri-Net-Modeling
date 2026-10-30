@@ -58,7 +58,7 @@ validate` and `/api/v1/validate` report indicator errors with their `path`. The 
   Review pictures of the example are in `docs/images/review`.
 - **Tests.** Golden tests that pin the output of the ten examples of 1.2.0 (event streams, key figures and final states per
   seed in `@pnm/sim`; JSON, PNML, CSV and XES in `@pnm/io`) to hashes taken with the unchanged 1.2.0 code, and the tests of
-  the new features in every package, the example and six Playwright tests. In all: 2245 unit and component tests (2086
+  the new features in every package, the example and six Playwright tests. In all: 2246 unit and component tests (2086
   before), 23 tests of the release scripts and 122 Playwright tests (116 before).
 
 ### Changed
@@ -92,6 +92,11 @@ validate` and `/api/v1/validate` report indicator errors with their `path`. The 
   - The Playwright test "an invalid inscription shows an error and a valid one is applied" typed the text and then pressed
     Escape; Escape sets an inscription editor back to its saved text unless a completion list is open, so the text was
     sometimes gone before the check. The helper no longer presses Escape and waits for the typed text instead.
+- **Editing a path of about a pixel in the domain view** (since 0.8.0). Inserting, moving or removing a point checked the
+  length of the path before its points were rounded to whole pixels, so a path of about a pixel (the generic view makes
+  such arcs where a queue ends at a station) could collapse to a single point and break rule V5. The check now uses the
+  points as they are stored, and the edit is refused as before for paths without length. Found by the property test
+  `packages/domain/test/edit.property.test.ts` with a rare seed; a unit test keeps the case.
 
 ### Compatibility
 
