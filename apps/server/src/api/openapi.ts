@@ -132,7 +132,7 @@ export function buildOpenApi(options: { publicUrl?: string } = {}): Json {
     '/api/v1/simulate': {
       post: tool(
         'Run the timed simulation of a net',
-        'The same key figures as `pnm simulate --metrics`. With `formats` the event log comes back as CSV, XES or as the event stream (at most 200 000 events).',
+        'The same key figures as `pnm simulate --metrics`, including `metrics.indicators` (the values of the indicators of the net, if it has any). With `formats` the event log comes back as CSV, XES or as the event stream (at most 200 000 events).',
         'SimulateRequest',
         json('Key figures and run data; `csv`, `xes` and `stream` if asked for.'),
       ),
@@ -196,7 +196,7 @@ export function buildOpenApi(options: { publicUrl?: string } = {}): Json {
         'Check a domain view',
         'The same result as `pnm domain check --json`. Without `view` the view in the net is checked.',
         'DomainCheckRequest',
-        json('The findings of the rules V1 to V8.'),
+        json('The findings of the rules V1 to V9.'),
       ),
     },
     '/api/v1/domain/generic': {

@@ -1,11 +1,24 @@
 import type { PetriNet } from '@pnm/core';
-import type { MetricsSnapshot } from '@pnm/sim';
+import { formatIndicatorValue, type MetricsSnapshot } from '@pnm/sim';
 import { formatDuration, formatNumber, table } from './format';
 
 /** The tables of places and resources of a run, as lines (each table preceded by an empty line). */
 export function metricTables(net: PetriNet, metrics: MetricsSnapshot): string[] {
   const lines: string[] = [];
   const names = new Map(net.places.map((p) => [p.id, p.name]));
+  if (metrics.indicators !== undefined && metrics.indicators.length > 0) {
+    lines.push('');
+    lines.push(
+      table(
+        [{ header: 'INDICATOR' }, { header: 'VALUE', align: 'right' }, { header: 'UNIT' }],
+        metrics.indicators.map((i) => [
+          i.label === '' ? i.id : i.label,
+          formatIndicatorValue(i),
+          i.unit,
+        ]),
+      ).trimEnd(),
+    );
+  }
   if (metrics.places.length > 0) {
     lines.push('');
     lines.push(

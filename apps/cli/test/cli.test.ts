@@ -144,6 +144,30 @@ describe('pnm validate', () => {
     expect(parcel.stdout).toContain('with domain view');
   });
 
+  it('reports an indicator that points to something the net does not have, with its path', async () => {
+    const net = load(example('bike-frames'));
+    net.simulation!.indicators![0]!.measure = { kind: 'inflow', of: 'p_nowhere' };
+    writeFileSync(tmp('indicator.pn.json'), serializeNet(net));
+    const table = await pnm(['validate', tmp('indicator.pn.json')]);
+    expect(table.status).toBe(1);
+    expect(table.stdout).toContain('INDICATOR_INVALID');
+    expect(table.stdout).toContain('simulation.indicators[0].measure.of');
+    expect(table.stdout).toContain('p_nowhere');
+    const json = JSON.parse(
+      (await pnm(['validate', tmp('indicator.pn.json'), '--json'])).stdout,
+    ) as {
+      ok: boolean;
+      diagnostics: Array<{ code: string; path?: string }>;
+    };
+    expect(json.ok).toBe(false);
+    expect(json.diagnostics.find((d) => d.code === 'INDICATOR_INVALID')?.path).toBe(
+      'simulation.indicators[0].measure.of',
+    );
+    // A simulation is refused for a net with errors.
+    const refused = await pnm(['simulate', tmp('indicator.pn.json'), '--seconds', '60']);
+    expect(refused.status).toBe(1);
+  });
+
   it('reports errors in a table and exits with 1', async () => {
     const net = load(example('producer-consumer'));
     net.arcs.push({ id: 'bad', source: net.places[0]!.id, target: 'nowhere', weight: 1 });
@@ -297,6 +321,97 @@ describe('pnm simulate', () => {
     const first = JSON.parse(lines[0] ?? '{}') as { id: number; type: string };
     expect(first.type).toBeTypeOf('string');
     expect(first.id).toBe(1);
+  });
+
+  it('lists the indicators of the net in the summary, and only then', async () => {
+    const result = await pnm(['simulate', example('bike-frames'), '--seconds', '28800']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('INDICATOR');
+    const net = load(example('bike-frames'));
+    const sim = createSimulation(net, { seed: 1 });
+    await sim.advance(28800);
+    const values = sim.metrics().indicators!;
+    for (const indicator of values) {
+      expect(result.stdout).toContain(indicator.label);
+      expect(result.stdout).toMatch(
+        new RegExp(
+          `${indicator.label}\\s+${indicator.value!.toFixed(indicator.digits)}\\s+${indicator.unit}`,
+        ),
+      );
+    }
+    // The summary comes before the tables of places and resources.
+    expect(result.stdout.indexOf('INDICATOR')).toBeLessThan(result.stdout.indexOf('PLACE'));
+    // A net without indicators prints nothing of the kind.
+    const without = await pnm(['simulate', example('parcel-center'), '--seconds', '600']);
+    expect(without.stdout).not.toContain('INDICATOR');
+  });
+
+  it('puts the indicators into the JSON of --metrics, the same as the engine computes', async () => {
+    const result = await pnm([
+      'simulate',
+      example('bike-frames'),
+      '--seconds',
+      '28800',
+      '--metrics',
+      '-',
+      '--quiet',
+    ]);
+    expect(result.status).toBe(0);
+    const data = JSON.parse(result.stdout) as {
+      metrics: { completedCases: number; indicators: Array<{ id: string; value: number | null }> };
+    };
+    const net = load(example('bike-frames'));
+    const sim = createSimulation(net, { seed: 1 });
+    await sim.advance(28800);
+    expect(data.metrics.indicators).toEqual(JSON.parse(JSON.stringify(sim.metrics().indicators)));
+    expect(data.metrics.indicators.map((i) => i.id)).toEqual([
+      'co2-per-frame',
+      'material',
+      'recycled-share',
+      'waste',
+    ]);
+    // The plan: 10 to 20 kg CO2e per frame, 15 to 40 % recycled.
+    const value = (id: string): number => data.metrics.indicators.find((i) => i.id === id)!.value!;
+    expect(value('co2-per-frame')).toBeGreaterThan(10);
+    expect(value('co2-per-frame')).toBeLessThan(20);
+    expect(value('recycled-share')).toBeGreaterThan(15);
+    expect(value('recycled-share')).toBeLessThan(40);
+    // A net without indicators has no key `indicators`.
+    const plain = await pnm([
+      'simulate',
+      example('parcel-center'),
+      '--seconds',
+      '600',
+      '--metrics',
+      '-',
+      '-q',
+    ]);
+    expect(JSON.parse(plain.stdout).metrics).not.toHaveProperty('indicators');
+  });
+
+  it('replays the log of the bicycle frame production with fitness 1', async () => {
+    const csv = tmp('bike.csv');
+    const run = await pnm([
+      'simulate',
+      example('bike-frames'),
+      '--seconds',
+      '28800',
+      '--csv',
+      csv,
+      '-q',
+    ]);
+    expect(run.status).toBe(0);
+    const replay = await pnm([
+      'replay',
+      example('bike-frames'),
+      csv,
+      '--time-origin',
+      'net',
+      '--strict',
+    ]);
+    expect(replay.status).toBe(0);
+    expect(replay.stdout).toContain('fitness            1.0000');
+    expect(replay.stdout).toContain('INDICATOR');
   });
 
   it('changes arrivals with --rate and switches them off with off', async () => {

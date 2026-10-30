@@ -8,7 +8,7 @@ import { loadNet, reportImportWarnings } from '../net-file';
 export const VALIDATE_HELP = `Usage: pnm validate <net> [--json]
 
 Checks a net (a .pn.json or PNML file, or - for standard input) and, if the net has one, its
-domain view (rules V1 to V8).
+domain view (rules V1 to V9).
 
   --json    print the result as JSON
 
@@ -50,7 +50,12 @@ export async function validateCommand(io: Io, args: readonly string[]): Promise<
     io.out(
       table(
         [{ header: 'SEVERITY' }, { header: 'CODE' }, { header: 'ELEMENT' }, { header: 'MESSAGE' }],
-        core.map((d) => [severity(d.severity), d.code, nameOf(net, d.elementId), d.message]),
+        core.map((d) => [
+          severity(d.severity),
+          d.code,
+          d.elementId === undefined && d.path !== undefined ? d.path : nameOf(net, d.elementId),
+          d.message,
+        ]),
       ),
     );
   }

@@ -13,7 +13,7 @@ export interface DomainCheck {
   diagnostics: DomainDiagnostic[];
 }
 
-/** Checks a domain view (rules V1 to V8) against the net. */
+/** Checks a domain view (rules V1 to V9) against the net. */
 export function checkDomainView(net: PetriNet, view: unknown): DomainCheck {
   const result = validateDomainView(net, view);
   const errors = result.diagnostics.filter((d) => d.severity === 'error').length;
