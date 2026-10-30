@@ -225,6 +225,28 @@ export function DomainCanvas() {
           .map((s) => `${s.caseId}@${Math.round(s.point[0])},${Math.round(s.point[1])}`)
           .join(';');
         if (canvas.dataset['cases'] !== cases) canvas.dataset['cases'] = cases;
+        // How the resting cases look (`<case>@<place or station>=<sprite>[/<tint>]`), for tests.
+        const looks = dynamic.sprites
+          .filter((s) => s.caseId !== undefined && !s.moving)
+          .slice(0, 40)
+          .map(
+            (s) =>
+              `${s.caseId}@${s.elementId ?? ''}=${s.appearance.sprite}${s.appearance.tint !== undefined ? `/${s.appearance.tint}` : ''}`,
+          )
+          .join(';');
+        if (canvas.dataset['looks'] !== looks) canvas.dataset['looks'] = looks;
+        canvas.dataset['blending'] = String(dynamic.sprites.filter((s) => s.blend).length);
+        // What the counters with a graphic show (`<place>=fill:<part>:<state>` or `pictogram:<n>+<hidden>`).
+        const graphics = [...dynamic.graphics]
+          .map(([id, g]) =>
+            g.style === 'fill'
+              ? `${id}=fill:${(g.ratio ?? 0).toFixed(2)}:${g.level ?? ''}`
+              : g.style === 'pictogram'
+                ? `${id}=pictogram:${g.symbols ?? 0}+${g.hidden ?? 0}`
+                : `${id}=number`,
+          )
+          .join(';');
+        if (canvas.dataset['graphics'] !== graphics) canvas.dataset['graphics'] = graphics;
       }
       // The entries that a drag moves are drawn on their own, above the static layer.
       const dragged = animator.dragLayers;
@@ -254,6 +276,9 @@ export function DomainCanvas() {
     frames.current += 1;
     canvas.dataset['frames'] = String(frames.current);
     canvas.dataset['bundles'] = String(animator.bundles);
+    canvas.dataset['flows'] = String(
+      animator.anim.flows.filter((f) => now < f.startedAt + f.duration).length,
+    );
     canvas.dataset['deviations'] = String(animator.deviations);
     canvas.dataset['redFlashes'] = String(animator.anim.flashes.filter((f) => f.deviation).length);
     // The loop runs while the simulation plays or something moves, otherwise it rests.

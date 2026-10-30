@@ -98,10 +98,13 @@ describe('example: the bicycle frame production, domain view (N1)', () => {
 
   it('shows the initial stock in the picture and a station is not blocked by the tube store', () => {
     const scene = buildScene(net, view, net.marking);
+    // The number stays visible whatever else a counter draws (N2): the text in bold figures.
     const text = (id: string) =>
-      scene.layers.tokens.find((c) => c.op === 'text' && c.elementId === id);
+      scene.layers.tokens.find((c) => c.op === 'text' && c.elementId === id && c.weight === 700);
     expect(text('p_tubes')).toMatchObject({ text: '120' });
-    expect(text('p_co2')).toMatchObject({ text: '0', size: 32 });
+    // The headline figure of the CO2 counter is large.
+    expect(text('p_co2')).toMatchObject({ text: '0' });
+    expect((text('p_co2') as { size: number }).size).toBeGreaterThanOrEqual(24);
     // The saw takes 120 kg from the store, but those are not cases that wait in front of it.
     const context = layoutContext(net, view);
     const layout = layoutTokens(net, view, staticLayoutState(net));

@@ -834,7 +834,7 @@
       "entity": {
         "singular": "Rahmen",
         "plural": "Rahmen",
-        "sprite": "vehicle"
+        "sprite": "frame"
       },
       "canvas": {
         "width": 1200,
@@ -855,15 +855,28 @@
             210
           ]
         ],
-        "label": "Aufträge"
+        "label": "Aufträge",
+        "appearance": {
+          "sprite": "document"
+        }
       },
       "p_tubes": {
         "kind": "pool",
         "pos": [
           122,
-          250
+          256
         ],
-        "label": "Rohrlager (kg)"
+        "label": "Rohrlager (kg)",
+        "display": {
+          "style": "fill",
+          "max": 200,
+          "low": 40,
+          "size": [
+            64,
+            100
+          ],
+          "icon": "material"
+        }
       },
       "p_space": {
         "kind": "hidden",
@@ -886,7 +899,10 @@
             210
           ]
         ],
-        "label": "Zugeschnitten"
+        "label": "Zugeschnitten",
+        "appearance": {
+          "sprite": "bars"
+        }
       },
       "p_welder": {
         "kind": "slots",
@@ -913,7 +929,11 @@
             330
           ]
         ],
-        "label": "Geschweißt"
+        "label": "Geschweißt",
+        "appearance": {
+          "sprite": "frame",
+          "tint": "neutral"
+        }
       },
       "p_booth": {
         "kind": "slots",
@@ -932,7 +952,11 @@
             370
           ]
         ],
-        "label": "Beschichtet"
+        "label": "Beschichtet",
+        "appearance": {
+          "sprite": "frame",
+          "tint": "accent"
+        }
       },
       "p_inspector": {
         "kind": "slots",
@@ -951,7 +975,11 @@
             370
           ]
         ],
-        "label": "Geprüft"
+        "label": "Geprüft",
+        "appearance": {
+          "sprite": "frame",
+          "tint": "accent"
+        }
       },
       "p_rework": {
         "kind": "queue",
@@ -972,7 +1000,11 @@
             1012,
             210
           ]
-        ]
+        ],
+        "appearance": {
+          "sprite": "frame",
+          "tint": "accent"
+        }
       },
       "p_ready": {
         "kind": "buffer",
@@ -986,45 +1018,73 @@
             385
           ]
         ],
-        "label": "Versandbereit"
+        "label": "Versandbereit",
+        "appearance": {
+          "sprite": "parcel"
+        }
       },
       "p_shipped": {
         "kind": "sink",
         "box": [
           1084,
-          350,
-          88,
-          70
+          314,
+          92,
+          120
         ],
-        "label": "Ausgeliefert"
+        "label": "Ausgeliefert",
+        "display": {
+          "style": "pictogram",
+          "per": 5,
+          "icon": "parcel"
+        }
       },
       "p_scrap": {
         "kind": "pool",
         "pos": [
           330,
-          520
+          538
         ],
-        "label": "Schrott (kg)"
+        "label": "Schrott (kg)",
+        "display": {
+          "style": "fill",
+          "max": 10,
+          "size": [
+            52,
+            84
+          ],
+          "icon": "scrap"
+        }
       },
       "p_waste": {
         "kind": "sink",
         "box": [
-          660,
-          500,
-          120,
-          80
+          640,
+          490,
+          160,
+          96
         ],
-        "label": "Restabfall (kg)"
+        "label": "Restabfall (kg)",
+        "display": {
+          "style": "pictogram",
+          "per": 1,
+          "icon": "waste"
+        }
       },
       "p_co2": {
         "kind": "sink",
         "box": [
-          900,
+          840,
           18,
-          276,
-          76
+          336,
+          92
         ],
-        "label": "CO₂e (kg)"
+        "label": "CO₂e (kg)",
+        "display": {
+          "style": "pictogram",
+          "per": 50,
+          "icon": "co2",
+          "history": true
+        }
       }
     },
     "transitions": {
@@ -1175,7 +1235,7 @@
       "p_tubes>t_cut": {
         "path": [
           [
-            142,
+            154,
             250
           ],
           [
@@ -1192,35 +1252,43 @@
           ],
           [
             122,
-            232
+            206
           ]
         ]
       },
       "t_recycle>p_tubes": {
         "path": [
           [
-            450,
-            570
+            480,
+            580
           ],
           [
-            122,
-            570
+            480,
+            606
           ],
           [
-            122,
-            268
+            56,
+            606
+          ],
+          [
+            56,
+            280
+          ],
+          [
+            90,
+            280
           ]
         ]
       },
       "p_scrap>t_recycle": {
         "path": [
           [
-            348,
-            520
+            356,
+            538
           ],
           [
             450,
-            520
+            538
           ]
         ]
       },
@@ -1231,7 +1299,7 @@
             540
           ],
           [
-            660,
+            640,
             540
           ]
         ]
@@ -1252,7 +1320,7 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
@@ -1272,7 +1340,7 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
@@ -1292,7 +1360,7 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
@@ -1312,7 +1380,7 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
@@ -1336,19 +1404,23 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
       "t_recycle>p_co2": {
         "path": [
           [
-            450,
-            530
+            505,
+            500
+          ],
+          [
+            505,
+            484
           ],
           [
             228,
-            530
+            484
           ],
           [
             228,
@@ -1360,7 +1432,7 @@
           ],
           [
             1038,
-            94
+            110
           ]
         ]
       },
@@ -1372,15 +1444,15 @@
           ],
           [
             1056,
-            340
+            306
           ],
           [
             1130,
-            340
+            306
           ],
           [
             1130,
-            94
+            110
           ]
         ]
       },

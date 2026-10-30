@@ -21,15 +21,18 @@ import { runAnimated } from './animated-run';
  * - every frame of a simulated run (the dynamic scene and the sprites at rest and under way),
  *
  * taken with version 1.3.0 before the pictures of quantities and the appearance of cases existed.
- * The view of the bicycle frame production uses the new fields since 1.4.0; they are stripped
- * from it here, so that what is left must still be drawn as before. Regenerate only for a change
- * that is meant to alter the pictures of such views (`PNM_WRITE_GOLDEN=1`), never to get green.
+ * The view of the bicycle frame production got pictures of quantities and an appearance by stage
+ * in 1.4.0, so its view of 1.3.0 is kept as a fixture and drawn for the net as it is today.
+ * Regenerate only for a change that is meant to alter the pictures of such views
+ * (`PNM_WRITE_GOLDEN=1`), never to get green.
  */
 const FIXTURE = join(import.meta.dirname, 'fixtures', 'scenes-1.3.0.json');
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const NAMES = ['parcel-center', 'smart-office', 'bike-frames'] as const;
-/** The entity sprite of the bicycle frame view in 1.3.0. */
-const SPRITE_1_3_0: Record<string, string> = { 'bike-frames': 'vehicle' };
+/** The view of an example as 1.3.0 had it, where the example has a newer one. */
+const VIEW_1_3_0: Record<string, string> = {
+  'bike-frames': join(import.meta.dirname, 'fixtures', 'bike-frames-view-1.3.0.json'),
+};
 
 const load = (name: string): PetriNet =>
   parseNetText(readFileSync(join(ROOT, 'examples', `${name}.pn.json`), 'utf8'));
@@ -37,24 +40,15 @@ const load = (name: string): PetriNet =>
 const sha = (value: unknown): string =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-/** The view as 1.3.0 knew it: without `display` and `appearance`, with the old entity sprite. */
-function asIn130(name: string, view: DomainView): DomainView {
-  const copy = structuredClone(view) as DomainView;
-  for (const entry of Object.values(copy.places)) {
-    const loose = entry as unknown as Record<string, unknown>;
-    delete loose['display'];
-    delete loose['appearance'];
-  }
-  const sprite = SPRITE_1_3_0[name];
-  if (sprite !== undefined) {
-    (copy.meta.entity as { sprite: string }).sprite = sprite;
-  }
-  return copy;
+/** The view as 1.3.0 had it. */
+function viewIn130(name: string, net: PetriNet): DomainView {
+  const file = VIEW_1_3_0[name];
+  return (file ? JSON.parse(readFileSync(file, 'utf8')) : net.domainView) as DomainView;
 }
 
 async function digests(name: string): Promise<Record<string, string>> {
   const net = load(name);
-  const view = asIn130(name, net.domainView as DomainView);
+  const view = viewIn130(name, net);
   const context = layoutContext(net, view);
   const staticScene = buildStaticScene(net, view);
   const frames = createHash('sha256');
