@@ -81,7 +81,17 @@ validate` and `/api/v1/validate` report indicator errors with their `path`. The 
   `apps/server/test/pipelines.test.ts` reads the store path from `.gitlab-ci.yml` and checks all four.
 - **Tests that are robust on shared CI runners.** The GitLab `check` job runs the tests one package after the other
   (`pnpm -r --workspace-concurrency=1 test`), because the property tests and the timing test of the animation compete for
-  the few cores of a shared runner. The root script `pnpm test` is unchanged; the pipelines test asserts both.
+  the few cores of a shared runner. The root script `pnpm test` is unchanged; the pipelines test asserts both. Three
+  tests that failed by chance on a busy machine are robust now, without a lower bar:
+  - The timing test of the animation (`packages/domain`, 200 tokens per frame) asserts on the median of the warm frames
+    instead of the mean, so that a few frames that the machine delays do not fail it. The limit of 8 ms is the same;
+    median, mean and maximum are printed with `PNM_REPORT_FRAME_BUDGET=1`.
+  - The property tests (fast-check) of core, domain, sim, io, layout and analysis have a limit of 60 s per test, after the
+    search in `packages/analysis/test/check.test.ts` ran into the default of 5 s on a loaded runner. The number of runs is
+    the same.
+  - The Playwright test "an invalid inscription shows an error and a valid one is applied" typed the text and then pressed
+    Escape; Escape sets an inscription editor back to its saved text unless a completion list is open, so the text was
+    sometimes gone before the check. The helper no longer presses Escape and waits for the typed text instead.
 
 ### Compatibility
 

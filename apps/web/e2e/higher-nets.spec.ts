@@ -14,7 +14,12 @@ async function typeInEditor(page: Page, testId: string, text: string): Promise<v
   await editor.click();
   await page.keyboard.press('Control+a');
   await page.keyboard.type(text);
-  await page.keyboard.press('Escape'); // closes the completion list, if any
+  await expect(editor).toHaveText(text);
+  // Escape is not pressed here. In these editors Escape reverts the text to the committed one and
+  // leaves the field, and only while a completion list is open does it close the list instead.
+  // Whether the list is open yet depends on a timer, so a blind Escape sometimes threw away what
+  // had just been typed (the cause of a failure on a busy machine). The next step leaves the
+  // editor with a click, which commits the text and closes the list.
 }
 
 test('order processing: choose a binding and check the invoice', async ({ page }) => {
