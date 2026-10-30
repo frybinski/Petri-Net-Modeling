@@ -113,7 +113,7 @@ const candidateSchema = z.strictObject({
 });
 
 export interface Inspection {
-  /** All findings: the schema problems of single entries and the rules V2 to V9 on the rest. */
+  /** All findings: the schema problems of single entries and the rules V2 to V11 on the rest. */
   diagnostics: DomainDiagnostic[];
   /** The candidate without the entries that break the schema; it passes the schema check. */
   view: DomainView;
@@ -152,7 +152,7 @@ function provenanceFor(
 
 /**
  * Checks a candidate against the net. Entries that break the schema are reported (rule V1) and
- * left out, so that the rules V2 to V9 can still be checked on everything else; one round then
+ * left out, so that the rules V2 to V11 can still be checked on everything else; one round then
  * reports all findings and not only the first kind.
  */
 export function inspect(
@@ -176,11 +176,24 @@ export function inspect(
   const badDecor = new Set<number>();
   let badMeta = false;
   let badSections = new Set<string>();
+  // Places that only have a `display` or an `appearance` where none is allowed (rules V10, V11).
+  // The finding is reported, and the field is dropped, but the rest of the entry is kept.
+  const misplaced = new Map<Id, Set<string>>();
   if (!parsed.success) {
-    v1.push(...schemaDiagnostics(net, parsed.error));
+    v1.push(...schemaDiagnostics(net, parsed.error, { places: candidate.places }));
     badSections = new Set();
     for (const issue of parsed.error.issues) {
       const [section, key] = issue.path;
+      if (
+        section === 'places' &&
+        typeof key === 'string' &&
+        issue.path.length === 2 &&
+        issue.code === 'unrecognized_keys' &&
+        issue.keys.every((name) => name === 'display' || name === 'appearance')
+      ) {
+        misplaced.set(key, new Set([...(misplaced.get(key) ?? []), ...issue.keys]));
+        continue;
+      }
       if (section === 'meta') badMeta = true;
       else if (section === 'places' || section === 'transitions' || section === 'arcs') {
         if (typeof key !== 'string') badSections.add(section);
@@ -199,7 +212,18 @@ export function inspect(
     whole ? {} : Object.fromEntries(Object.entries(entries).filter(([key]) => !bad.has(key)));
   const meta: DomainMeta =
     badMeta || candidate.meta === undefined ? generic.meta : (candidate.meta as DomainMeta);
-  const places = without(candidate.places, badPlaces, badSections.has('places'));
+  const places = Object.fromEntries(
+    Object.entries(without(candidate.places, badPlaces, badSections.has('places'))).map(
+      ([key, entry]) => {
+        const fields = misplaced.get(key);
+        if (!fields || !isRecord(entry)) return [key, entry];
+        return [
+          key,
+          Object.fromEntries(Object.entries(entry).filter(([name]) => !fields.has(name))),
+        ];
+      },
+    ),
+  );
   const transitions = without(
     candidate.transitions,
     badTransitions,

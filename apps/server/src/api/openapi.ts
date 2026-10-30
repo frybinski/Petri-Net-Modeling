@@ -196,7 +196,7 @@ export function buildOpenApi(options: { publicUrl?: string } = {}): Json {
         'Check a domain view',
         'The same result as `pnm domain check --json`. Without `view` the view in the net is checked.',
         'DomainCheckRequest',
-        json('The findings of the rules V1 to V9.'),
+        json('The findings of the rules V1 to V11.'),
       ),
     },
     '/api/v1/domain/generic': {

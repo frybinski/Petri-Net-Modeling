@@ -108,6 +108,53 @@ export function DomainHoverCard({ model, anchor }: { model: DomainCardModel; anc
             </dd>
           </>
         ) : null}
+        {model.limit !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardLimit}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-limit">
+              {model.limit.max}
+            </dd>
+            {model.limit.low !== undefined ? (
+              <>
+                <dt className="text-muted">{en.domain.cardLowLimit}</dt>
+                <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-low">
+                  {model.limit.low}
+                </dd>
+              </>
+            ) : null}
+            <dt className="text-muted">{en.domain.cardFull}</dt>
+            <dd className="m-0 font-medium text-fg tabular-nums" data-testid="domain-card-filled">
+              {model.limit.filled} %
+            </dd>
+            {model.limit.over !== undefined ? (
+              <>
+                <dt className="text-muted">{en.domain.cardOver}</dt>
+                <dd className="m-0 font-medium text-danger" data-testid="domain-card-over">
+                  {en.domain.cardOverValue(model.limit.over)}
+                </dd>
+              </>
+            ) : null}
+          </>
+        ) : null}
+        {model.scale !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardScale}</dt>
+            <dd className="m-0 font-medium text-fg" data-testid="domain-card-scale">
+              {en.domain.cardScaleValue(model.scale.per, model.scale.unit)}
+            </dd>
+          </>
+        ) : null}
+        {model.look !== undefined ? (
+          <>
+            <dt className="text-muted">{en.domain.cardLook}</dt>
+            <dd className="m-0 font-medium text-fg" data-testid="domain-card-look">
+              {en.domain.sprites[model.look.sprite] ?? model.look.sprite}
+              {model.look.tint !== undefined
+                ? `, ${(en.domain.tints[model.look.tint] ?? model.look.tint).toLowerCase()}`
+                : ''}
+            </dd>
+          </>
+        ) : null}
         {model.waiting !== undefined ? (
           <>
             <dt className="text-muted">{en.domain.cardWaiting}</dt>

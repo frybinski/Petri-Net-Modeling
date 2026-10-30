@@ -1,4 +1,4 @@
-import type { Id, Marking, PetriNet } from '@pnm/core';
+import { placeRoles, type Id, type Marking, type PetriNet, type PlaceRole } from '@pnm/core';
 import {
   distance,
   distanceToPath,
@@ -7,8 +7,29 @@ import {
   pathLength,
   TOKEN_SPACING,
 } from './geometry';
+import { appearanceOfPlace, heldAppearance, type AppearanceContext } from './appearance';
+import {
+  counterArea,
+  counterInfo,
+  counterLayout,
+  dynamicCounterCommands,
+  graphicDisplay,
+  staticCounterCommands,
+  type CounterEntry,
+} from './counter-graphic';
+import type { HistoryPoint } from './history';
 import type { Tone } from './palette';
-import { arcKey, type Decor, type DomainView, type Point, type Rect, type Sprite } from './schema';
+import {
+  arcKey,
+  type Appearance,
+  type Decor,
+  type DisplayIcon,
+  type DomainView,
+  type Point,
+  type Rect,
+  type Sprite,
+  type Tint,
+} from './schema';
 
 /** The layers of a scene, from back to front. */
 export const LAYERS = [
@@ -120,8 +141,49 @@ export type DrawCommand = Base &
         state: CellState;
       }
     | { op: 'glyph'; glyph: Glyph; x: number; y: number; size: number; tone: Tone; alpha?: number }
-    | { op: 'sprite'; sprite: Sprite; x: number; y: number; size: number; angle?: number }
-    | { op: 'badge'; x: number; y: number; text: string; accent?: boolean }
+    | {
+        op: 'sprite';
+        sprite: Sprite;
+        x: number;
+        y: number;
+        size: number;
+        angle?: number;
+        /** A token of the palette that colors the body of the sprite (appearance of a stage). */
+        tint?: Tint;
+        alpha?: number;
+      }
+    | {
+        op: 'badge';
+        x: number;
+        y: number;
+        text: string;
+        accent?: boolean;
+        /** Fills the badge with this color instead (a warning). */
+        tone?: Tone;
+      }
+    /** The picture of an amount or an object; a `fraction` below 1 fills it from the left only. */
+    | {
+        op: 'icon';
+        icon: DisplayIcon;
+        x: number;
+        y: number;
+        size: number;
+        fraction?: number;
+        alpha?: number;
+      }
+    /** The liquid of a container: the lower `value` (0 to 1) of the rectangle, clipped to its corners. */
+    | {
+        op: 'fill';
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        radius: number;
+        value: number;
+        tone: Tone;
+      }
+    /** A curve of a count over time as a step line; its area down to `base` is lightly filled. */
+    | { op: 'spark'; points: Point[]; base: number; tone: Tone }
     | { op: 'progress'; x: number; y: number; w: number; h: number; value: number; tone?: Tone }
     /** A circle that fills clockwise from the top: the progress of a firing on its slot. */
     | {
@@ -171,13 +233,19 @@ export interface SceneOptions {
   running?: readonly RunningSlot[];
   hover?: Id | null;
   selection?: readonly Id[];
+  /** The count over time of counters with `display.history`, and the time of its right end. */
+  history?: Readonly<Record<Id, readonly HistoryPoint[]>>;
+  time?: number;
 }
 
 const BELT_WIDTH = 24;
 const BUFFER_WIDTH = 30;
 const LANE_WIDTH = 18;
 
-/** The size of a case on the canvas, 14 to 18 px depending on how much room the picture needs. */
+/**
+ * The size of a case on the canvas, 14 to 22 px depending on how much room the picture needs. The
+ * thin pictures of a frame and a bicycle are drawn larger, so that their tubes stay readable.
+ */
 export function spriteSize(sprite: Sprite): number {
   switch (sprite) {
     case 'person':
@@ -188,6 +256,12 @@ export function spriteSize(sprite: Sprite): number {
     case 'parcel':
     case 'document':
       return 16;
+    case 'bars':
+      return 18;
+    case 'frame':
+      return 20;
+    case 'bicycle':
+      return 24;
   }
 }
 const PRIORITY = { arc: 0, area: 1, path: 2, card: 2, box: 2, point: 3, cell: 4 };
@@ -219,6 +293,71 @@ export function wrapLabel(text: string, size: number, maxWidth: number, weight =
     return [lines[0]!, rest.length > room ? `${rest.slice(0, room - 1)}…` : rest];
   }
   return lines;
+}
+
+/** The region for hover and clicks of a counter with a graphic, and its label below it. */
+function buildCounterHitAndLabel(
+  b: Builder,
+  placeId: Id,
+  entry: CounterEntry,
+  display: NonNullable<ReturnType<typeof graphicDisplay>>,
+): void {
+  const area = counterArea(entry, display);
+  const [x, y, w, h] = area;
+  b.hit(placeId, 'place', { type: 'rect', rect: area }, PRIORITY.box);
+  // A large box carries its label inside, as a title.
+  if (!entry.label || counterLayout(area, display, 0, entry, true).title) return;
+  textLines(
+    b,
+    'labels',
+    placeId,
+    wrapLabel(entry.label, 11, Math.max(w + 20, entry.kind === 'pool' ? 110 : 100)),
+    x + w / 2,
+    y + h + 6,
+    { size: 11, weight: 500, tone: 'ink2', align: 'center', anchor: 'below', halo: true },
+  );
+}
+
+/** The roles and arcs of a net in the form that the look of a case in a firing is found from. */
+function appearanceContextOf(
+  net: PetriNet,
+  view: DomainView,
+  roles: ReadonlyMap<Id, PlaceRole>,
+): AppearanceContext {
+  const placeIds = new Set(net.places.map((p) => p.id));
+  const inputs = new Map<Id, Id[]>();
+  const outputs = new Map<Id, Id[]>();
+  for (const transition of net.transitions) {
+    inputs.set(transition.id, []);
+    outputs.set(transition.id, []);
+  }
+  for (const arc of net.arcs) {
+    if (placeIds.has(arc.source)) inputs.get(arc.target)?.push(arc.source);
+    else outputs.get(arc.source)?.push(arc.target);
+  }
+  return { view, roles, inputs, outputs };
+}
+
+/** A case drawn as a sprite on a belt or lane, or on the slot of a station. */
+function caseSprite(
+  layer: Layer,
+  elementId: Id,
+  look: Appearance,
+  point: Point,
+  direction?: Point,
+): DrawCommand {
+  const oriented = look.sprite === 'person' || look.sprite === 'vehicle';
+  return {
+    layer,
+    elementId,
+    op: 'sprite',
+    sprite: look.sprite,
+    x: point[0],
+    y: point[1],
+    size: spriteSize(look.sprite),
+    ...(oriented && direction !== undefined ? { angle: directionAngle(direction) } : {}),
+    ...(look.tint !== undefined && { tint: look.tint }),
+  };
 }
 
 // --- Scene builder ----------------------------------------------------------------------------
@@ -605,10 +744,39 @@ export function buildScene(
     new Set(running.filter((r) => r.transitionId === transitionId).map((r) => r.slot));
 
   // Places.
+  let roles: Map<Id, PlaceRole> | null = null;
+  let appearanceContext: AppearanceContext | null = null;
   for (const place of net.places) {
     const entry = view.places[place.id];
     if (!entry) continue;
     const count = countOf(place.id);
+    // A counter that shows its amount as a fill level, a pictogram or a curve (N2).
+    const graphic = graphicDisplay(entry);
+    if (
+      graphic !== null &&
+      (entry.kind === 'pool' || entry.kind === 'source' || entry.kind === 'sink')
+    ) {
+      roles ??= placeRoles(net);
+      const role = roles.get(place.id);
+      const info = counterInfo(
+        place.id,
+        entry,
+        graphic,
+        net,
+        view,
+        role !== 'quantity' && role !== 'resource',
+      );
+      for (const command of staticCounterCommands(info)) b.push(command);
+      for (const command of dynamicCounterCommands(info, {
+        count,
+        ...(options.history?.[place.id] && { history: options.history[place.id]! }),
+        ...(options.time !== undefined && { time: options.time }),
+      })) {
+        b.push(command);
+      }
+      buildCounterHitAndLabel(b, place.id, entry, graphic);
+      continue;
+    }
     switch (entry.kind) {
       case 'conveyor':
       case 'queue':
@@ -629,19 +797,9 @@ export function buildScene(
           PRIORITY.path,
         );
         const { spots, extra, next } = tokenSpots(entry.path, count);
+        const look = appearanceOfPlace(view, place.id);
         for (const spot of spots) {
-          b.push({
-            layer: 'tokens',
-            elementId: place.id,
-            op: 'sprite',
-            sprite,
-            x: spot.point[0],
-            y: spot.point[1],
-            size: spriteSize(sprite),
-            ...(sprite === 'person' || sprite === 'vehicle'
-              ? { angle: directionAngle(spot.direction) }
-              : {}),
-          });
+          b.push(caseSprite('tokens', place.id, look, spot.point, spot.direction));
         }
         if (extra > 0) {
           b.push({
@@ -1110,15 +1268,10 @@ export function buildScene(
     for (const firing of running.filter((r) => r.transitionId === id)) {
       const slot = slots[firing.slot];
       if (slot) {
-        b.push({
-          layer: 'tokens',
-          elementId: id,
-          op: 'sprite',
-          sprite,
-          x: slot[0],
-          y: slot[1],
-          size: spriteSize(sprite),
-        });
+        // The case keeps the look of the place it was taken from while the station works.
+        roles ??= placeRoles(net);
+        appearanceContext ??= appearanceContextOf(net, view, roles);
+        b.push(caseSprite('tokens', id, heldAppearance(appearanceContext, id, 0), slot));
       } else unplaced += 1;
     }
     if (

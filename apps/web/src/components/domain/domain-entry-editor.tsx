@@ -22,6 +22,7 @@ import {
 } from '../../lib/domain-edit';
 import { Button, IconButton } from '../ui/button';
 import { SelectField, TextField, inputClass } from '../ui/fields';
+import { AppearanceEditor, DisplayEditor } from './domain-display-editor';
 
 /** A small whole-number field for coordinates: commits on Enter and when it loses the focus. */
 function Coord({
@@ -215,6 +216,12 @@ export function EntryEditor({
           }}
           data-testid="domain-field-label"
         />
+      ) : null}
+      {entry.section === 'places' && !hidden ? (
+        <>
+          <DisplayEditor net={net} view={view} entry={entry} locked={locked} />
+          <AppearanceEditor net={net} view={view} entry={entry} locked={locked} />
+        </>
       ) : null}
       {entry.section === 'transitions' && !hidden ? (
         <TextField

@@ -1,4 +1,5 @@
-import { isCaselessRole, type Id } from '@pnm/core';
+import { isCaselessRole, type Id, type Marking } from '@pnm/core';
+import { graphicDisplay, nameWithoutUnit, overflowOf } from './counter-graphic';
 import { layoutContext, type LayoutContext, type LayoutFiring } from './token-layout';
 import type { DomainView } from './schema';
 import type { PetriNet } from '@pnm/core';
@@ -102,4 +103,43 @@ export function stationInfos(
     });
   }
   return infos;
+}
+
+/** A counter with a fill level whose count is above its limit (rule K3: reported, not hidden). */
+export interface CounterOverflow {
+  placeId: Id;
+  /** The label of the entry without its unit, else the name of the place. */
+  name: string;
+  count: number;
+  max: number;
+}
+
+/**
+ * The counters with a fill level that hold more tokens than their `max`, in the order of the
+ * places of the net. The picture draws such a container full, with a mark; this is the same fact
+ * as a list, for the status of the view.
+ */
+export function counterOverflows(
+  net: PetriNet,
+  view: DomainView,
+  marking: Marking,
+): CounterOverflow[] {
+  const found: CounterOverflow[] = [];
+  for (const place of net.places) {
+    const entry = view.places[place.id];
+    if (!entry || (entry.kind !== 'pool' && entry.kind !== 'source' && entry.kind !== 'sink')) {
+      continue;
+    }
+    const display = graphicDisplay(entry);
+    const count = marking[place.id]?.length ?? 0;
+    if (overflowOf(display, count) > 0 && display?.style === 'fill') {
+      found.push({
+        placeId: place.id,
+        name: nameWithoutUnit(entry.label ?? place.name),
+        count,
+        max: display.max,
+      });
+    }
+  }
+  return found;
 }

@@ -1,3 +1,5 @@
+import type { Tint } from './schema';
+
 /**
  * Colors and fonts of the domain view. The painter never reads the page: the caller passes the
  * palette of the current theme.
@@ -52,6 +54,19 @@ export interface ScenePalette {
 
 /** The names of the colors, as used by the draw commands. */
 export type Tone = Exclude<keyof ScenePalette, 'fontSans' | 'fontMono'>;
+
+/**
+ * The color of a tint of a sprite: always a token of the palette, so that every tint is right in
+ * the light and in the dark theme. `neutral` is the grey of raw material.
+ */
+export const TINT_TONES: Readonly<Record<Tint, Tone>> = {
+  accent: 'accent',
+  ok: 'ok',
+  warn: 'warn',
+  danger: 'danger',
+  info: 'vehicle',
+  neutral: 'inkMuted',
+};
 
 const FONT_SANS = "'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif";
 const FONT_MONO = "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace";

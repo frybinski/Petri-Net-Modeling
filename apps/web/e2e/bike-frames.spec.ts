@@ -232,3 +232,250 @@ test('bicycle frames: the quantity role is in the inspector, and indicators are 
   await page.keyboard.press('Control+z');
   await expect(items).toHaveCount(4);
 });
+
+/** Screen position of a point of the sheet in the domain canvas. */
+async function sheetToScreen(canvas: Locator, x: number, y: number): Promise<[number, number]> {
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('domain canvas not visible');
+  const zoom = Number(await canvas.getAttribute('data-zoom'));
+  const panX = Number(await canvas.getAttribute('data-pan-x'));
+  const panY = Number(await canvas.getAttribute('data-pan-y'));
+  return [box.x + panX + x * zoom, box.y + panY + y * zoom];
+}
+
+/** What the canvas of the domain view says about its counters, by place: `fill:0.60:normal`, `pictogram:3+0`. */
+async function graphics(canvas: Locator): Promise<Record<string, string>> {
+  const text = (await canvas.getAttribute('data-graphics')) ?? '';
+  return Object.fromEntries(
+    text
+      .split(';')
+      .filter(Boolean)
+      .map((entry) => {
+        const [id = '', value = ''] = entry.split('=');
+        return [id, value];
+      }),
+  );
+}
+
+/** The look of the cases that rest on the canvas, by element: `p_welded` gives `frame/neutral`. */
+async function looks(canvas: Locator): Promise<Array<{ at: string; look: string }>> {
+  const text = (await canvas.getAttribute('data-looks')) ?? '';
+  return text
+    .split(';')
+    .filter(Boolean)
+    .map((entry) => {
+      const [, rest = ''] = entry.split('@');
+      const [at = '', look = ''] = rest.split('=');
+      return { at, look };
+    });
+}
+
+/** The look that the example gives the cases at every place and every station. */
+const STAGE_LOOK: Record<string, string> = {
+  p_orders: 'document',
+  p_cut: 'bars',
+  p_welded: 'frame/neutral',
+  p_coated: 'frame/accent',
+  p_checked: 'frame/accent',
+  p_rework: 'frame/accent',
+  p_ready: 'parcel',
+  // In a station a case keeps the look of the place it came from.
+  t_cut: 'document',
+  t_weld: 'bars',
+  t_coat: 'frame/neutral',
+  t_check: 'frame/accent',
+  t_rework: 'frame/accent',
+  t_release: 'frame/accent',
+  t_reject: 'frame/accent',
+  t_ship: 'parcel',
+};
+
+test('bicycle frames: the tube store changes its level, the CO2 pictogram grows, and cases look like their stage', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await openExample(page, 'bike-frames');
+  await page.getByTestId('view-domain').click();
+  const canvas = page.getByTestId('domain-canvas');
+  await expect(canvas).toHaveAttribute('data-zoom', /\d/);
+
+  // At rest: the tube store is filled to 120 of 200 kg, nothing has been counted yet.
+  await expect.poll(async () => (await graphics(canvas))['p_tubes']).toBe('fill:0.60:normal');
+  expect((await graphics(canvas))['p_co2']).toBe('pictogram:0+0');
+  expect((await graphics(canvas))['p_shipped']).toBe('pictogram:0+0');
+  expect((await graphics(canvas))['p_scrap']).toBe('fill:0.00:normal');
+
+  await page.getByTestId('domain-simulate').click();
+  await expect(page.getByTestId('domain-clock')).toHaveText('00:00:00');
+
+  // Top speed for a while: levels, symbols and the looks of the cases are sampled on the way.
+  const ratios = new Set<string>();
+  const seen = new Map<string, Set<string>>();
+  let symbols = 0;
+  const sample = async (): Promise<void> => {
+    const now = await graphics(canvas);
+    ratios.add(now['p_tubes']?.split(':')[1] ?? '');
+    symbols = Math.max(symbols, Number(now['p_co2']?.split(':')[1]?.split('+')[0] ?? 0));
+    for (const { at, look } of await looks(canvas)) {
+      const set = seen.get(at) ?? new Set<string>();
+      set.add(look);
+      seen.set(at, set);
+    }
+  };
+  await page.getByTestId('domain-speed-max').click();
+  await page.getByTestId('domain-play').click();
+  await expect
+    .poll(
+      async () => {
+        await sample();
+        const [h = 0] = ((await page.getByTestId('domain-clock').textContent()) ?? '')
+          .split(':')
+          .map(Number);
+        return h >= 3 && ratios.size >= 3 && seen.size >= 4
+          ? 'done'
+          : `${h} h, ${ratios.size} levels, looks at ${[...seen.keys()].join(',')}`;
+      },
+      { timeout: 25_000, intervals: [30] },
+    )
+    .toBe('done');
+  await page.getByTestId('domain-play').click();
+  await expect(page.getByTestId('domain-play')).toHaveAttribute('aria-pressed', 'false');
+
+  // The level of the tube store moved (the saw takes 3 kg for each frame, deliveries add 40 kg),
+  // and the pictogram of CO2 has symbols for what was counted.
+  expect(ratios.size).toBeGreaterThanOrEqual(3);
+  expect(symbols).toBeGreaterThanOrEqual(1);
+  // Every case that was seen looks like the place or the station it was on.
+  for (const [at, set] of seen) {
+    expect(STAGE_LOOK[at], `look of ${at}`).toBeDefined();
+    expect([...set], at).toEqual([STAGE_LOOK[at]]);
+  }
+  expect(errors).toEqual([]);
+});
+
+test.describe('with motion', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('bicycle frames: markers of amounts run with their symbol and a case changes its look on the way', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await openExample(page, 'bike-frames');
+    await page.getByTestId('view-domain').click();
+    const canvas = page.getByTestId('domain-canvas');
+    await expect(canvas).toHaveAttribute('data-zoom', /\d/);
+    await page.getByTestId('domain-simulate').click();
+    // Some hours at top speed first, so that there are cases in the plant and events follow closely.
+    await page.getByTestId('domain-speed-max').click();
+    await page.getByTestId('domain-play').click();
+    await expect
+      .poll(async () => {
+        const [h = 0] = ((await page.getByTestId('domain-clock').textContent()) ?? '')
+          .split(':')
+          .map(Number);
+        return h;
+      })
+      .toBeGreaterThanOrEqual(2);
+    await page.getByTestId('domain-play').click();
+    await expect(page.getByTestId('domain-play')).toHaveAttribute('aria-pressed', 'false');
+    // What the canvas shows for a moment is recorded by an observer in the page.
+    await canvas.evaluate((element) => {
+      const record = { flows: 0, blending: 0 };
+      (window as unknown as { __seen: typeof record }).__seen = record;
+      new MutationObserver(() => {
+        record.flows = Math.max(record.flows, Number(element.getAttribute('data-flows')));
+        record.blending = Math.max(record.blending, Number(element.getAttribute('data-blending')));
+      }).observe(element, { attributes: true, attributeFilter: ['data-flows', 'data-blending'] });
+    });
+    await page.getByTestId('domain-speed-60').click();
+    await page.getByTestId('domain-play').click();
+    await page.waitForFunction(
+      () => {
+        const seen = (window as unknown as { __seen?: { flows: number; blending: number } }).__seen;
+        return seen !== undefined && seen.flows > 0 && seen.blending > 0;
+      },
+      null,
+      { timeout: 25_000, polling: 30 },
+    );
+    await page.getByTestId('domain-play').click();
+    expect(errors).toEqual([]);
+  });
+});
+
+test('bicycle frames: the status names a fill level over its limit', async ({ page }) => {
+  await openExample(page, 'bike-frames');
+  // 213 kg of tube in a store that holds 200 (the marking is set in the net view).
+  await place(page, 'Rohrlager').getByTestId('place-shape').click();
+  await page.getByTestId('prop-tokens').fill('213');
+  await page.getByTestId('prop-tokens').press('Enter');
+  await page.getByTestId('view-domain').click();
+  const canvas = page.getByTestId('domain-canvas');
+  await expect(canvas).toHaveAttribute('data-zoom', /\d/);
+  await expect(page.getByTestId('domain-overflow')).toContainText(
+    'Fill level exceeded: Rohrlager 213 > 200',
+  );
+  // The container is drawn full, and says so on the canvas as well.
+  await expect.poll(async () => (await graphics(canvas))['p_tubes']).toBe('fill:1.00:over');
+  await page.getByTestId('right-tab-domain').click();
+  await expect(page.getByTestId('domain-overflows')).toContainText('Rohrlager 213 > 200');
+  // A note, not a problem of the view.
+  await expect(page.getByTestId('domain-status')).toContainText('0 problems');
+  // Back to 120 kg: the note is gone.
+  await page.getByTestId('view-net').click();
+  await place(page, 'Rohrlager').getByTestId('place-shape').click();
+  await page.getByTestId('prop-tokens').fill('120');
+  await page.getByTestId('prop-tokens').press('Enter');
+  await page.getByTestId('view-domain').click();
+  await expect(page.getByTestId('domain-overflow')).toHaveCount(0);
+});
+
+test('bicycle frames: the display and the appearance are edited in the inspector, one undo step each', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await openExample(page, 'bike-frames');
+  await page.getByTestId('view-domain').click();
+  const canvas = page.getByTestId('domain-canvas');
+  await expect(canvas).toHaveAttribute('data-zoom', /\d/);
+  await page.getByTestId('domain-mode-edit').click();
+  await page.getByTestId('right-tab-domain').click();
+  // The tube store: a click on its container selects its entry.
+  const [x, y] = await sheetToScreen(canvas, 122, 256);
+  await page.mouse.click(x, y);
+  await expect(page.getByTestId('domain-field-display-max')).toHaveValue('200');
+  await page.getByTestId('domain-field-display-max').fill('250');
+  await page.getByTestId('domain-field-display-max').press('Enter');
+  await expect.poll(async () => (await graphics(canvas))['p_tubes']).toBe('fill:0.48:normal');
+  // A limit that does not fit stays out and the error stands at the field.
+  await page.getByTestId('domain-field-display-low').fill('900');
+  await page.getByTestId('domain-field-display-low').press('Enter');
+  await expect(page.getByTestId('domain-display').getByRole('alert')).toContainText(
+    'must not be larger than "max"',
+  );
+  expect((await graphics(canvas))['p_tubes']).toBe('fill:0.48:normal');
+  // One undo step takes the limit back.
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await graphics(canvas))['p_tubes']).toBe('fill:0.60:normal');
+
+  // The welded frames: change the color of the cases on the belt.
+  const [bx, by] = await sheetToScreen(canvas, 600, 290);
+  await page.mouse.click(bx, by);
+  await expect(page.getByTestId('domain-field-appearance-sprite-frame')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('domain-field-appearance-tint-ok').click();
+  await expect(page.getByTestId('domain-field-appearance-tint-ok')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.keyboard.press('Control+z');
+  await expect(page.getByTestId('domain-field-appearance-tint-neutral')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect(errors).toEqual([]);
+});

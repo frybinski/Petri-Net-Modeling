@@ -1,8 +1,13 @@
 import { placeRoles, type Id, type Marking, type PetriNet, type PlaceRole } from '@pnm/core';
 import {
   arcKey,
+  formatAmount,
+  graphicDisplay,
+  overflowOf,
   queueLevel,
+  unitOf,
   type DomainView,
+  type PlaceView,
   type Provenance,
   type QueueLevel,
   type StationInfo,
@@ -38,6 +43,12 @@ export interface DomainCardModel {
   /** Simulation: free tokens of a resource place. */
   free?: number;
   level?: Exclude<QueueLevel, 'ok'>;
+  /** A counter with a fill level: its upper limit, how full it is, and what is over (N2). */
+  limit?: { max: string; low?: string; filled: number; over?: number };
+  /** A counter with a pictogram: what one symbol stands for. */
+  scale?: { per: number; unit: string };
+  /** The appearance of the cases on a place: the sprite and the tint. */
+  look?: { sprite: string; tint?: string };
 }
 
 /** What the running simulation knows about the elements. Absent while editing. */
@@ -82,6 +93,7 @@ export function buildDomainCard({
       role,
       tokens: marking[id]?.length ?? 0,
       ...(origin && { origin }),
+      ...(entry && graphicCard(entry, place.name, marking[id]?.length ?? 0)),
       ...(live && placeLive(live, id, role, entry?.kind)),
     };
   }
@@ -119,6 +131,38 @@ export function buildDomainCard({
     };
   }
   return null;
+}
+
+/**
+ * What the hover card says about the graphic of a counter and the appearance of cases: the scale
+ * of a pictogram, the limit of a fill level, and how the cases look.
+ */
+function graphicCard(entry: PlaceView, name: string, count: number): Partial<DomainCardModel> {
+  const result: Partial<DomainCardModel> = {};
+  const display = graphicDisplay(entry);
+  if (display && (entry.kind === 'pool' || entry.kind === 'source' || entry.kind === 'sink')) {
+    const unit = unitOf(display, entry.label ?? name);
+    const withUnit = (value: number): string =>
+      `${formatAmount(value)}${unit !== '' ? ` ${unit}` : ''}`;
+    if (display.style === 'fill') {
+      const over = overflowOf(display, count);
+      result.limit = {
+        max: withUnit(display.max),
+        ...(display.low !== undefined && { low: withUnit(display.low) }),
+        filled: Math.round((Math.min(count, display.max) / display.max) * 100),
+        ...(over > 0 && { over }),
+      };
+    } else if (display.style === 'pictogram') {
+      result.scale = { per: display.per, unit };
+    }
+  }
+  if ('appearance' in entry && entry.appearance) {
+    result.look = {
+      sprite: entry.appearance.sprite,
+      ...(entry.appearance.tint !== undefined && { tint: entry.appearance.tint }),
+    };
+  }
+  return result;
 }
 
 /** The origin of an entry as text, for example `user · 2026-10-28`. */

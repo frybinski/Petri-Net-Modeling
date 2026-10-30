@@ -1,6 +1,14 @@
 import { isCaselessRole, type Id } from '@pnm/core';
 import type { SimEvent, TokenRef } from '@pnm/sim';
+import { appearanceOfPlace, heldAppearance, sameAppearance } from './appearance';
 import { dedupePoints, distance, pathLength, pointAlong, subPath } from './geometry';
+import {
+  HISTORY_LIMIT,
+  HISTORY_WINDOW_SECONDS,
+  compactHistory,
+  trimHistory,
+  type HistoryPoint,
+} from './history';
 import {
   arcPathOf,
   firingKey,
@@ -14,7 +22,8 @@ import {
   type LayoutContext,
   type TokenLayout,
 } from './token-layout';
-import type { Point } from './schema';
+import type { Appearance, DisplayIcon, Point } from './schema';
+import { spriteSize } from './scene';
 
 /** How long a token needs for one move, in milliseconds of wall-clock time. */
 export const MOTION_MS = 300;
@@ -26,6 +35,11 @@ export const MAX_MOTIONS = 60;
 export const MAX_FLOWS = 40;
 /** Handled events kept for the log (see `AnimationState.handled`). */
 export const DEFAULT_LOG_LIMIT = 4000;
+/**
+ * A case changes its look within this time, in milliseconds: the picture of the place it came
+ * from fades into that of the place it goes to while it leaves the station.
+ */
+export const APPEARANCE_MS = 250;
 
 /** A token that moves along a route. Every motion belongs to exactly one event. */
 export interface Motion {
@@ -42,6 +56,11 @@ export interface Motion {
   /** The token ends in a sink or pool and is not drawn at rest. */
   absorbed?: boolean;
   caseId?: string;
+  /**
+   * How the case looks at the start and at the end of the move. If they differ, the first fades
+   * into the second within `APPEARANCE_MS` (or the length of the move if that is shorter).
+   */
+  appearance?: { from: Appearance; to: Appearance };
 }
 
 /**
@@ -58,6 +77,8 @@ export interface FlowMarker {
   direction: 'in' | 'out';
   /** The number of tokens (the amount) that moves. */
   count: number;
+  /** The symbol of the amount, from the `display.icon` of the place; without one a plain dot runs. */
+  icon?: DisplayIcon;
   /** From the place to the transition (`out`) or from the transition to the place (`in`). */
   path: Point[];
   /** Wall-clock milliseconds (the clock the caller passes as `now`). */
@@ -99,6 +120,12 @@ export interface AnimationState {
   flows: FlowMarker[];
   flashes: Flash[];
   counters: Record<Id, CounterState>;
+  /**
+   * The count over the simulated time of the counters with `display.history`: one point per
+   * change at an event, the last eight hours, at most 500 points per counter. Absent in a state
+   * made by hand, which has none.
+   */
+  history?: Record<Id, HistoryPoint[]>;
   /** Log of handled events, newest last, cut to `AnimationOptions.logLimit`. */
   handled: Handled[];
 }
@@ -108,6 +135,7 @@ export const EMPTY_ANIMATION: AnimationState = {
   flows: [],
   flashes: [],
   counters: {},
+  history: {},
   handled: [],
 };
 
@@ -215,23 +243,46 @@ export function shownCount(
 export interface SpriteSample {
   key: string;
   caseId?: string;
+  /** The place the case waits on, or the transition that holds it. */
+  elementId?: Id;
   point: Point;
   direction: Point;
   moving: boolean;
   /** The sprite stands in a station or travels, as opposed to waiting on a belt. */
   state: LaidOutToken['state'];
+  /** How the case looks now. */
+  appearance: Appearance;
+  /** The size of the sprite in sheet pixels. */
+  size: number;
+  /**
+   * While a case changes its look: the one it had before, and how far the new one has come (0 to
+   * 1). The old one is drawn first, the new one on top of it with that opacity.
+   */
+  blend?: { from: Appearance; mix: number };
+}
+
+/** How far the change of look of a move has come at `now`; `null` if there is none. */
+function blendOf(motion: Motion, now: number): { from: Appearance; mix: number } | null {
+  const looks = motion.appearance;
+  if (!looks || sameAppearance(looks.from, looks.to)) return null;
+  const span = Math.min(APPEARANCE_MS, motion.duration);
+  const mix = span <= 0 ? 1 : Math.min(1, Math.max(0, (now - motion.startedAt) / span));
+  return mix >= 1 ? null : { from: looks.from, mix };
 }
 
 /**
  * The sprites to draw at `now`: tokens at rest at their place in the layout (cases on a travel
  * route at the position for `simTime`), tokens under way at the interpolated position of their
- * motion. A token with a motion is not drawn at its place.
+ * motion. A token with a motion is not drawn at its place. Each one has the look of the place it
+ * lies on; a case that leaves a station changes it within `APPEARANCE_MS` (`blend`). `fallback`
+ * is the look of a token that has none (the entity of the view).
  */
 export function sampleSprites(
   layout: TokenLayout,
   anim: AnimationState,
   now: number,
   simTime?: number,
+  fallback: Appearance = { sprite: 'dot' },
 ): SpriteSample[] {
   const moving = new Map<string, Motion>();
   for (const motion of anim.motions) {
@@ -247,25 +298,35 @@ export function sampleSprites(
       point = travelled.point;
       direction = travelled.direction;
     }
+    const appearance = token.appearance ?? fallback;
     samples.push({
       key: token.key,
       ...(token.caseId !== undefined && { caseId: token.caseId }),
+      elementId: token.elementId,
       point,
       direction,
       moving: false,
       state: token.state,
+      appearance,
+      size: spriteSize(appearance.sprite),
     });
   }
   for (const motion of moving.values()) {
     const { point, direction } = motionPoint(motion, now);
     const laid = layout.tokens.get(motion.tokenId);
+    const appearance = motion.appearance?.to ?? laid?.appearance ?? fallback;
+    const blend = blendOf(motion, now);
     samples.push({
       key: motion.tokenId,
       ...(motion.caseId !== undefined && { caseId: motion.caseId }),
+      ...(laid !== undefined && { elementId: laid.elementId }),
       point,
       direction,
       moving: true,
       state: laid?.state ?? 'waiting',
+      appearance,
+      size: Math.max(spriteSize(appearance.sprite), blend ? spriteSize(blend.from.sprite) : 0),
+      ...(blend && { blend }),
     });
   }
   return samples;
@@ -293,6 +354,12 @@ interface Route {
   entered: Id | null;
   /** The route ends in a place that is only a number: the token is absorbed there. */
   sink: Id | null;
+}
+
+/** How the case looks where a route starts and where it ends. */
+interface Looks {
+  from: Appearance;
+  to: Appearance;
 }
 
 function lastOf(points: readonly Point[]): Point {
@@ -389,6 +456,8 @@ export function applyEvents(
     { elementId: Id | undefined; visible: boolean; deviation?: Id[] }
   >();
   const created: Motion[] = [];
+  // How the case of a route looks at its start and at its end, by the key of the route.
+  const looks = new Map<string, Looks>();
 
   // Amounts on quantity places do not move as tokens: a marker runs along the connector instead.
   const pendingFlows: Array<Omit<FlowMarker, 'startedAt' | 'duration'>> = [];
@@ -414,12 +483,15 @@ export function applyEvents(
         direction === 'out' ? [anchor, ...connector, station] : [station, ...connector, anchor],
       );
       if (path.length < 2) continue;
+      const shown = view.places[placeId];
+      const icon = shown !== undefined && 'display' in shown ? shown.display?.icon : undefined;
       pendingFlows.push({
         eventId: event.id,
         placeId,
         transitionId: event.transitionId,
         direction,
         count,
+        ...(icon !== undefined && { icon }),
         path,
       });
     }
@@ -474,6 +546,17 @@ export function applyEvents(
           }
           routes.set(key, route);
           origin.set(key, event.id);
+          // The case leaves its place and keeps its look in the station. A token that was put on
+          // the place a moment ago, in the same bundle, goes on from the look it had before that.
+          const taken = looks.get(ref.tokenId)?.from ?? appearanceOfPlace(view, ref.placeId);
+          looks.set(key, {
+            from: taken,
+            to: heldAppearance(
+              ctx,
+              event.transitionId,
+              Math.max(0, event.caseIds.indexOf(ref.caseId)),
+            ),
+          });
         }
         // Cases that enter here without a token (an arrival at a door) appear on the slot.
         for (const caseId of event.caseIds) {
@@ -493,23 +576,27 @@ export function applyEvents(
         const slotPoint = transitionAnchor(view, event.transitionId, event.slot);
         const held = event.caseIds.map((caseId) => firingKey(event.firingId, caseId));
         const unused = new Set(held);
-        const takeSource = (ref: TokenRef): Route | null => {
+        // The route of the case that the firing holds, and the key under which it was held.
+        const takeSource = (ref: TokenRef): { route: Route | null; key: string | null } => {
           const wanted =
             ref.caseId !== undefined ? firingKey(event.firingId, ref.caseId) : undefined;
           const key =
             wanted !== undefined && unused.has(wanted) ? wanted : held.find((k) => unused.has(k));
-          if (key === undefined) return null;
+          if (key === undefined) return { route: null, key: null };
           unused.delete(key);
           const known = routes.get(key);
           routes.delete(key);
           retire(key);
-          if (known) return known;
+          if (known) return { route: known, key };
           const laid = before.tokens.get(key);
           if (laid?.travel) {
-            return { points: [lastOf(laid.travel.path)], entered: null, sink: null };
+            return {
+              route: { points: [lastOf(laid.travel.path)], entered: null, sink: null },
+              key,
+            };
           }
           const here = currentPoint(key);
-          return here ? { points: [here], entered: null, sink: null } : null;
+          return { route: here ? { points: [here], entered: null, sink: null } : null, key };
         };
         for (const ref of event.produced) {
           const entryPlace = view.places[ref.placeId];
@@ -517,9 +604,31 @@ export function applyEvents(
           if (isCounterPlace(entryPlace) && visible) touch(ref.placeId, event.id);
           // Resources and quantities are no objects: they are not drawn as moving tokens.
           if (!visible || isCaselessRole(ctx.roles.get(ref.placeId))) continue;
-          let route = takeSource(ref);
+          const taken = takeSource(ref);
+          let route = taken.route;
           if (!route && slotPoint) route = { points: [slotPoint], entered: null, sink: null };
           if (!route) continue;
+          // At the end of the firing the case takes the look of the place it is put on. Until
+          // then it kept the one of the place it was taken from.
+          const heldKey = taken.key;
+          const heldLook =
+            (heldKey !== null ? looks.get(heldKey)?.to : undefined) ??
+            (heldKey !== null ? before.tokens.get(heldKey)?.appearance : undefined) ??
+            heldAppearance(
+              ctx,
+              event.transitionId,
+              Math.max(0, event.caseIds.indexOf(ref.caseId ?? '')),
+            );
+          // A case that goes into a counter without an appearance of its own is absorbed as it is.
+          const target = view.places[ref.placeId];
+          const keeps =
+            isCounterPlace(target) &&
+            !(target !== undefined && 'appearance' in target && target.appearance);
+          looks.set(ref.tokenId, {
+            from: heldLook,
+            to: keeps ? heldLook : appearanceOfPlace(view, ref.placeId),
+          });
+          if (heldKey !== null) looks.delete(heldKey);
           if (!pass) route.points.push(...arcPathOf(ctx, event.transitionId, ref.placeId));
           if (isPathPlace(entryPlace)) {
             route.points.push(pointAlong(entryPlace.path, 0).point);
@@ -582,6 +691,7 @@ export function applyEvents(
   ): void => {
     const points = dedupePoints(route);
     if (points.length < 2) return;
+    const look = looks.get(key);
     record({
       tokenId: key,
       eventId,
@@ -592,6 +702,7 @@ export function applyEvents(
       duration,
       ...(absorbed && { absorbed: true }),
       ...(caseId !== undefined && { caseId }),
+      ...(look && { appearance: look }),
     });
   };
 
@@ -788,13 +899,142 @@ export function applyEvents(
   }
 
   const log = [...prev.handled, ...handled];
+  const history = extendHistory(prev.history, ctx, events, before, after);
   return {
     motions: [...carried, ...fresh],
     flows: [...carriedFlows, ...freshFlows],
     flashes: [...flashing.values()],
     counters,
+    ...(history !== undefined && { history }),
     handled: log.length > logLimit ? log.slice(log.length - logLimit) : log,
   };
+}
+
+// --- History of counters ----------------------------------------------------------------------
+
+const historyIds = new WeakMap<LayoutContext, Id[]>();
+
+/** The places whose counter asks for a curve of its count (`display.history`). */
+function historyPlaces(ctx: LayoutContext): Id[] {
+  let ids = historyIds.get(ctx);
+  if (!ids) {
+    ids = ctx.net.places
+      .filter((place) => {
+        const entry = ctx.view.places[place.id];
+        return (
+          entry !== undefined &&
+          (entry.kind === 'pool' || entry.kind === 'source' || entry.kind === 'sink') &&
+          entry.display?.history === true
+        );
+      })
+      .map((place) => place.id);
+    historyIds.set(ctx, ids);
+  }
+  return ids;
+}
+
+/** By how many tokens an event changes the count of a place. */
+function deltaOf(event: SimEvent, placeId: Id): number {
+  let delta = 0;
+  switch (event.type) {
+    case 'start':
+      for (const ref of event.consumed) if (ref.placeId === placeId) delta -= 1;
+      break;
+    case 'complete':
+      for (const ref of event.produced) if (ref.placeId === placeId) delta += 1;
+      break;
+    case 'spawn':
+      for (const ref of event.tokens ?? []) if (ref.placeId === placeId) delta += 1;
+      break;
+    case 'marking-edited':
+      if (event.placeId === placeId) delta += event.delta;
+      break;
+    default:
+      break;
+  }
+  return delta;
+}
+
+/** Adds a point to a list that the caller owns. A second point at one instant replaces the first. */
+function pushPoint(series: HistoryPoint[], point: HistoryPoint): void {
+  const last = series[series.length - 1];
+  if (last !== undefined && last.t === point.t) {
+    const before = series[series.length - 2];
+    if (before !== undefined && before.v === point.v) series.pop();
+    else series[series.length - 1] = point;
+    return;
+  }
+  if (last !== undefined && last.v === point.v) return;
+  series.push(point);
+}
+
+/**
+ * The history after a bundle of events: for every counter that has one, a point at each event
+ * that changed its count, and at the end the count of the layout, which is the one that is shown.
+ * Counters that did not change keep the list they had. Returns `undefined` for a view with no
+ * history at all, so that its state stays as it was.
+ */
+function extendHistory(
+  prev: AnimationState['history'],
+  ctx: LayoutContext,
+  events: readonly SimEvent[],
+  before: TokenLayout,
+  after: TokenLayout,
+): AnimationState['history'] {
+  const ids = historyPlaces(ctx);
+  if (ids.length === 0) return prev;
+  const next: Record<Id, HistoryPoint[]> = { ...prev };
+  for (const id of ids) {
+    const known = prev?.[id];
+    const series: HistoryPoint[] = known ? known.slice() : [];
+    let count = before.counts.get(id) ?? 0;
+    // The first point is where the series starts: the count of the layout before the events.
+    if (series.length === 0) series.push({ t: before.time, v: count });
+    else count = series[series.length - 1]!.v;
+    let changed = known === undefined;
+    for (const event of events) {
+      const delta = deltaOf(event, id);
+      if (delta === 0) continue;
+      count += delta;
+      pushPoint(series, { t: event.t, v: count });
+      changed = true;
+    }
+    const actual = after.counts.get(id) ?? 0;
+    const last = series[series.length - 1]!;
+    if (last.v !== actual) {
+      pushPoint(series, { t: Math.max(after.time, last.t), v: actual });
+      changed = true;
+    }
+    if (!changed) continue;
+    let kept = series;
+    if (kept[0]!.t < after.time - HISTORY_WINDOW_SECONDS) kept = trimHistory(kept, after.time);
+    next[id] = kept.length > HISTORY_LIMIT ? compactHistory(kept) : kept;
+  }
+  return next;
+}
+
+/**
+ * The history after a jump of the simulation (reset, step back, a state set from outside): the
+ * points up to the time of the new state stay, those after it are cut away, and the last point is
+ * the count of the new state. A reset to time 0 thus leaves a single point.
+ */
+export function rewindHistory(
+  prev: AnimationState['history'],
+  ctx: LayoutContext,
+  layout: TokenLayout,
+): AnimationState['history'] {
+  const ids = historyPlaces(ctx);
+  if (ids.length === 0) return undefined;
+  const result: Record<Id, HistoryPoint[]> = {};
+  for (const id of ids) {
+    const series = (prev?.[id] ?? []).filter((point) => point.t <= layout.time);
+    const actual = layout.counts.get(id) ?? 0;
+    const last = series[series.length - 1];
+    if (last === undefined || last.t < layout.time) series.push({ t: layout.time, v: actual });
+    else series[series.length - 1] = { t: last.t, v: actual };
+    result[id] = series;
+  }
+  return result;
 }
 
 /** The place that holds the token of a case, for events that name no element. */

@@ -42,6 +42,7 @@ consequences.
 | [0015](adr/0015-event-log-replay.md)                       | An event log is replayed as a simulation: token replay, deviations as events.             |
 | [0016](adr/0016-server.md)                                 | A small server on node:http: files, threads with hard limits, a positive-list proxy.      |
 | [0017](adr/0017-quantity-places-and-indicators.md)         | A role for amounts (tokens without a case) and indicators defined in the net.             |
+| [0018](adr/0018-quantity-graphics-and-appearance.md)       | Isotype and fill levels instead of free scaling; the look of a case hangs on the place.   |
 
 ## Plans
 
@@ -62,6 +63,7 @@ The plans of the increments, in German, written before the work and kept as the 
 | [D5](plan/D5_Umsetzungsplan.md)                                    | Replay of event logs and live feeds: the simulation with a second source.                                              |
 | [M6](plan/M6_Umsetzungsplan.md)                                    | The server next to Ollama: proxy, interface, project store, image, Compose and ingress.                                |
 | [N1](plan/N1_Umsetzungsplan.md)                                    | The sustainability example: quantity places, indicators and the bicycle frame production.                              |
+| [N2](plan/N2_Umsetzungsplan.md)                                    | Quantities as graphics (fill levels, pictograms, curves) and the look of cases by stage.                               |
 
 ## Material
 

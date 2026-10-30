@@ -7,7 +7,7 @@ is a second view next to the net editor, drawn on a Canvas 2D from the net, a **
 The principle, which every part of the design follows: **the view shows, the net decides.** A mapping says _where_ and
 _as what_ an element is drawn. It contains no durations, weights, rates or conditions (the net has them), and nothing
 in it changes how the net behaves. The mapping is data that a person, a tool or a language model can write; it is
-checked against the net instead of trusted (rules V1 to V9 below).
+checked against the net instead of trusted (rules V1 to V11 below).
 
 The code lives in `packages/domain` (`@pnm/domain`). It depends on `@pnm/core` and `@pnm/layout` and has no React
 dependency; the core does not depend on it.
@@ -69,23 +69,83 @@ left corner. `Point` is `[x, y]`, `Rect` is `[x, y, width, height]`.
 }
 ```
 
-`entity.sprite` is the picture of a case: `parcel`, `person`, `vehicle`, `document` or `dot`.
+`entity.sprite` is the picture of a case: `parcel`, `person`, `vehicle`, `document`, `dot`, `frame` (a bicycle frame in
+the diamond shape, without wheels), `bicycle` or `bars` (bundled tubes or bars). It is the look of every case that lies
+on a place without an `appearance` of its own (see [Looks of cases](#looks-of-cases)).
 
 ### Places
 
-| Kind             | Fields           | Picture                                                                                                     |
-| ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
-| `conveyor`       | `path`, `label?` | A belt with rollers and direction chevrons. Cases stand along the path from its end backwards, 16 px apart. |
-| `queue`          | `path`, `label?` | A dashed lane with a bar and an arrow at the head. The same placement of cases.                             |
-| `buffer`         | `path`, `label?` | A framed band with a mark for every case. The same placement of cases.                                      |
-| `slots`          | `of`, `label?`   | The resource places of a transition: one cell per slot of the transition (see below).                       |
-| `pool`           | `pos`, `label?`  | A circle with the number of tokens.                                                                         |
-| `source`, `sink` | `box`, `label?`  | A box with an arrow in or out and the number of tokens (a truck for parcels, a door for people).            |
-| `hidden`         | `reason`         | Not drawn.                                                                                                  |
+| Kind             | Fields                                     | Picture                                                                                                                                       |
+| ---------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conveyor`       | `path`, `label?`, `appearance?`            | A belt with rollers and direction chevrons. Cases stand along the path from its end backwards, 16 px apart.                                   |
+| `queue`          | `path`, `label?`, `appearance?`            | A dashed lane with a bar and an arrow at the head. The same placement of cases.                                                               |
+| `buffer`         | `path`, `label?`, `appearance?`            | A framed band with a mark for every case. The same placement of cases.                                                                        |
+| `slots`          | `of`, `label?`                             | The resource places of a transition: one cell per slot of the transition (see below).                                                         |
+| `pool`           | `pos`, `label?`, `display?`                | A circle with the number of tokens; with a `display` a container or a pictogram (see below).                                                  |
+| `source`, `sink` | `box`, `label?`, `display?`, `appearance?` | A box with an arrow in or out and the number of tokens (a truck for parcels, a door for people); with a `display` a container or a pictogram. |
+| `hidden`         | `reason`                                   | Not drawn.                                                                                                                                    |
 
 When more cases wait on a path than fit, the last place shows a counter `+n`. A `source` or `sink` box of at least
 200 x 72 px shows its number big, as a headline figure, with the arrow above it (the CO₂e counter of the example); smaller
 boxes are drawn as before.
+
+### Quantities as graphics
+
+A counter (`pool`, `source`, `sink`) shows its amount as a number. With an optional `display` it also draws it, in one of
+two styles (N2). **The number is always drawn**; it is the value, the graphic helps to read it.
+
+```jsonc
+{ "kind": "pool", "pos": [122, 256], "label": "Rohrlager (kg)",
+  "display": { "style": "fill", "max": 200, "low": 40, "icon": "material", "size": [64, 100] } }
+
+{ "kind": "sink", "box": [840, 18, 336, 92], "label": "CO₂e (kg)",
+  "display": { "style": "pictogram", "icon": "co2", "per": 50, "history": true } }
+```
+
+| `style`     | Fields                                      | Picture                                                                                                                               |
+| ----------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `number`    | `icon?`, `history?`                         | As without a display; with `history` the curve below the number.                                                                      |
+| `fill`      | `max`, `low?`, `icon?`, `size?`, `history?` | A container with a liquid of the height `min(count, max) / max`. Below `low` the liquid is yellow. `max` is written at the container. |
+| `pictogram` | `per`, `icon?`, `size?`, `history?`         | An Isotype chart: one symbol for every `per` tokens, the rest as a partly filled symbol, and a legend (`1 ☁ = 50 kg`).                |
+
+- `icon` is the symbol of the amount. Pictures of amounts: `co2` (a cloud), `material`, `scrap`, `waste`, `energy`,
+  `water`, `dot`. A sink or source of cases can also use the sprites (`parcel`, ..., `bars`): "Ausgeliefert" shows parcels,
+  one for five frames. Without `icon` a pictogram draws a dot for an amount and the entity for cases. The symbol is also on
+  the flow markers of the place (see [Animation](#animation)).
+- `unit` (optional) is the unit of the legend and of the hover card; without it the unit is the text in the last brackets
+  of the label (`CO₂e (kg)`).
+- `size: [width, height]` is the size of a `pool` (a point has none); a box counter fills its box. The defaults are 52 x 84
+  px for a fill, 156 x 66 px for a pictogram and 100 x 58 px for a number with a curve.
+- **The scale is never changed to fit.** If more symbols are needed than the box holds, the last cell shows `+N` (the
+  number of symbols that are not drawn) and the symbols keep their size. A count above `max` draws the container full, in
+  the color of danger, with a red border and a mark `213 > 200`; the status of the view says "Fill level exceeded:
+  Rohrlager 213 > 200" (in the panel _Domain view_ and in the status bar) and the hover card shows how far it is over. This
+  is the fidelity of quantities (K3): the picture is proportional to the number of tokens, the scale is stated, and nothing
+  is cut off without being seen.
+- **`history: true`** draws a curve of the count over the **simulated** time: a step line with one point per event that
+  changed the count (a jump of +80 kg stays a jump), the last eight simulated hours (while the run is shorter, all of it),
+  at most 500 points per counter (older ones are merged window by window, keeping the lowest and the highest point of each).
+  It lives in the animation state, is cut when the simulation steps back and starts again with a reset. In a box it is
+  drawn along the bottom; the curve is not part of an exported image.
+- A box of 200 x 72 px or more carries its label as a title inside, so that nothing hangs below it; the number is a
+  headline figure on the left and the symbols on the right.
+
+### Looks of cases
+
+A case is drawn with the `appearance` of the place it lies on: `{ "sprite": "frame", "tint": "neutral" }`. Places of kind
+`queue`, `conveyor`, `buffer`, `source` and `sink` can have one; without it the case looks like `meta.entity.sprite`.
+
+- `sprite` is one of the eight sprites. `tint` is one of `accent`, `ok`, `warn`, `danger`, `info`, `neutral`, each a token
+  of the palette (never a free color, so both themes stay right): the body of the sprite takes the color of the token, the
+  edge a darker shade of it. `neutral` is the grey of raw material.
+- While a firing holds a case it keeps the look of the place it was taken from (the cases of a firing are matched to the
+  input places in order; a transition without a case input shows the case as it will look). **When the firing completes**
+  the case takes the look of the place it goes to: the old sprite fades into the new one in at most 250 ms while the case
+  leaves the station, and at once when tokens jump (speed _max_, reduced motion). A replay does the same, as it produces the
+  same events. A case that goes into a counter without an appearance of its own is absorbed as it is.
+- Example: in the bicycle frame production an order is a `document`, cut tubes are `bars`, a welded frame is a grey `frame`,
+  a coated frame an indigo one (`accent`, also while it is checked and when it is reworked) and the shipped frame a
+  `parcel`. A frame that is reworked becomes grey again on `Geschweißt`.
 
 ### Transitions
 
@@ -149,8 +209,21 @@ V1 passes, so it can still be drawn if other rules fail.
 | V7   | `netHash` matches the net, so the view is not out of date.                                                                                                         | warning  |
 | V8   | A place that holds cases (role `case`) is not `hidden`.                                                                                                            | warning  |
 | V9   | A place with the role `quantity` is a counter (`pool`, `source`, `sink`) or `hidden`, never a `queue`, `conveyor`, `buffer` or `slots`.                            | error    |
+| V10  | The `display` of a counter: `max` and `per` are positive, `low` is not above `max`, the `icon` fits the role (below), and it is only on counters.                  | error    |
+| V10  | `max` is below the `capacity` of the place: the container can overflow although the net allows it.                                                                 | warning  |
+| V11  | `appearance` only on places that hold cases: not on resources, quantities, pools, slots or hidden entries.                                                         | error    |
 
-The tests contain for every rule an example that triggers exactly this rule (`packages/domain/test/validate.test.ts`).
+The tests contain for every rule an example that triggers exactly this rule (`packages/domain/test/validate.test.ts` and
+`validate-display.test.ts`).
+
+**V10 and V11 and the roles.** The symbols follow the role (fidelity of roles, K4): the pictures of amounts (`co2`,
+`material`, `scrap`, `waste`, `energy`, `water`) only for quantity places and for sinks, the sprites only for places that
+hold cases (case, source, sink), and the `dot` for every counter (a resource can show nothing else). Problems inside a
+`display` are reported with the path of the field (`places.p.display.max`), so that the inspector shows them at the field
+and a language model gets them in the repair round; a `display` or `appearance` where the schema has none for the kind
+(a `display` on a conveyor) is V10 or V11 as well, not V1. V10 does not compare `max` with the invariants of the analysis
+(`@pnm/domain` does not depend on `@pnm/analysis`): that stays a note for the author, see
+[limitations.md](limitations.md).
 
 ## The net hash
 
@@ -178,7 +251,7 @@ first draft of the feature asked for SHA-256, which would make the validation as
   none.
 - The scenery is a title label and a scale bar. Every entry has the provenance `generic`.
 
-It passes V1 to V5 and V9 for every net (a property test over 250 random nets with and without positions, with
+It has neither `display` nor `appearance` (it does not know the domain well enough to scale a counter) and passes V1 to V5 and V9 for every net (a property test over 250 random nets with and without positions, with
 random roles including quantity, checks this) and
 may warn under V6 for crowded nets. `fillMissing(net, view)` completes a mapping for the current net: entries of
 elements that are gone are dropped, missing entries and entries that break V2 to V5 get generic ones.
@@ -192,7 +265,8 @@ parameter (`LIGHT_PALETTE`, `DARK_PALETTE`), nothing is read from the page. `hit
 under a point (resource cells before stations before belts before arcs), `withHighlight` adds the outline for hover and
 selection without rebuilding the scene.
 
-Marking: tokens of places with a path are drawn as sprites along it, `pool`, `source` and `sink` show a number, resource
+Marking: tokens of places with a path are drawn as sprites along it (with the look of the place), `pool`, `source` and
+`sink` show a number (or a container or a pictogram, see above), resource
 cells show free (a green dot), busy (a green frame with the case) or not available (crossed). In the editor the view
 shows the initial marking; while simulating it shows the current marking and the firings under way as busy cells, and
 the card of a transition with a firing gets a green frame. `buildScene` shows one state, as a picture. The running view
@@ -297,22 +371,24 @@ firing. Pools, sources and sinks are numbers.
 **From event to picture.** The motion of a token is the difference between the layout before and after a bundle,
 linked through the events:
 
-| Event                                | What is shown                                                                                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spawn` through a door or dock       | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                                                         |
-| `start`                              | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills.                             |
-| `complete`                           | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                                                         |
-| `complete` into a sink or pool       | The case moves into it and disappears; the counter counts up when it arrives.                                                                                                                     |
-| `start` or `complete` with an amount | No object moves. A flow marker runs along the connector, a dot with the number (`−3` out of a quantity place, `+1` into it); the counter pulses and shows the new number when the marker arrives. |
-| `marking-edited`                     | The place flashes; tokens that were added or removed appear or vanish.                                                                                                                            |
-| `deviation` (replay)                 | The station and the place flash red; the log notes it as a `flash`, or as `hidden` if nothing it concerns is drawn.                                                                               |
-| anything at a `hidden` element       | Nothing is drawn; the log notes it as `hidden`.                                                                                                                                                   |
+| Event                                | What is shown                                                                                                                                                                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spawn` through a door or dock       | The door flashes. The case appears there and moves on with the `complete` of the arrival.                                                                                                                                               |
+| `start`                              | The case moves from its place along the connector to the slot. The slot is _reserved_ (hatched) until the case arrives, then it turns busy and a progress ring fills.                                                                   |
+| `complete`                           | The case moves from the slot along the connector onto the next belt, to its spot at the end of the queue.                                                                                                                               |
+| `complete` into a sink or pool       | The case moves into it and disappears; the counter counts up when it arrives.                                                                                                                                                           |
+| `start` or `complete` with an amount | No object moves. A flow marker runs along the connector, the symbol of the place (a dot without one) with the number (`−3` out of a quantity place, `+1` into it); the counter pulses and shows the new number when the marker arrives. |
+| `complete` of a case with a new look | The case moves as before; the sprite of the place it came from fades into that of the place it goes to within 250 ms (`Motion.appearance`, `SpriteSample.blend`).                                                                       |
+| `marking-edited`                     | The place flashes; tokens that were added or removed appear or vanish.                                                                                                                                                                  |
+| `deviation` (replay)                 | The station and the place flash red; the log notes it as a `flash`, or as `hidden` if nothing it concerns is drawn.                                                                                                                     |
+| anything at a `hidden` element       | Nothing is drawn; the log notes it as `hidden`.                                                                                                                                                                                         |
 
 **Amounts** (quantity places) are no objects, so they do not move as sprites. For each firing and each quantity place
 that it takes from or puts on, one **flow marker** (`FlowMarker` in `AnimationState.flows`) runs from the counter to the
 station (`out`, at the `start`) or from the station to the counter (`in`, at the `complete`), along the connector of the
-view if it has one, else in a straight line. It carries the number of tokens (`+3`, `−3`), lasts as long as a motion,
-and there are at most 40 at a time (further ones are only logged). Quantity places that are `hidden` show nothing.
+view if it has one, else in a straight line. It carries the number of tokens (`+3`, `−3`) and the `display.icon` of the
+place (`FlowMarker.icon`; a cloud of CO₂ rises a little while it goes), lasts as long as a motion, and there are at most 40
+at a time (further ones are only logged). Quantity places that are `hidden` show nothing.
 
 Chains inside one bundle (a case that is taken again at once) become one route, and the move belongs to the last event
 of the chain; the others light up their station. A move follows the connector of the view (`arcs`, key
@@ -332,6 +408,11 @@ the event that caused it. The tests compare this log with the event stream (acce
 center, in bundles from 0.4 s to 90 s, no event is lost and no animation has no event. The same holds for the flow
 markers: every start and complete that moves an amount through a drawn station leaves a marker in the log, and every
 marker belongs to one event of the stream (tested on a small net and on the bicycle frame example).
+
+**History of counters.** `AnimationState.history` holds, for every counter with `display.history`, the list of its counts
+at the events (`{ t, v }`, simulated seconds). `applyEvents` adds a point for every event that changed the count and
+ends every bundle with the count that is shown; `rewindHistory` cuts it when the app snaps to a state (a step back, a
+reset), `trimHistory` and `compactHistory` keep eight hours and 500 points. The curve is drawn by `stepLine`.
 
 **States and colors.** A station is _busy_ when a slot is in use (green frame), _busy-full_ when all slots are in use and
 cases wait in front of it (amber frame, tint and bar), _blocked_ when, in addition, the waiting cases have reached the
@@ -368,7 +449,7 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 ## Generating a view with an LLM
 
 A language model can propose the mapping, and the checking program decides whether it is used. This is the division of
-labour of the whole design: the model suggests, the rules V1 to V9 judge, and the net alone defines the behaviour. No
+labour of the whole design: the model suggests, the rules V1 to V11 judge, and the net alone defines the behaviour. No
 model takes part in a simulation; it is asked once, before, and the result is an ordinary mapping (ADR 0010).
 
 The code lives in `packages/llm` (`@pnm/llm`). It needs only `fetch`, so it runs in the browser and in Node, and it
@@ -387,7 +468,7 @@ depends on `@pnm/core`, `@pnm/domain` and `zod`.
    `sink`), labelled with the unit, or `hidden`; the worked examples do not change.
 2. **Answer.** The reply is read as JSON, also from a Markdown code block or from the first complete object in a text.
    The tool sets `netHash` and writes provenance `llm` with the model name and the time on every entry.
-3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V9.
+3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V11.
 4. **Repair.** If there are errors, they go back as a repair request: each finding with its rule, path and text, and the
    entries it is about. The model returns only a partial object (`places`, `transitions`, `arcs`, `decor` with the
    corrected entries), which replaces exactly those entries. Warnings (V6, V8) do not trigger a repair. At most three
@@ -447,7 +528,7 @@ server, and a scripted provider checks the repair in round 2 for both examples w
 
 ## Limits
 
-Editing by dragging in the view (D4) is still missing. A generated mapping is only as good as the model: the rules check
+A look belongs to a place, not to the data of a token, so cases of one place always look alike (D6 would change that). A generated mapping is only as good as the model: the rules check
 that it fits the net, not that it is beautiful, and what stays invalid after three rounds is replaced by the generic
 entries. Tokens
 of JSON nets show as plain cases (and the amounts of quantity places are numbers, not objects), a transition's `slots` have no order beyond their index, and a firing that holds no

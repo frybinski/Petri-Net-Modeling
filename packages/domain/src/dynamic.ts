@@ -10,6 +10,14 @@ import {
   type AnimationState,
   type SpriteSample,
 } from './animation';
+import { defaultAppearance } from './appearance';
+import {
+  counterInfo,
+  counterSummary,
+  dynamicCounterCommands,
+  graphicDisplay,
+  type CounterSummary,
+} from './counter-graphic';
 import { distance, pointInRect } from './geometry';
 import {
   cellSize,
@@ -23,7 +31,7 @@ import {
   type Scene,
   type Shape,
 } from './scene';
-import type { Point, Rect } from './schema';
+import type { Appearance, Point, Rect } from './schema';
 import {
   DEFAULT_THRESHOLDS,
   queueLevel,
@@ -56,6 +64,8 @@ export interface DynamicScene {
   /** The sprites at `options.now`, for hit tests on tokens. */
   sprites: SpriteSample[];
   stations: Map<Id, StationInfo>;
+  /** What the counters with a graphic show: the level of a fill, the symbols of a pictogram. */
+  graphics: Map<Id, CounterSummary>;
 }
 
 const BELT_WIDTH = 24;
@@ -99,11 +109,11 @@ export function buildDynamicScene(
 ): DynamicScene {
   const { net, view } = context;
   const layers = emptyLayers();
-  const sprite = view.meta.entity.sprite;
   const thresholds = options.thresholds ?? DEFAULT_THRESHOLDS;
   const simTime = options.simTime ?? layout.time;
   const now = options.now;
   const stations = stationInfos(net, view, layout.counts, layout.running, context, thresholds);
+  const graphics = new Map<Id, CounterSummary>();
 
   // Firings whose case is still on its way to the slot: the slot is taken, nobody is there yet.
   const arriving = new Set<number>();
@@ -153,6 +163,30 @@ export function buildDynamicScene(
     const counter = anim.counters[place.id];
     const age = counter && now >= counter.changedAt ? now - counter.changedAt : Infinity;
     const pulse = age < COUNTER_PULSE_MS ? 1 - age / COUNTER_PULSE_MS : 0;
+    // A counter that shows its amount as a fill level, a pictogram or a curve (N2).
+    const graphic = graphicDisplay(entry);
+    if (graphic !== null) {
+      const role = context.roles.get(place.id);
+      const info = counterInfo(
+        place.id,
+        entry,
+        graphic,
+        net,
+        view,
+        role !== 'quantity' && role !== 'resource',
+      );
+      graphics.set(place.id, counterSummary(info, shown));
+      const series = anim.history?.[place.id];
+      layers.tokens.push(
+        ...dynamicCounterCommands(info, {
+          count: shown,
+          ...(series && { history: series }),
+          time: simTime,
+          pulse,
+        }),
+      );
+      continue;
+    }
     if (entry.kind === 'pool') {
       const [x, y] = entry.pos;
       if (pulse > 0) {
@@ -433,10 +467,9 @@ export function buildDynamicScene(
     }
   }
 
-  // The sprites of all cases; the followed one has a ring.
-  const sprites = sampleSprites(layout, anim, now, simTime);
-  const size = spriteSize(sprite);
-  const oriented = sprite === 'person' || sprite === 'vehicle';
+  // The sprites of all cases; the followed one has a ring. Each one looks like the place it lies
+  // on; one that leaves a station fades from the look it had into the new one.
+  const sprites = sampleSprites(layout, anim, now, simTime, defaultAppearance(view));
   const followed = options.followCase ?? null;
   for (const item of sprites) {
     if (followed !== null && item.caseId === followed) {
@@ -445,22 +478,33 @@ export function buildDynamicScene(
         op: 'circle',
         x: item.point[0],
         y: item.point[1],
-        r: size * 0.85,
+        r: item.size * 0.85,
         fill: 'accent',
         stroke: 'accent',
         lineWidth: 2,
         alpha: 0.3,
       });
     }
-    layers.tokens.push({
-      layer: 'tokens',
-      op: 'sprite',
-      sprite,
-      x: item.point[0],
-      y: item.point[1],
-      size,
-      ...(oriented && { angle: Math.atan2(item.direction[1], item.direction[0]) }),
-    });
+    const draw = (look: Appearance, alpha?: number): void => {
+      const size = spriteSize(look.sprite);
+      layers.tokens.push({
+        layer: 'tokens',
+        op: 'sprite',
+        sprite: look.sprite,
+        x: item.point[0],
+        y: item.point[1],
+        size,
+        ...((look.sprite === 'person' || look.sprite === 'vehicle') && {
+          angle: Math.atan2(item.direction[1], item.direction[0]),
+        }),
+        ...(look.tint !== undefined && { tint: look.tint }),
+        ...(alpha !== undefined && { alpha }),
+      });
+    };
+    if (item.blend) {
+      draw(item.blend.from);
+      draw(item.appearance, item.blend.mix);
+    } else draw(item.appearance);
   }
   for (const [placeId, over] of layout.overflow) {
     layers.tokens.push({
@@ -479,22 +523,38 @@ export function buildDynamicScene(
     if (now < flow.startedAt || now >= flowEnd(flow)) continue;
     const { point, progress } = flowPoint(flow, now);
     const [x, y] = point;
-    layers.tokens.push({
-      layer: 'tokens',
-      elementId: flow.placeId,
-      op: 'circle',
-      x,
-      y,
-      r: 4,
-      fill: flow.direction === 'in' ? 'accent' : 'warn',
-      alpha: progress > 0.8 ? 1 - (progress - 0.8) * 3 : 1,
-    });
+    const fade = progress > 0.8 ? 1 - (progress - 0.8) * 3 : 1;
+    if (flow.icon !== undefined) {
+      // The symbol of the amount runs along the connector, a cloud of CO2 rises while it goes.
+      const rise = flow.icon === 'co2' && flow.direction === 'in' ? -7 * progress : 0;
+      layers.tokens.push({
+        layer: 'tokens',
+        elementId: flow.placeId,
+        op: 'icon',
+        icon: flow.icon,
+        x,
+        y: y + rise,
+        size: 15,
+        alpha: fade,
+      });
+    } else {
+      layers.tokens.push({
+        layer: 'tokens',
+        elementId: flow.placeId,
+        op: 'circle',
+        x,
+        y,
+        r: 4,
+        fill: flow.direction === 'in' ? 'accent' : 'warn',
+        alpha: fade,
+      });
+    }
     layers.tokens.push({
       layer: 'tokens',
       elementId: flow.placeId,
       op: 'badge',
       x,
-      y: y - 13,
+      y: y - (flow.icon !== undefined ? 17 : 13),
       text: flowLabel(flow),
       accent: flow.direction === 'in',
     });
@@ -558,10 +618,13 @@ export function buildDynamicScene(
     selection: options.selection ?? [],
   }).layers.highlight;
 
-  return { layers, sprites, stations };
+  return { layers, sprites, stations, graphics };
 }
 
-/** The sprite under a point (scene coordinates), the front-most one if several overlap. */
+/**
+ * The sprite under a point (scene coordinates), the front-most one if several overlap. `size` is
+ * the size of a sprite that does not say its own (every sample of the animation does).
+ */
 export function hitSprite(
   sprites: readonly SpriteSample[],
   point: Point,
@@ -573,7 +636,7 @@ export function hitSprite(
   for (let i = sprites.length - 1; i >= 0; i -= 1) {
     const item = sprites[i]!;
     const d = distance(point, item.point);
-    if (d <= size * 0.6 + slack && d < bestDistance) {
+    if (d <= (item.size ?? size) * 0.6 + slack && d < bestDistance) {
       best = item;
       bestDistance = d;
     }

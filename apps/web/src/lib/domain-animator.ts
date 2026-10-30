@@ -12,6 +12,7 @@ import {
   movedEntries,
   layoutTokens,
   pruneAnimation,
+  rewindHistory,
   sceneOnly,
   sceneWithout,
   staticLayoutState,
@@ -91,6 +92,8 @@ export class DomainAnimator {
     this.net = net;
     this.view = view;
     this.drag = null;
+    // A new net or view starts its curves again.
+    this.anim = EMPTY_ANIMATION;
     if (view) {
       this.context = layoutContext(net, view);
       this.wholeScene = buildStaticScene(net, view);
@@ -131,10 +134,16 @@ export class DomainAnimator {
     return this.drag?.layers ?? null;
   }
 
-  /** All tokens jump to the layout of `state`; running motions end. */
+  /**
+   * All tokens jump to the layout of `state`; running motions end. The curves of the counters
+   * are cut at the time of the state (a step back) or start again (a reset to time 0).
+   */
   snap(state: LayoutState): void {
-    this.anim = EMPTY_ANIMATION;
-    this.layout = this.net && this.view ? layoutTokens(this.net, this.view, state) : null;
+    const layout = this.net && this.view ? layoutTokens(this.net, this.view, state) : null;
+    const history =
+      layout && this.context ? rewindHistory(this.anim.history, this.context, layout) : undefined;
+    this.anim = history !== undefined ? { ...EMPTY_ANIMATION, history } : EMPTY_ANIMATION;
+    this.layout = layout;
   }
 
   /** Tokens jump and elements do not flash (speed "max", reduced motion). */

@@ -583,7 +583,8 @@ export async function genericDomainViewWithLayout(
 /**
  * Completes a view for the current net: entries of elements that no longer exist are dropped,
  * missing entries and entries that break the rules V2 to V5 are replaced by generic ones (with
- * the provenance `generic`). Everything else, including `netHash`, stays as it is.
+ * the provenance `generic`); a `display` or `appearance` that breaks V10 or V11 is taken off.
+ * Everything else, including `netHash`, stays as it is.
  */
 export function fillMissing(
   net: PetriNet,
@@ -619,6 +620,18 @@ export function fillMissing(
       (key.startsWith('transitions.') && transitionIds.has(rest)) ||
       (key.startsWith('arcs.') && arcKeys.has(rest));
     if (!dropStale || known) provenance[key] = entry;
+  }
+
+  // A display or an appearance that breaks a rule (V10, V11) is taken off the entry, which keeps
+  // its place and its geometry: the picture is fine without it.
+  const flawed = validateDomainView(net, { ...view, places, transitions, arcs, provenance });
+  for (const d of flawed.diagnostics) {
+    if (d.severity !== 'error' || d.elementId === undefined) continue;
+    const field = d.rule === 'V10' ? 'display' : d.rule === 'V11' ? 'appearance' : null;
+    const entry = places[d.elementId];
+    if (field === null || entry === undefined || !(field in entry)) continue;
+    const { [field as keyof typeof entry]: _removed, ...rest } = entry as Record<string, unknown>;
+    places[d.elementId] = rest as unknown as PlaceView;
   }
 
   // Entries that break a rule are replaced; the rules are checked on what is left.

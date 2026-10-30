@@ -250,3 +250,106 @@ describe('buildRepairPrompt', () => {
     expect(empty.user).toContain('(none:');
   });
 });
+
+describe('display and appearance in the prompt (N2)', () => {
+  const { net } = loadExample('parcel-center');
+  const prompt = buildPrompt({
+    net,
+    description: 'x',
+    canvas: { width: 1200, height: 640 },
+    examples: defaultExamples(),
+    schema: answerSchema(),
+  });
+  const rule = prompt.system
+    .split('\n')
+    .filter((line) => /^10\. |^ {3}- "(display|appearance)"/.test(line));
+
+  it('gives one short rule with a line for display and one for appearance', () => {
+    expect(rule).toHaveLength(3);
+    expect(rule[0]).toMatch(/^10\. Optional/);
+    expect(rule[1]).toMatch(/^ {3}- "display" on a counter/);
+    expect(rule[2]).toMatch(/^ {3}- "appearance" /);
+    expect(rule.join('').length).toBeLessThan(2400);
+  });
+
+  it('tells when to use a fill and when a pictogram, and how to choose per', () => {
+    const display = rule[1]!;
+    expect(display).toMatch(/"fill"/);
+    expect(display).toMatch(/"pictogram"/);
+    expect(display).toMatch(/store with a known limit/);
+    expect(display).toMatch(/about 5 to 30 symbols/);
+    expect(display).toMatch(/"history": true/);
+  });
+
+  it('lists every symbol, sprite and tint', () => {
+    const text = rule.join('\n');
+    for (const icon of ['co2', 'material', 'scrap', 'waste', 'energy', 'water']) {
+      expect(text).toContain(icon);
+    }
+    for (const sprite of [
+      'parcel',
+      'person',
+      'vehicle',
+      'document',
+      'dot',
+      'frame',
+      'bicycle',
+      'bars',
+    ]) {
+      expect(text).toContain(sprite);
+    }
+    for (const tint of ['accent', 'ok', 'warn', 'danger', 'info', 'neutral']) {
+      expect(text).toContain(tint);
+    }
+    expect(rule[2]).toMatch(/never write a color/);
+  });
+
+  it('leaves the worked examples as they were: they use neither field', () => {
+    for (const example of defaultExamples()) {
+      const shown = JSON.stringify(shortenExample(example.view));
+      expect(shown).not.toContain('"display"');
+      expect(shown).not.toContain('"appearance"');
+    }
+  });
+
+  it('describes the rules V10 and V11 to the model in a repair request', () => {
+    const repair = buildRepairPrompt({
+      previous: {
+        places: {
+          p_in: {
+            kind: 'queue',
+            path: [
+              [0, 0],
+              [100, 0],
+            ],
+            display: { style: 'fill', max: 5 },
+          },
+        },
+      },
+      diagnostics: [
+        {
+          rule: 'V10',
+          severity: 'error',
+          path: 'places.p_in.display',
+          message: '"display" is only for counters (pool, source or sink), not for kind "queue"',
+          elementId: 'p_in',
+        },
+        {
+          rule: 'V11',
+          severity: 'error',
+          path: 'places.p_in.appearance',
+          message: 'Place "Eingang" is a quantity place and holds no cases',
+          elementId: 'p_in',
+        },
+      ],
+      net: compactNet(net),
+      canvas: { width: 1200, height: 640 },
+    });
+    expect(repair.user).toContain('- V10 error at places.p_in.display:');
+    expect(repair.user).toContain('- V11 error at places.p_in.appearance:');
+    expect(repair.user).toContain('the display of a counter is wrong');
+    expect(repair.user).toContain('an appearance belongs only to places that hold cases');
+    // The entry the finding is about is sent back with its old content.
+    expect(repair.user.slice(repair.user.indexOf('## Your entries'))).toContain('"display"');
+  });
+});

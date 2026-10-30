@@ -7,9 +7,17 @@ import {
   type PlaceRole,
 } from '@pnm/core';
 import type { SimState, TokenMeta } from '@pnm/sim';
+import { appearanceOfPlace, heldAppearance } from './appearance';
 import { dedupePoints, pathLength, pointAlong, rectCenter } from './geometry';
 import { tokenSpots } from './scene';
-import { arcKey, type DomainView, type Point, type PlaceView, type TransitionView } from './schema';
+import {
+  arcKey,
+  type Appearance,
+  type DomainView,
+  type Point,
+  type PlaceView,
+  type TransitionView,
+} from './schema';
 
 /** A firing under way, as far as the picture needs it. `RunningView` of `@pnm/sim` fits. */
 export interface LayoutFiring {
@@ -82,6 +90,11 @@ export interface LaidOutToken {
   along?: number;
   firingId?: number;
   travel?: Travel;
+  /**
+   * How the case looks: that of the place it waits on, or, inside a firing, that of the place it
+   * came from (it changes when the firing completes).
+   */
+  appearance: Appearance;
 }
 
 export interface TokenLayout {
@@ -277,6 +290,7 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
     counts.set(place.id, count);
     const entry = view.places[place.id];
     if (count === 0 || !isPathPlace(entry) || entry.path.length < 2) continue;
+    const appearance = appearanceOfPlace(view, place.id);
     const metas = metaOf(state, place.id, count);
     const order = metas.map((_, index) => index);
     order.sort((a, b) => metas[a]!.enteredAt - metas[b]!.enteredAt || a - b);
@@ -295,6 +309,7 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
         state: 'waiting',
         visible: !stacked,
         along: Math.max(0, length - 8 - Math.min(rank, spots.length) * 16),
+        appearance,
       });
     });
     if (extra > 0) overflow.set(place.id, { extra, pos: next });
@@ -309,6 +324,7 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
     const path = pass ? travelPath(ctx, firing.transitionId) : null;
     firing.caseIds.forEach((caseId, index) => {
       const key = firingKey(firing.firingId, caseId);
+      const appearance = heldAppearance(ctx, firing.transitionId, index);
       if (path) {
         const travel: Travel = { path, start: firing.start, end: firing.end };
         const { point, direction } = travelPoint(travel, state.time);
@@ -322,6 +338,7 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
           visible: true,
           firingId: firing.firingId,
           travel,
+          appearance,
         });
       } else {
         tokens.set(key, {
@@ -333,6 +350,7 @@ export function layoutTokens(net: PetriNet, view: DomainView, state: LayoutState
           state: 'working',
           visible: true,
           firingId: firing.firingId,
+          appearance,
         });
       }
     });

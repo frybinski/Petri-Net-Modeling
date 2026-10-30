@@ -16,6 +16,9 @@ const DomainCanvas = lazy(() =>
 const DomainPanel = lazy(() =>
   import('./domain/domain-panel').then((m) => ({ default: m.DomainPanel })),
 );
+const DomainOverflowStatus = lazy(() =>
+  import('./domain/domain-overflow-status').then((m) => ({ default: m.DomainOverflowStatus })),
+);
 const AnalysisPanel = lazy(() =>
   import('./analysis/analysis-panel').then((m) => ({ default: m.AnalysisPanel })),
 );
@@ -61,6 +64,15 @@ export function LazyDomainPanel() {
   return (
     <Suspense fallback={<Loading testId="domain-panel-loading" />}>
       <DomainPanel />
+    </Suspense>
+  );
+}
+
+/** The note of the status bar about fill levels over their limit; nothing while it loads. */
+export function LazyDomainOverflowStatus() {
+  return (
+    <Suspense fallback={null}>
+      <DomainOverflowStatus />
     </Suspense>
   );
 }

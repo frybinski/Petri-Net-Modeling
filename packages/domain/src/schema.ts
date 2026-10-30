@@ -6,9 +6,101 @@ export type Point = [number, number];
 /** A rectangle `[x, y, width, height]` in canvas pixels. */
 export type Rect = [number, number, number, number];
 /** The picture a case is drawn as. */
-export type Sprite = 'parcel' | 'person' | 'vehicle' | 'document' | 'dot';
+export type Sprite =
+  'parcel' | 'person' | 'vehicle' | 'document' | 'dot' | 'frame' | 'bicycle' | 'bars';
 
-export const SPRITES: readonly Sprite[] = ['parcel', 'person', 'vehicle', 'document', 'dot'];
+export const SPRITES: readonly Sprite[] = [
+  'parcel',
+  'person',
+  'vehicle',
+  'document',
+  'dot',
+  'frame',
+  'bicycle',
+  'bars',
+];
+
+/**
+ * The color a sprite can be tinted with: a token of the palette, never a free color, so that the
+ * light and the dark theme both stay right. `neutral` is a grey (raw material), `info` a blue.
+ */
+export type Tint = 'accent' | 'ok' | 'warn' | 'danger' | 'info' | 'neutral';
+
+export const TINTS: readonly Tint[] = ['accent', 'ok', 'warn', 'danger', 'info', 'neutral'];
+
+/** How the cases on a place look: a picture and optionally a tint (N2). */
+export interface Appearance {
+  sprite: Sprite;
+  tint?: Tint;
+}
+
+/** The pictures of amounts (kilograms, litres, ...) that flow markers and pictograms show. */
+export type QuantityIcon = 'co2' | 'material' | 'scrap' | 'waste' | 'energy' | 'water' | 'dot';
+
+export const QUANTITY_ICONS: readonly QuantityIcon[] = [
+  'co2',
+  'material',
+  'scrap',
+  'waste',
+  'energy',
+  'water',
+  'dot',
+];
+
+/** What a counter can show as its symbol: a picture of an amount, or of an object (a sink of cases). */
+export type DisplayIcon = QuantityIcon | Sprite;
+
+/** All symbols, each once (`dot` is both an amount and an object). */
+export const DISPLAY_ICONS: readonly DisplayIcon[] = [
+  ...QUANTITY_ICONS,
+  ...SPRITES.filter((sprite) => !QUANTITY_ICONS.includes(sprite as QuantityIcon)),
+];
+
+/** True for the symbols that stand for an amount and not for an object. */
+export function isQuantityIcon(icon: DisplayIcon): icon is QuantityIcon {
+  return (QUANTITY_ICONS as readonly string[]).includes(icon);
+}
+
+/** True for the symbols that stand for an object (a sprite). */
+export function isItemIcon(icon: DisplayIcon): icon is Sprite {
+  return (SPRITES as readonly string[]).includes(icon);
+}
+
+/** Fields that every style of a counter display can have. */
+export interface CounterDisplayBase {
+  /** The symbol of the amount: on the flow markers, in a pictogram and in the container. */
+  icon?: DisplayIcon;
+  /** The unit for the legend and the hover card; by default the one in the brackets of the label. */
+  unit?: string;
+  /** A small curve of the count over the simulated time (the last eight hours). */
+  history?: boolean;
+}
+
+/**
+ * How a counter (`pool`, `source`, `sink`) shows its amount besides the number (N2): as a
+ * container with a fill level and an upper limit, or as a pictogram in which every symbol stands
+ * for `per` tokens (Isotype). The number is always shown.
+ */
+export type CounterDisplay =
+  | ({ style: 'number' } & CounterDisplayBase)
+  | ({
+      style: 'fill';
+      /** The count at which the container is full. */
+      max: number;
+      /** Below this count the level turns yellow. */
+      low?: number;
+      /** Width and height of the container of a `pool`; sources and sinks fill their box. */
+      size?: Point;
+    } & CounterDisplayBase)
+  | ({
+      style: 'pictogram';
+      /** How many tokens one symbol stands for. */
+      per: number;
+      /** Width and height of the area of a `pool`; sources and sinks use their box. */
+      size?: Point;
+    } & CounterDisplayBase);
+
+export const DISPLAY_STYLES = ['number', 'fill', 'pictogram'] as const;
 
 export type PathPlaceKind = 'queue' | 'conveyor' | 'buffer';
 export type BoxPlaceKind = 'source' | 'sink';
@@ -17,10 +109,16 @@ export type AreaTransitionKind = 'area' | 'rooms';
 export type PointTransitionKind = 'door' | 'dock' | 'waypoint';
 
 export type PlaceView =
-  | { kind: PathPlaceKind; path: Point[]; label?: string }
+  | { kind: PathPlaceKind; path: Point[]; label?: string; appearance?: Appearance }
   | { kind: 'slots'; of: Id; label?: string }
-  | { kind: 'pool'; pos: Point; label?: string }
-  | { kind: BoxPlaceKind; box: Rect; label?: string }
+  | { kind: 'pool'; pos: Point; label?: string; display?: CounterDisplay }
+  | {
+      kind: BoxPlaceKind;
+      box: Rect;
+      label?: string;
+      display?: CounterDisplay;
+      appearance?: Appearance;
+    }
   | { kind: 'hidden'; reason: string };
 
 export type TransitionView =
@@ -81,7 +179,40 @@ const point = z.tuple([finite, finite]);
 const rect = z.tuple([finite, finite, finite, finite]);
 const label = z.string().optional();
 
-const spriteSchema = z.enum(['parcel', 'person', 'vehicle', 'document', 'dot']);
+const spriteSchema = z.enum(SPRITES as [Sprite, ...Sprite[]]);
+const tintSchema = z.enum(TINTS as [Tint, ...Tint[]]);
+const iconSchema = z.enum(DISPLAY_ICONS as [DisplayIcon, ...DisplayIcon[]]);
+const positive = finite.refine((n) => n > 0, { message: 'must be positive' });
+
+/** Schema of the `appearance` of the cases on a place. */
+export const appearanceSchema = z.strictObject({
+  sprite: spriteSchema,
+  tint: tintSchema.optional(),
+});
+
+const displayBase = {
+  icon: iconSchema.optional(),
+  unit: z.string().optional(),
+  history: z.boolean().optional(),
+};
+
+/** Schema of the `display` of a counter. */
+export const counterDisplaySchema = z.discriminatedUnion('style', [
+  z.strictObject({ style: z.literal('number'), ...displayBase }),
+  z.strictObject({
+    style: z.literal('fill'),
+    max: positive,
+    low: finite.refine((n) => n >= 0, { message: 'must not be negative' }).optional(),
+    size: z.tuple([positive, positive]).optional(),
+    ...displayBase,
+  }),
+  z.strictObject({
+    style: z.literal('pictogram'),
+    per: positive,
+    size: z.tuple([positive, positive]).optional(),
+    ...displayBase,
+  }),
+]);
 
 /** Schema of one entry of `places`. */
 export const placeViewSchema = z.discriminatedUnion('kind', [
@@ -89,10 +220,22 @@ export const placeViewSchema = z.discriminatedUnion('kind', [
     kind: z.enum(['queue', 'conveyor', 'buffer']),
     path: z.array(point),
     label,
+    appearance: appearanceSchema.optional(),
   }),
   z.strictObject({ kind: z.literal('slots'), of: z.string(), label }),
-  z.strictObject({ kind: z.literal('pool'), pos: point, label }),
-  z.strictObject({ kind: z.enum(['source', 'sink']), box: rect, label }),
+  z.strictObject({
+    kind: z.literal('pool'),
+    pos: point,
+    label,
+    display: counterDisplaySchema.optional(),
+  }),
+  z.strictObject({
+    kind: z.enum(['source', 'sink']),
+    box: rect,
+    label,
+    display: counterDisplaySchema.optional(),
+    appearance: appearanceSchema.optional(),
+  }),
   z.strictObject({ kind: z.literal('hidden'), reason: z.string() }),
 ]);
 

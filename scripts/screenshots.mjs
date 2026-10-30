@@ -8,7 +8,10 @@
 //
 // With `--review` it makes the review pictures instead: every example at three zoom levels
 // (detail 100 %, mid 55 %, far 30 %) and two window widths (`<example>_<theme>_<width>_<level>.png`);
-// `--only bike-frames` makes them for one example.
+// `--only bike-frames` makes them for one example. An example with a domain view gets pictures of
+// the running view as well: `_domain` (a moment of the run), `_domain-busy` (more arrivals, so that
+// the stages of the cases show) and `_domain-flow` (the canvas frozen on a frame with a marker of
+// an amount on its way, which lasts 300 ms and is hard to catch otherwise).
 //
 // Without PNM_CHROMIUM_PATH the browser that Playwright installed is used. The simulations are
 // seeded, so the pictures only differ by the moment at which they are taken.
@@ -49,10 +52,10 @@ async function openExample(page, id) {
 async function runUntil(page, clockId, playId, seconds) {
   await page.getByTestId(playId).click();
   const clock = page.getByTestId(clockId);
-  for (let i = 0; i < 1200; i += 1) {
+  for (let i = 0; i < 4800; i += 1) {
     const [h, m, s] = ((await clock.textContent()) ?? '0:0:0').split(':').map(Number);
     if (h * 3600 + m * 60 + s >= seconds) break;
-    await sleep(100);
+    await sleep(25);
   }
   await page.getByTestId(playId).click();
   await sleep(500);
@@ -243,6 +246,85 @@ async function zoomTo(page, target) {
 }
 
 const LEVELS = { detail: 100, mid: 55, far: 30 };
+/** Simulated seconds after which the picture of the running domain view is taken. */
+const DOMAIN_SECONDS = { 'parcel-center': 4150, 'smart-office': 3000, 'bike-frames': 14400 };
+/** The examples that also get the busy and the flow picture, with the arrivals per hour of the first. */
+const BUSY_RATE = { 'bike-frames': 8 };
+/**
+ * The looks of the stages (`sprite` or `sprite/tint`) that the pictures of an example wait for, so
+ * that they show a case in each: an order, tubes, a raw frame, a coated frame and a parcel.
+ */
+const STAGES = { 'bike-frames': ['document', 'bars', 'frame/neutral', 'frame/accent', 'parcel'] };
+
+/** Sets the first slider of the simulation panel (the arrival rate) to `value`. */
+async function setArrivalRate(page, value) {
+  await page
+    .locator('input[type=range]')
+    .first()
+    .evaluate((el, v) => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      set.call(el, v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+}
+
+/** Opens the domain view of the example in the simulation, runs it to `seconds` and pauses. */
+async function runDomain(page, seconds, rate) {
+  await page.getByTestId('view-domain').click();
+  await page.getByTestId('domain-canvas').waitFor();
+  await sleep(800);
+  await page.getByTestId('domain-simulate').click();
+  await page.getByTestId('domain-speed-max').click();
+  if (rate !== undefined) await setArrivalRate(page, rate);
+  await runUntil(page, 'domain-clock', 'domain-play', seconds);
+  await page.mouse.move(700, 4);
+  await sleep(400);
+}
+
+/**
+ * Plays the simulation at 10 times until the canvas shows a case in each of the `wanted` looks
+ * (`data-looks` of the canvas), then pauses. Gives up after `timeout` milliseconds.
+ */
+async function playUntilLooks(page, wanted, timeout = 60_000) {
+  const canvas = page.getByTestId('domain-canvas');
+  await page.getByTestId('domain-speed-10').click();
+  await page.getByTestId('domain-play').click();
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    const looks = ((await canvas.getAttribute('data-looks')) ?? '')
+      .split(';')
+      .filter(Boolean)
+      .map((entry) => entry.split('=')[1]);
+    if (wanted.every((look) => looks.includes(look))) break;
+    await sleep(30);
+  }
+  await page.getByTestId('domain-play').click();
+  await sleep(400);
+}
+
+/**
+ * Lets the simulation play at 30 times and freezes the canvas on the first frame that has
+ * something of the kind `what` (`flows`: a marker of an amount, `blending`: a case that changes
+ * its look), so that a picture can show it.
+ */
+async function freezeOn(page, what) {
+  await page.evaluate((attr) => {
+    const canvas = document.querySelector('[data-testid="domain-canvas"]');
+    window.__frozen = false;
+    const watch = new MutationObserver(() => {
+      if (Number(canvas.getAttribute(`data-${attr}`)) > 0) {
+        window.requestAnimationFrame = () => 0;
+        window.__frozen = true;
+        watch.disconnect();
+      }
+    });
+    watch.observe(canvas, { attributes: true, attributeFilter: [`data-${attr}`] });
+  }, what);
+  await page.getByTestId('domain-speed-30').click();
+  await page.getByTestId('domain-play').click();
+  await page.waitForFunction(() => window.__frozen === true, null, { timeout: 60_000 });
+}
 const WIDTHS = { 1280: 800, 1920: 1080 };
 
 const executablePath = process.env.PNM_CHROMIUM_PATH;
@@ -283,7 +365,58 @@ try {
             await page.screenshot({ path: file });
             console.log(file);
           }
+          const seconds = DOMAIN_SECONDS[id];
+          if (seconds !== undefined) {
+            await runDomain(page, seconds);
+            const file = join(out, `${id}_${theme}_${width}_domain.png`);
+            await page.screenshot({ path: file });
+            console.log(file);
+          }
           await context.close();
+          const rate = BUSY_RATE[id];
+          if (seconds === undefined || rate === undefined) continue;
+          // More arrivals: cases on every belt, in the look of their stage.
+          const busy = await browser.newContext({
+            viewport: { width: Number(width), height },
+            reducedMotion: 'reduce',
+            colorScheme: theme,
+          });
+          const busyPage = await busy.newPage();
+          await busyPage.addInitScript((value) => {
+            try {
+              localStorage.setItem('pnm:theme', value);
+            } catch {
+              // The page works without it.
+            }
+          }, theme);
+          await openExample(busyPage, id);
+          await runDomain(busyPage, 3600, rate);
+          await playUntilLooks(busyPage, STAGES[id] ?? []);
+          const busyFile = join(out, `${id}_${theme}_${width}_domain-busy.png`);
+          await busyPage.screenshot({ path: busyFile });
+          console.log(busyFile);
+          await busy.close();
+          // Motion on: the canvas stops on a frame with a marker of an amount.
+          const moving = await browser.newContext({
+            viewport: { width: Number(width), height },
+            reducedMotion: 'no-preference',
+            colorScheme: theme,
+          });
+          const movingPage = await moving.newPage();
+          await movingPage.addInitScript((value) => {
+            try {
+              localStorage.setItem('pnm:theme', value);
+            } catch {
+              // The page works without it.
+            }
+          }, theme);
+          await openExample(movingPage, id);
+          await runDomain(movingPage, 3600, rate);
+          await freezeOn(movingPage, 'flows');
+          const flowFile = join(out, `${id}_${theme}_${width}_domain-flow.png`);
+          await movingPage.screenshot({ path: flowFile });
+          console.log(flowFile);
+          await moving.close();
         }
       }
     }

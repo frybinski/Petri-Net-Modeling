@@ -1,11 +1,12 @@
 # Known limitations
 
-What 1.3.0 does not do, and why. Each entry was found during development and decided in the release step: what could
+What 1.4.0 does not do, and why. Each entry was found during development and decided in the release step: what could
 be fixed cheaply was fixed (see the [changelog](../CHANGELOG.md)), what could not is listed here with the reason and,
 where there is one, the way forward. The numbers are those of the [release plan](plan/Release-1.0_Umsetzungsplan.md)
 (in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md), those
 of the server (S1 to S7) from the [plan of M6](plan/M6_Umsetzungsplan.md), those of the quantity places and indicators
-(N1 to N4) from the [plan of N1](plan/N1_Umsetzungsplan.md). Entries 8, 22 and 23 are **fixed in server
+(N1 to N4) from the [plan of N1](plan/N1_Umsetzungsplan.md), those of the graphics of quantities and the looks of cases (G1
+to G6) from the [plan of N2](plan/N2_Umsetzungsplan.md). Entries 8, 22 and 23 are **fixed in server
 mode**: they remain for the app on GitHub Pages and for local use, and say what the server changes.
 
 ## Editor and interface
@@ -126,6 +127,39 @@ not open it; nothing is lost, the file stays as it is. The format stays `1.0`. A
 an older version, which drops the indicators when it reads the file (the unknown key of the simulation settings is
 ignored), so saving it there loses them.
 
+## Quantities as graphics and looks of cases
+
+The rules are in [domain-view.md](domain-view.md#quantities-as-graphics) and [ADR 0018](adr/0018-quantity-graphics-and-appearance.md).
+
+**A look belongs to a place, not to the data of a token (G1, D6).** A case is drawn with the `appearance` of the place it
+lies on, so all cases of one place look alike, and what a case is made of (a frame in red or in blue by an order field,
+say) cannot show in the picture. A look from token data belongs to the extension to higher nets (D6).
+
+**`max` is not compared with the invariants of the net (G2).** V10 checks `max` against the `capacity` of the place and
+nothing else, because `@pnm/domain` does not depend on `@pnm/analysis` and the check of a rule must not need a state
+space. That the limit of a container fits the net (the tube store and the free space always add up to 200 kg, so `max`
+200 is right) is for the author to keep in mind. A count above `max` is not an error but is drawn and reported as an
+overflow.
+
+**A pictogram holds as many symbols as its box.** The symbols are never made smaller to fit more; if the box is full the
+last cell says `+N`. Choose `per` so that 5 to 30 symbols appear, or make the box larger (G3).
+
+**The curve over time is not in an exported image, and it starts when the view starts (G4).** The history of a counter is a
+property of a run: a PNG export has a marking, not a run, so it shows the container or the symbols but no curve. The curve
+starts at the state in which the animation was last set (a reset, a new view, a jump), and a step back cuts it at the
+time of the state; it does not remember times it has not seen.
+
+**The look of a case in a firing with several case inputs is matched by order (G5).** The cases of a firing are in the
+order of its input places, and the look of the case with index _i_ is that of the _i_-th case input place. For the usual
+transition with one case input this is exact. A transition that joins cases from places with different looks and
+consumes several tokens from one of them can show a case in the look of another input place until the firing completes.
+
+**Older versions reject a view with `display` or `appearance` (G6).** The schema of the view is strict, so a version before
+1.4.0 does not draw such a view: the panel _Domain view_ lists the problem with the name of the field (`Unknown field
+"display"`, rule V1) and offers the generic view. The net and the file stay as they are, and the format stays `1.0`. Views without the fields, such
+as those of the parcel center and the smart office, open everywhere. The same holds for the new sprites (`frame`,
+`bicycle`, `bars`) in `meta.entity.sprite`.
+
 ## Domain view
 
 **A resource place with cells edits its station (20).** The cells of a resource (desks, rooms, machines) sit on the card
@@ -204,7 +238,7 @@ for analyses with a large limit. The analysis in the browser runs in a worker as
 validators with `new Function`. The policy allows only scripts of the own origin, so this is no way for foreign code to run,
 but it is weaker than a policy without it. Removing it needs standalone validators or another library for JSON Schema.
 
-## Not in 1.3.0
+## Not in 1.4.0
 
 - Accounts, private projects, and an audit trail on the server.
 - Co-editing and a second user in the same net.

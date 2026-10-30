@@ -5,6 +5,8 @@ import { entryBounds, entryOf, provenanceKeyOf, type EntryRef, type HandleKind }
 import {
   arcKey,
   provenanceKey,
+  type Appearance,
+  type CounterDisplay,
   type Decor,
   type DomainView,
   type PlaceView,
@@ -799,6 +801,88 @@ export function setPass(
 }
 
 /**
+ * Sets how a counter (`pool`, `source`, `sink`) shows its amount (`undefined` removes the field,
+ * which is the plain number). Other entries are returned unchanged. The result is not checked here:
+ * rule V10 reports a limit that does not fit the net.
+ */
+export function setDisplay(
+  view: DomainView,
+  target: EntryRef,
+  display: CounterDisplay | undefined,
+  options: EditOptions = {},
+): DomainView {
+  const value = current(view, target);
+  if (target.section !== 'places' || !value || !('kind' in value)) return view;
+  if (value.kind !== 'pool' && value.kind !== 'source' && value.kind !== 'sink') return view;
+  const { display: _old, ...rest } = value;
+  const next = (display === undefined ? rest : { ...rest, display }) as PlaceView;
+  return markUser(withEntry(view, target, next), [target], stamp(options));
+}
+
+/**
+ * Sets how the cases on a place look (`undefined` removes the field: the cases look like the
+ * entity of the view). Other entries are returned unchanged. Rule V11 reports a place that holds
+ * no cases.
+ */
+export function setAppearance(
+  view: DomainView,
+  target: EntryRef,
+  appearance: Appearance | undefined,
+  options: EditOptions = {},
+): DomainView {
+  const value = current(view, target);
+  if (target.section !== 'places' || !value || !('kind' in value)) return view;
+  if (!isPathKind(value.kind) && value.kind !== 'source' && value.kind !== 'sink') return view;
+  const { appearance: _old, ...rest } = value as PlaceView & { appearance?: Appearance };
+  const next = (appearance === undefined ? rest : { ...rest, appearance }) as PlaceView;
+  return markUser(withEntry(view, target, next), [target], stamp(options));
+}
+
+/** The next "round" number (1, 2 or 5 times a power of ten) that is not below `n`. */
+function niceCeil(n: number): number {
+  if (!(n > 0)) return 1;
+  const power = 10 ** Math.floor(Math.log10(n));
+  for (const factor of [1, 2, 5, 10]) {
+    if (factor * power >= n) return factor * power;
+  }
+  return 10 * power;
+}
+
+/**
+ * A display of the given style for a place, with limits that suit its initial marking: the
+ * capacity of the place if it has one, else a round number above twice the marking for a fill,
+ * and a round number that makes about ten symbols for a pictogram. Settings of `previous` that
+ * make sense in the new style (icon, unit, history, size) are kept.
+ */
+export function suggestDisplay(
+  net: PetriNet,
+  placeId: Id,
+  style: CounterDisplay['style'],
+  previous?: CounterDisplay,
+): CounterDisplay {
+  const place = net.places.find((p) => p.id === placeId);
+  const count = net.marking[placeId]?.length ?? 0;
+  const common = {
+    ...(previous?.icon !== undefined && { icon: previous.icon }),
+    ...(previous?.unit !== undefined && { unit: previous.unit }),
+    ...(previous?.history === true && { history: true }),
+  };
+  if (style === 'number') return { style, ...common };
+  const size = previous !== undefined && previous.style !== 'number' ? previous.size : undefined;
+  const sized = size !== undefined ? { size } : {};
+  if (style === 'fill') {
+    const max =
+      previous?.style === 'fill'
+        ? previous.max
+        : (place?.capacity ?? niceCeil(Math.max(10, 2 * count)));
+    const low = previous?.style === 'fill' ? previous.low : undefined;
+    return { style, max, ...(low !== undefined && { low }), ...sized, ...common };
+  }
+  const per = previous?.style === 'pictogram' ? previous.per : Math.max(1, niceCeil(count / 10));
+  return { style, per, ...sized, ...common };
+}
+
+/**
  * Hides a place or transition: the entry becomes `hidden` with a reason. The element stays in
  * the net. Arcs that touch it lose their path (nothing is left to connect to).
  */
@@ -982,24 +1066,43 @@ function convertPlace(
 ): PlaceView {
   const canvas = view.meta.canvas;
   const label = 'label' in value ? value.label : undefined;
-  const withLabelText = <T extends PlaceView>(entry: T): PlaceView =>
-    label !== undefined ? ({ ...entry, label } as PlaceView) : entry;
+  // How the amount is shown and how the cases look survive a change of the kind, as far as the
+  // new kind has a place for them.
+  const display = 'display' in value ? value.display : undefined;
+  const appearance = 'appearance' in value ? value.appearance : undefined;
+  const withExtras = <T extends PlaceView>(entry: T): PlaceView => {
+    const withLabelText = label !== undefined ? { ...entry, label } : entry;
+    const counter = kind === 'pool' || kind === 'source' || kind === 'sink';
+    const holdsCases = isPathKind(kind) || kind === 'source' || kind === 'sink';
+    return {
+      ...withLabelText,
+      ...(counter && display !== undefined && { display: sizeOnlyForPool(display, kind) }),
+      ...(holdsCases && appearance !== undefined && { appearance }),
+    } as PlaceView;
+  };
   if (isPathKind(kind)) {
-    if ('path' in value) return withLabelText({ kind, path: value.path });
-    return withLabelText({ kind, path: pathAround(centerOf(view, value), canvas) });
+    if ('path' in value) return withExtras({ kind, path: value.path });
+    return withExtras({ kind, path: pathAround(centerOf(view, value), canvas) });
   }
   const center = centerOf(view, value);
   switch (kind) {
     case 'pool':
-      return withLabelText({ kind, pos: roundPoint(center) });
+      return withExtras({ kind, pos: roundPoint(center) });
     case 'source':
     case 'sink':
-      return withLabelText({ kind, box: boxAround(center, 72, 40, canvas) });
+      return withExtras({ kind, box: boxAround(center, 72, 40, canvas) });
     case 'slots': {
       const of = loopTransitions(net, id)[0] ?? '';
-      return withLabelText({ kind, of });
+      return withExtras({ kind, of });
     }
   }
+}
+
+/** A box counter has the size of its box: the `size` of a pool does not go along. */
+function sizeOnlyForPool(display: CounterDisplay, kind: string): CounterDisplay {
+  if (kind === 'pool' || display.style === 'number' || display.size === undefined) return display;
+  const { size: _size, ...rest } = display;
+  return rest as CounterDisplay;
 }
 
 function convertTransition(
