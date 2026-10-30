@@ -8,8 +8,19 @@ import type { Id, PetriNet } from './model';
  * - `resource`: holds initial tokens and is both input and output of one transition
  *   (a worker, machine or room that is taken and given back).
  * - `case`: everything else (queues, work in progress).
+ * - `quantity`: its tokens count an amount (kilograms of steel, litres, euros) and belong to no
+ *   case. Such a place neither starts nor completes a case, even if it is structurally a source
+ *   or a sink. It is only ever set (`Place.role`), never computed.
  */
-export type PlaceRole = 'source' | 'sink' | 'resource' | 'case';
+export type PlaceRole = 'source' | 'sink' | 'resource' | 'case' | 'quantity';
+
+/**
+ * True for the roles whose tokens carry no case: resources and quantities. Tokens on such a place
+ * are not part of the case of a firing, and they are not counted when a case waits or completes.
+ */
+export function isCaselessRole(role: PlaceRole | undefined): boolean {
+  return role === 'resource' || role === 'quantity';
+}
 
 interface Adjacency {
   /** Transitions with an arc into the place. */
@@ -34,7 +45,10 @@ function rolesOf(net: PetriNet, honourOverride: boolean): Map<Id, PlaceRole> {
   const roles = new Map<Id, PlaceRole>();
   for (const place of net.places) {
     const { into, out } = adjacent.get(place.id)!;
-    if (into.size === 0) roles.set(place.id, 'source');
+    // `quantity` is the one override that also wins over the structure: an amount of CO2 that
+    // nothing takes away again is still an amount, not a place where cases leave.
+    if (honourOverride && place.role === 'quantity') roles.set(place.id, 'quantity');
+    else if (into.size === 0) roles.set(place.id, 'source');
     else if (out.size === 0) roles.set(place.id, 'sink');
     else {
       const marked = (net.marking[place.id]?.length ?? 0) > 0;
@@ -51,14 +65,15 @@ export function placeRoles(net: PetriNet): Map<Id, PlaceRole> {
 }
 
 /**
- * The role of a place. `source` and `sink` follow from the structure alone; between `resource`
- * and `case` the `role` field of the place overrides the computed role.
+ * The role of a place. `source` and `sink` follow from the structure alone, and the `role` field
+ * overrides the computed role between `resource` and `case`. Only `quantity` is stronger than the
+ * structure: a place with that `role` is a quantity, whatever its arcs are.
  */
 export function placeRole(net: PetriNet, placeId: Id): PlaceRole {
   return placeRoles(net).get(placeId) ?? 'case';
 }
 
-/** The role derived from the structure and the initial marking only, ignoring `role`. */
+/** The role derived from the structure and the initial marking only, ignoring `role` (so never `quantity`). */
 export function computedPlaceRole(net: PetriNet, placeId: Id): PlaceRole {
   return rolesOf(net, false).get(placeId) ?? 'case';
 }

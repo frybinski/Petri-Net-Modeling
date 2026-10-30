@@ -1,4 +1,4 @@
-import type { Id } from '@pnm/core';
+import { isCaselessRole, type Id } from '@pnm/core';
 import type { SimEvent, TokenRef } from '@pnm/sim';
 import { dedupePoints, distance, pathLength, pointAlong, subPath } from './geometry';
 import {
@@ -368,7 +368,7 @@ export function applyEvents(
         const slotPoint = transitionAnchor(view, event.transitionId, event.slot);
         const claimed = new Set<string>();
         for (const ref of event.consumed) {
-          if (ctx.roles.get(ref.placeId) === 'resource' || ref.caseId === undefined) continue;
+          if (isCaselessRole(ctx.roles.get(ref.placeId)) || ref.caseId === undefined) continue;
           const key = firingKey(event.firingId, ref.caseId);
           const route = leave(ref.tokenId, ref.placeId);
           retire(ref.tokenId);
@@ -425,7 +425,8 @@ export function applyEvents(
           const entryPlace = view.places[ref.placeId];
           cause.set(ref.placeId, event.id);
           if (isCounterPlace(entryPlace) && visible) touch(ref.placeId, event.id);
-          if (!visible || ctx.roles.get(ref.placeId) === 'resource') continue;
+          // Resources and quantities are no objects: they are not drawn as moving tokens.
+          if (!visible || isCaselessRole(ctx.roles.get(ref.placeId))) continue;
           let route = takeSource(ref);
           if (!route && slotPoint) route = { points: [slotPoint], entered: null, sink: null };
           if (!route) continue;

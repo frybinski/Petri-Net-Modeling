@@ -1,4 +1,11 @@
-import type { PetriNet, Profile, SimulationSettings, Timing } from './model';
+import type {
+  Indicator,
+  IndicatorMeasure,
+  PetriNet,
+  Profile,
+  SimulationSettings,
+  Timing,
+} from './model';
 import { formatIssues, netSchema } from './schema';
 
 /** Raised by `parseNet` when the input is not a valid net document. */
@@ -120,6 +127,38 @@ function canonicalSimulation(settings: SimulationSettings): SimulationSettings {
     ...(settings.warmup !== undefined && { warmup: settings.warmup }),
     ...(settings.startTime !== undefined && { startTime: settings.startTime }),
     ...(settings.caseIdPrefix !== undefined && { caseIdPrefix: settings.caseIdPrefix }),
+    ...(settings.indicators !== undefined && {
+      indicators: settings.indicators.map(canonicalIndicator),
+    }),
+  };
+}
+
+function canonicalMeasure(measure: IndicatorMeasure): IndicatorMeasure {
+  switch (measure.kind) {
+    case 'tokens':
+    case 'firings':
+      return { kind: measure.kind, of: measure.of };
+    case 'inflow':
+    case 'outflow':
+      return {
+        kind: measure.kind,
+        of: measure.of,
+        ...(measure.via !== undefined && { via: measure.via }),
+      };
+  }
+}
+
+function canonicalIndicator(indicator: Indicator): Indicator {
+  return {
+    id: indicator.id,
+    label: indicator.label,
+    ...(indicator.unit !== undefined && { unit: indicator.unit }),
+    measure: canonicalMeasure(indicator.measure),
+    ...(indicator.per !== undefined && {
+      per: typeof indicator.per === 'string' ? indicator.per : canonicalMeasure(indicator.per),
+    }),
+    ...(indicator.factor !== undefined && { factor: indicator.factor }),
+    ...(indicator.digits !== undefined && { digits: indicator.digits }),
   };
 }
 

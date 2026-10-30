@@ -23,6 +23,8 @@ export type DiagnosticCode =
   | 'SOURCE_WITHOUT_RATE'
   | 'ROLE_OVERRIDE_UNUSUAL'
   | 'SIMULATION_INVALID'
+  | 'QUANTITY_LOOKS_LIKE_RESOURCE'
+  | 'INDICATOR_INVALID'
   // Types, inscriptions and guards (JSON nets)
   | 'TYPE_UNKNOWN'
   | 'TYPE_SCHEMA_INVALID'
@@ -45,6 +47,8 @@ export interface Diagnostic {
   elementId?: Id;
   /** Name of the type the diagnostic is about (type diagnostics have no element). */
   typeName?: string;
+  /** Where in the net document the problem is, for diagnostics that have no element (indicators). */
+  path?: string;
 }
 
 export function hasErrors(diagnostics: readonly Diagnostic[]): boolean {

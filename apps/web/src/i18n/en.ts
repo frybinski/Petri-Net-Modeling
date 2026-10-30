@@ -599,8 +599,20 @@ export const en = {
       'Mean number of cases entering through this transition. Empty: it only fires when clicked.',
     role: 'Role',
     roleAuto: (computed: string) => `Automatic (${computed})`,
-    roles: { source: 'Source', sink: 'Sink', resource: 'Resource', case: 'Case' },
-    roleHint: 'Resources carry no case: a worker, machine or room that is taken and given back.',
+    roles: {
+      source: 'Source',
+      sink: 'Sink',
+      resource: 'Resource',
+      case: 'Case',
+      quantity: 'Quantity',
+    },
+    roleHint:
+      'Resources carry no case: a worker, machine or room that is taken and given back. Quantities count an amount (kilograms, litres, euros) and carry no case either.',
+    roleQuantityHint:
+      'Its tokens count an amount and belong to no case. This place neither starts nor ends a case, and the domain view shows it as a counter.',
+    roleOrQuantity: 'Count an amount?',
+    roleQuantityOffer:
+      'Choose Quantity if the tokens of this place count an amount (kilograms of CO2e, say) instead of showing where cases end.',
     roleFixed: 'Follows from the arcs: cases enter or leave here.',
     simulation: 'Simulation',
     seed: 'Seed',

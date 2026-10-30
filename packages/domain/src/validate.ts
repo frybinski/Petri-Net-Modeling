@@ -12,9 +12,19 @@ import {
   type TransitionView,
 } from './schema';
 
-export type DomainRule = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8';
+export type DomainRule = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9';
 
-export const DOMAIN_RULES: readonly DomainRule[] = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8'];
+export const DOMAIN_RULES: readonly DomainRule[] = [
+  'V1',
+  'V2',
+  'V3',
+  'V4',
+  'V5',
+  'V6',
+  'V7',
+  'V8',
+  'V9',
+];
 
 export interface DomainDiagnostic {
   rule: DomainRule;
@@ -161,6 +171,9 @@ export function roleAllows(role: PlaceRole, kind: PlaceView['kind']): boolean {
       );
     case 'case':
       return kind !== 'slots';
+    case 'quantity':
+      // An amount has no objects that could be drawn: it is a counter, or it is not drawn.
+      return kind === 'pool' || kind === 'source' || kind === 'sink' || kind === 'hidden';
   }
 }
 
@@ -174,6 +187,8 @@ function allowedKinds(role: PlaceRole): string {
       return 'source, queue, conveyor, buffer or hidden';
     case 'case':
       return 'any kind except slots';
+    case 'quantity':
+      return 'pool, source, sink or hidden';
   }
 }
 

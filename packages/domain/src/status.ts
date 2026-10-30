@@ -1,4 +1,4 @@
-import type { Id } from '@pnm/core';
+import { isCaselessRole, type Id } from '@pnm/core';
 import { layoutContext, type LayoutContext, type LayoutFiring } from './token-layout';
 import type { DomainView } from './schema';
 import type { PetriNet } from '@pnm/core';
@@ -87,7 +87,8 @@ export function stationInfos(
     if (inputs.length === 0) continue;
     let waiting = 0;
     for (const placeId of inputs) {
-      if (context.roles.get(placeId) === 'resource') continue;
+      // Resources and quantities are not cases that wait for the station.
+      if (isCaselessRole(context.roles.get(placeId))) continue;
       waiting += counts.get(placeId) ?? 0;
     }
     const capacity = entry.slots?.length ?? 0;

@@ -1,4 +1,11 @@
-import { placeRoles, type Id, type Marking, type PetriNet, type PlaceRole } from '@pnm/core';
+import {
+  isCaselessRole,
+  placeRoles,
+  type Id,
+  type Marking,
+  type PetriNet,
+  type PlaceRole,
+} from '@pnm/core';
 import type { SimState, TokenMeta } from '@pnm/sim';
 import { dedupePoints, pathLength, pointAlong, rectCenter } from './geometry';
 import { tokenSpots } from './scene';
@@ -199,10 +206,10 @@ export function travelPath(ctx: LayoutContext, transitionId: Id): Point[] | null
   const entry = ctx.view.transitions[transitionId];
   if (!entry || !('pos' in entry)) return null;
   const caseInput = (ctx.inputs.get(transitionId) ?? []).find(
-    (id) => ctx.roles.get(id) !== 'resource',
+    (id) => !isCaselessRole(ctx.roles.get(id)),
   );
   const caseOutput = (ctx.outputs.get(transitionId) ?? []).find(
-    (id) => ctx.roles.get(id) !== 'resource',
+    (id) => !isCaselessRole(ctx.roles.get(id)),
   );
   const points: Point[] = [];
   if (caseInput !== undefined) {

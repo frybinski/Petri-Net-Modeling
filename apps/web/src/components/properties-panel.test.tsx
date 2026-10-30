@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../store/editor-store';
@@ -155,6 +155,47 @@ describe('role of a place', () => {
     store().select([done]);
     renderPanel();
     expect(screen.queryByTestId('prop-role')).toBeNull();
+    expect(screen.getByTestId('prop-role-fixed')).toHaveTextContent('Sink');
+  });
+});
+
+describe('the quantity role of a place', () => {
+  it('can be chosen for a place in the middle, next to resource and case', async () => {
+    const user = userEvent.setup();
+    const { queue } = build();
+    store().select([queue]);
+    renderPanel();
+    const role = screen.getByTestId('prop-role');
+    expect(
+      within(role)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Automatic (Case)', 'Resource', 'Case', 'Quantity']);
+    await user.selectOptions(role, 'quantity');
+    expect(store().net.places.find((p) => p.id === queue)?.role).toBe('quantity');
+    expect(screen.getByText(/neither starts nor ends a case/)).toBeInTheDocument();
+    await user.selectOptions(role, '');
+    expect(store().net.places.find((p) => p.id === queue)).not.toHaveProperty('role');
+  });
+
+  it('can also be chosen for a source or a sink, which are otherwise fixed by the arcs', async () => {
+    const user = userEvent.setup();
+    const { done } = build();
+    store().select([done]);
+    renderPanel();
+    expect(screen.getByTestId('prop-role-fixed')).toHaveTextContent('Sink');
+    const choice = screen.getByTestId('prop-role-quantity');
+    expect(
+      within(choice)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Automatic (Sink)', 'Quantity']);
+    await user.selectOptions(choice, 'quantity');
+    expect(store().net.places.find((p) => p.id === done)?.role).toBe('quantity');
+    // The place is no longer described as a sink; the choice stays to go back.
+    expect(screen.queryByTestId('prop-role-fixed')).toBeNull();
+    await user.selectOptions(screen.getByTestId('prop-role-quantity'), '');
+    expect(store().net.places.find((p) => p.id === done)).not.toHaveProperty('role');
     expect(screen.getByTestId('prop-role-fixed')).toHaveTextContent('Sink');
   });
 });

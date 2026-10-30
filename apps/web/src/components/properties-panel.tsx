@@ -296,38 +296,58 @@ function PlaceProperties({ id }: { id: string }) {
   );
 }
 
-/** The role of a place in the timed simulation: computed from the arcs, resource or case can be forced. */
+/**
+ * The role of a place in the timed simulation: computed from the arcs; resource or case can be
+ * forced, and so can quantity (tokens that count an amount and belong to no case), which is the
+ * only choice for a place that is a source or a sink by its arcs.
+ */
 function PlaceRoleField({ placeId }: { placeId: string }) {
   const net = useEditorStore((s) => s.net);
   const role = useEditorStore((s) => s.net.places.find((p) => p.id === placeId)?.role);
   const locked = useEditorStore((s) => s.mode === 'simulate');
   const updatePlace = useEditorStore((s) => s.updatePlace);
   const computed: PlaceRole = computedPlaceRole(net, placeId);
-  if (computed === 'source' || computed === 'sink') {
-    return (
-      <div className="flex flex-col gap-1" data-testid="prop-role-fixed">
-        <span className="text-xs font-medium text-muted">{en.timing.role}</span>
-        <span className="text-sm">{en.timing.roles[computed]}</span>
-        <p className="m-0 text-[11px] text-muted">{en.timing.roleFixed}</p>
-      </div>
-    );
-  }
-  return (
-    <SelectField
-      label={en.timing.role}
-      value={role ?? ''}
-      options={[
+  const structural = computed === 'source' || computed === 'sink';
+  const options = structural
+    ? [
+        { value: '', label: en.timing.roleAuto(en.timing.roles[computed]) },
+        { value: 'quantity', label: en.timing.roles.quantity },
+      ]
+    : [
         { value: '', label: en.timing.roleAuto(en.timing.roles[computed]) },
         { value: 'resource', label: en.timing.roles.resource },
         { value: 'case', label: en.timing.roles.case },
-      ]}
-      disabled={locked}
-      hint={en.timing.roleHint}
-      onChange={(value) => {
-        updatePlace(placeId, { role: value === '' ? undefined : (value as 'resource' | 'case') });
-      }}
-      data-testid="prop-role"
-    />
+        { value: 'quantity', label: en.timing.roles.quantity },
+      ];
+  return (
+    <>
+      {structural && role !== 'quantity' ? (
+        <div className="flex flex-col gap-1" data-testid="prop-role-fixed">
+          <span className="text-xs font-medium text-muted">{en.timing.role}</span>
+          <span className="text-sm">{en.timing.roles[computed]}</span>
+          <p className="m-0 text-[11px] text-muted">{en.timing.roleFixed}</p>
+        </div>
+      ) : null}
+      <SelectField
+        label={structural && role !== 'quantity' ? en.timing.roleOrQuantity : en.timing.role}
+        value={role ?? ''}
+        options={options}
+        disabled={locked}
+        hint={
+          role === 'quantity'
+            ? en.timing.roleQuantityHint
+            : structural
+              ? en.timing.roleQuantityOffer
+              : en.timing.roleHint
+        }
+        onChange={(value) => {
+          updatePlace(placeId, {
+            role: value === '' ? undefined : (value as 'resource' | 'case' | 'quantity'),
+          });
+        }}
+        data-testid={structural ? 'prop-role-quantity' : 'prop-role'}
+      />
+    </>
   );
 }
 
