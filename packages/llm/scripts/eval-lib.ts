@@ -228,7 +228,7 @@ export function renderReport(
     '',
     `Date: ${date} · Server: ${options.baseUrl} · Temperature: ${options.temperature ?? 0.2} · JSON mode: ${options.jsonMode ?? 'auto'} · At most ${options.maxRounds ?? 3} rounds`,
     '',
-    'Acceptance A6: the view of the model passes the rules V1 to V8 (no errors) after at most three rounds, without the tool having to fill in or drop entries. "Filled" counts generic entries including arcs that the model left out; "filled (not arcs)" counts places and transitions only.',
+    'Acceptance A6: the view of the model passes the rules V1 to V9 (no errors) after at most three rounds, without the tool having to fill in or drop entries. "Filled" counts generic entries including arcs that the model left out; "filled (not arcs)" counts places and transitions only.',
     '',
     '| Net | Result | Rounds | Errors per round | Warnings (final) | Filled | Filled (not arcs) | Dropped | Seconds | Tokens |',
     '| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |',

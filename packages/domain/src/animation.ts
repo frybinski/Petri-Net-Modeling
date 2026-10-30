@@ -22,6 +22,8 @@ export const MOTION_MS = 300;
 export const FLASH_MS = 650;
 /** At most this many tokens move at the same time; further moves jump. */
 export const MAX_MOTIONS = 60;
+/** At most this many flow markers run at the same time; further ones are only logged. */
+export const MAX_FLOWS = 40;
 /** Handled events kept for the log (see `AnimationState.handled`). */
 export const DEFAULT_LOG_LIMIT = 4000;
 
@@ -42,6 +44,27 @@ export interface Motion {
   caseId?: string;
 }
 
+/**
+ * A small marker that runs along a connector for one firing and one quantity place: the amount a
+ * firing takes from the place (`out`, when it starts) or puts on it (`in`, when it completes).
+ * Quantities are no objects, so this is what moves instead of a token. Every marker belongs to
+ * exactly one event.
+ */
+export interface FlowMarker {
+  /** The event that moved the amount. */
+  eventId: number;
+  placeId: Id;
+  transitionId: Id;
+  direction: 'in' | 'out';
+  /** The number of tokens (the amount) that moves. */
+  count: number;
+  /** From the place to the transition (`out`) or from the transition to the place (`in`). */
+  path: Point[];
+  /** Wall-clock milliseconds (the clock the caller passes as `now`). */
+  startedAt: number;
+  duration: number;
+}
+
 /** A short light-up of an element for an event that moves no token. */
 export interface Flash {
   elementId: Id;
@@ -60,7 +83,7 @@ export interface CounterState {
   changedAt: number;
 }
 
-export type HandledKind = 'motion' | 'flash' | 'counter' | 'hidden';
+export type HandledKind = 'motion' | 'flash' | 'counter' | 'flow' | 'hidden';
 
 /** What the renderer did with an event. The proof that no event is lost (acceptance A2). */
 export interface Handled {
@@ -72,6 +95,8 @@ export interface Handled {
 
 export interface AnimationState {
   motions: Motion[];
+  /** Markers of amounts on their way along connectors (quantity places). */
+  flows: FlowMarker[];
   flashes: Flash[];
   counters: Record<Id, CounterState>;
   /** Log of handled events, newest last, cut to `AnimationOptions.logLimit`. */
@@ -80,6 +105,7 @@ export interface AnimationState {
 
 export const EMPTY_ANIMATION: AnimationState = {
   motions: [],
+  flows: [],
   flashes: [],
   counters: {},
   handled: [],
@@ -93,6 +119,8 @@ export interface AnimationOptions {
   flash?: number;
   /** Default 60. */
   maxMotions?: number;
+  /** Flow markers moving at the same time. Default 40. */
+  maxFlows?: number;
   /** Entries kept in `handled`. Default 4000. */
   logLimit?: number;
 }
@@ -109,6 +137,24 @@ function easeInOut(t: number): number {
 /** Wall-clock milliseconds after which the move has ended. */
 export function motionEnd(motion: Motion): number {
   return motion.startedAt + motion.duration;
+}
+
+/** Wall-clock milliseconds after which a flow marker has ended. */
+export function flowEnd(flow: FlowMarker): number {
+  return flow.startedAt + flow.duration;
+}
+
+/** The text of a flow marker: `+3` for an amount put on a place, `−3` for one taken from it. */
+export function flowLabel(flow: Pick<FlowMarker, 'direction' | 'count'>): string {
+  return `${flow.direction === 'in' ? '+' : '\u2212'}${flow.count}`;
+}
+
+/** Where a flow marker is at `now`, and how far along its way (0 to 1). */
+export function flowPoint(flow: FlowMarker, now: number): { point: Point; progress: number } {
+  const progress =
+    flow.duration <= 0 ? 1 : Math.min(1, Math.max(0, (now - flow.startedAt) / flow.duration));
+  const { point } = pointAlong(flow.path, easeInOut(progress) * pathLength(flow.path));
+  return { point, progress };
 }
 
 function routeOf(motion: Motion): Point[] {
@@ -129,6 +175,7 @@ export function motionPoint(motion: Motion, now: number): { point: Point; direct
 export function isAnimating(state: AnimationState, now: number, flashMs = FLASH_MS): boolean {
   return (
     state.motions.some((m) => now < motionEnd(m)) ||
+    state.flows.some((f) => now < flowEnd(f)) ||
     state.flashes.some((f) => now - f.startedAt < flashMs) ||
     Object.values(state.counters).some((c) => now < c.changedAt + 400)
   );
@@ -141,11 +188,16 @@ export function pruneAnimation(
   flashMs = FLASH_MS,
 ): AnimationState {
   const motions = state.motions.filter((m) => now < motionEnd(m));
+  const flows = state.flows.filter((f) => now < flowEnd(f));
   const flashes = state.flashes.filter((f) => now - f.startedAt < flashMs);
-  if (motions.length === state.motions.length && flashes.length === state.flashes.length) {
+  if (
+    motions.length === state.motions.length &&
+    flows.length === state.flows.length &&
+    flashes.length === state.flashes.length
+  ) {
     return state;
   }
-  return { ...state, motions, flashes };
+  return { ...state, motions, flows, flashes };
 }
 
 /** The number to show at a place that is only drawn as a number. */
@@ -270,6 +322,7 @@ export function applyEvents(
   const duration = options.duration ?? MOTION_MS;
   const flashMs = options.flash ?? FLASH_MS;
   const maxMotions = options.maxMotions ?? MAX_MOTIONS;
+  const maxFlows = options.maxFlows ?? MAX_FLOWS;
   const logLimit = options.logLimit ?? DEFAULT_LOG_LIMIT;
 
   const live = new Map<string, Motion>();
@@ -337,6 +390,41 @@ export function applyEvents(
   >();
   const created: Motion[] = [];
 
+  // Amounts on quantity places do not move as tokens: a marker runs along the connector instead.
+  const pendingFlows: Array<Omit<FlowMarker, 'startedAt' | 'duration'>> = [];
+  const flowsOf = (
+    event: { id: number; transitionId: Id; slot: number },
+    refs: readonly TokenRef[],
+    direction: FlowMarker['direction'],
+  ): void => {
+    const amounts = new Map<Id, number>();
+    for (const ref of refs) {
+      if (ctx.roles.get(ref.placeId) !== 'quantity') continue;
+      amounts.set(ref.placeId, (amounts.get(ref.placeId) ?? 0) + 1);
+    }
+    const station = transitionAnchor(view, event.transitionId, event.slot);
+    for (const [placeId, count] of amounts) {
+      const anchor = placeAnchor(view, placeId);
+      if (!anchor || !station) continue;
+      const connector =
+        direction === 'out'
+          ? arcPathOf(ctx, placeId, event.transitionId)
+          : arcPathOf(ctx, event.transitionId, placeId);
+      const path = dedupePoints(
+        direction === 'out' ? [anchor, ...connector, station] : [station, ...connector, anchor],
+      );
+      if (path.length < 2) continue;
+      pendingFlows.push({
+        eventId: event.id,
+        placeId,
+        transitionId: event.transitionId,
+        direction,
+        count,
+        path,
+      });
+    }
+  };
+
   for (const event of events) {
     switch (event.type) {
       case 'spawn': {
@@ -364,6 +452,7 @@ export function applyEvents(
           for (const ref of event.consumed) retire(ref.tokenId);
           break;
         }
+        flowsOf(event, event.consumed, 'out');
         const pass = 'pass' in entry && entry.pass === true;
         const slotPoint = transitionAnchor(view, event.transitionId, event.slot);
         const claimed = new Set<string>();
@@ -399,6 +488,7 @@ export function applyEvents(
         const entry = view.transitions[event.transitionId];
         const visible = isVisibleTransition(entry);
         elementOf.set(event.id, { elementId: event.transitionId, visible });
+        if (visible) flowsOf(event, event.produced, 'in');
         const pass = visible && 'pass' in entry && entry.pass === true;
         const slotPoint = transitionAnchor(view, event.transitionId, event.slot);
         const held = event.caseIds.map((caseId) => firingKey(event.firingId, caseId));
@@ -582,6 +672,22 @@ export function applyEvents(
     }
   }
 
+  // The markers of amounts, with their own limit.
+  const carriedFlows = prev.flows.filter((flow) => now < flowEnd(flow));
+  const freshFlows: FlowMarker[] = [];
+  const flowsByEvent = new Map<number, FlowMarker[]>();
+  let flowRoom = maxFlows - carriedFlows.length;
+  for (const pending of pendingFlows) {
+    const flow: FlowMarker = { ...pending, startedAt: now, duration };
+    const list = flowsByEvent.get(flow.eventId) ?? [];
+    list.push(flow);
+    flowsByEvent.set(flow.eventId, list);
+    if (flow.duration > 0 && flowRoom > 0) {
+      freshFlows.push(flow);
+      flowRoom -= 1;
+    }
+  }
+
   // Counters of places that are only numbers.
   const counters: Record<Id, CounterState> = { ...prev.counters };
   const arrivals = new Map<Id, number>();
@@ -590,6 +696,11 @@ export function applyEvents(
     const motion = fresh.find((m) => m.tokenId === key);
     const delay = motion ? motion.duration : 0;
     arrivals.set(route.sink, Math.max(arrivals.get(route.sink) ?? 0, delay));
+  }
+  // An amount that flows into a counter shows up when the marker arrives.
+  for (const flow of freshFlows) {
+    if (flow.direction !== 'in') continue;
+    arrivals.set(flow.placeId, Math.max(arrivals.get(flow.placeId) ?? 0, flow.duration));
   }
   for (const place of ctx.net.places) {
     if (!isCounterPlace(view.places[place.id])) continue;
@@ -659,14 +770,19 @@ export function applyEvents(
         tokenId: motion.tokenId,
       });
     }
+    const flowed = flowsByEvent.get(event.id) ?? [];
+    for (const flow of flowed) {
+      handled.push({ eventId: event.id, kind: 'flow', elementId: flow.placeId });
+    }
     const counted = counterEvents.get(event.id) ?? [];
     for (const placeId of counted) {
       handled.push({ eventId: event.id, kind: 'counter', elementId: placeId });
     }
-    if (moved.length === 0 && counted.length === 0 && element !== undefined) {
+    const shown = moved.length + flowed.length + counted.length;
+    if (shown === 0 && element !== undefined) {
       flash(element, event.id);
       handled.push({ eventId: event.id, kind: 'flash', elementId: element });
-    } else if (moved.length === 0 && counted.length === 0) {
+    } else if (shown === 0) {
       handled.push({ eventId: event.id, kind: 'hidden' });
     }
   }
@@ -674,6 +790,7 @@ export function applyEvents(
   const log = [...prev.handled, ...handled];
   return {
     motions: [...carried, ...fresh],
+    flows: [...carriedFlows, ...freshFlows],
     flashes: [...flashing.values()],
     counters,
     handled: log.length > logLimit ? log.slice(log.length - logLimit) : log,

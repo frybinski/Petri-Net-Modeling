@@ -113,7 +113,7 @@ const candidateSchema = z.strictObject({
 });
 
 export interface Inspection {
-  /** All findings: the schema problems of single entries and the rules V2 to V8 on the rest. */
+  /** All findings: the schema problems of single entries and the rules V2 to V9 on the rest. */
   diagnostics: DomainDiagnostic[];
   /** The candidate without the entries that break the schema; it passes the schema check. */
   view: DomainView;
@@ -152,7 +152,7 @@ function provenanceFor(
 
 /**
  * Checks a candidate against the net. Entries that break the schema are reported (rule V1) and
- * left out, so that the rules V2 to V8 can still be checked on everything else; one round then
+ * left out, so that the rules V2 to V9 can still be checked on everything else; one round then
  * reports all findings and not only the first kind.
  */
 export function inspect(

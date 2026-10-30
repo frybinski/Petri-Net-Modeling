@@ -261,7 +261,7 @@ function slotsOfTransition(view: TransitionView | undefined): Point[] | undefine
 }
 
 /**
- * Checks a domain view against its net (rules V1 to V8). `view` is untrusted input: anything
+ * Checks a domain view against its net (rules V1 to V9). `view` is untrusted input: anything
  * that was parsed from JSON. Errors make the view unusable for a faithful picture; warnings point
  * out things that look wrong (too few slots, stale hash, short queues).
  */
@@ -345,7 +345,8 @@ export function validateDomainView(net: PetriNet, view: unknown): DomainValidati
     const entry = data.places[place.id];
     if (!entry) continue;
     const role = roles.get(place.id) ?? 'case';
-    if (!roleAllows(role, entry.kind)) {
+    // A quantity has its own rule, V9.
+    if (role !== 'quantity' && !roleAllows(role, entry.kind)) {
       add(
         'V4',
         'error',
@@ -530,6 +531,21 @@ export function validateDomainView(net: PetriNet, view: unknown): DomainValidati
         'warning',
         `places.${place.id}`,
         `Place "${place.name}" holds cases and should not be hidden`,
+        place.id,
+      );
+    }
+  }
+
+  // V9: a quantity has no objects to draw, so it is a counter or not drawn at all.
+  for (const place of net.places) {
+    const entry = data.places[place.id];
+    if (!entry || roles.get(place.id) !== 'quantity') continue;
+    if (!roleAllows('quantity', entry.kind)) {
+      add(
+        'V9',
+        'error',
+        `places.${place.id}.kind`,
+        `Place "${place.name}" counts an amount and has no objects to draw; its kind must be ${allowedKinds('quantity')}, not "${entry.kind}"`,
         place.id,
       );
     }

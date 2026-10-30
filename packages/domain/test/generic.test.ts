@@ -30,7 +30,7 @@ interface NetSpec {
   arcs: Array<[number, number, boolean]>;
   marks: number[];
   positions: Array<[number, number] | null>;
-  roles: Array<'case' | 'resource' | null>;
+  roles: Array<'case' | 'resource' | 'quantity' | null>;
   prefix: string;
 }
 
@@ -48,7 +48,10 @@ const netSpec = fc.record({
     ),
     { maxLength: 60 },
   ),
-  roles: fc.array(fc.constantFrom('case' as const, 'resource' as const, null), { maxLength: 30 }),
+  roles: fc.array(
+    fc.constantFrom('case' as const, 'resource' as const, 'quantity' as const, null),
+    { maxLength: 30 },
+  ),
   prefix: fc.constantFrom('', 'P-', 'M-', 'C-'),
 });
 
@@ -107,6 +110,44 @@ describe('genericDomainView', () => {
       }),
       { numRuns: 250 },
     );
+  });
+
+  it('A4: maps every quantity place of random nets to a counter, never to a belt or slots', () => {
+    fc.assert(
+      fc.property(netSpec, fc.boolean(), (spec, withPositions) => {
+        const net = buildNet(spec, withPositions);
+        const view = genericDomainView(net, { at: AT });
+        const result = validateDomainView(net, JSON.parse(JSON.stringify(view)));
+        expect(result.diagnostics.filter((d) => d.rule === 'V9')).toEqual([]);
+        for (const place of net.places) {
+          if (place.role !== 'quantity') continue;
+          expect(view.places[place.id]?.kind).toBe('pool');
+        }
+      }),
+      { numRuns: 250 },
+    );
+  });
+
+  it('draws a quantity place that is a source or a sink by its arcs as a counter too', () => {
+    const net = createEmptyNet('Amounts');
+    net.places.push(
+      { id: 'steel', name: 'Steel (kg)', position: { x: 0, y: 0 }, role: 'quantity' },
+      { id: 'co2', name: 'CO2e (kg)', position: { x: 200, y: 0 }, role: 'quantity' },
+      { id: 'jobs', name: 'Jobs', position: { x: 100, y: 100 } },
+    );
+    net.transitions.push({ id: 'cut', name: 'Cut', position: { x: 100, y: 0 } });
+    net.arcs.push(
+      { id: 'a1', source: 'steel', target: 'cut', weight: 3 },
+      { id: 'a2', source: 'cut', target: 'co2', weight: 1 },
+      { id: 'a3', source: 'jobs', target: 'cut', weight: 1 },
+    );
+    net.marking['steel'] = [1, 1, 1];
+    const view = genericDomainView(net, { at: AT });
+    // `steel` is a source and `co2` a sink by the arcs; both are counters.
+    expect(view.places['steel']?.kind).toBe('pool');
+    expect(view.places['co2']?.kind).toBe('pool');
+    expect(view.places['co2']).toMatchObject({ label: 'CO2e (kg)' });
+    expect(validateDomainView(net, JSON.parse(JSON.stringify(view))).ok).toBe(true);
   });
 
   it('is deterministic', () => {

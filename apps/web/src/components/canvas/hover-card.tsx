@@ -61,6 +61,12 @@ export function HoverCard({ model, anchor }: { model: HoverCardModel; anchor: An
           {en.types.placeType}: <span className="font-medium text-fg">{model.typeName}</span>
         </div>
       ) : null}
+      {model.role !== undefined ? (
+        <div className="mt-1 text-muted" data-testid="hover-role">
+          {en.timing.role}:{' '}
+          <span className="font-medium text-fg">{en.timing.roles[model.role]}</span>
+        </div>
+      ) : null}
       {model.kind === 'place' ? (
         <div className="mt-2">
           <div className="text-muted" data-testid="hover-tokens-count">

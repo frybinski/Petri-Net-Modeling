@@ -904,6 +904,8 @@ export const en = {
     kpiPerHour: 'per hour',
     kpiCycle: 'Cycle time',
     kpiInSystem: 'In system',
+    kpiMore: (count: number) =>
+      `${count} more ${count === 1 ? 'indicator' : 'indicators'} in the Metrics tab`,
     kpiWarmup: (span: string) => `Warm-up, figures start after ${span}`,
     followTitle: (caseId: string) => `Case ${caseId}`,
     followStop: 'Stop following',

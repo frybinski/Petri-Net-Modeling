@@ -1,6 +1,9 @@
 import type { Id } from '@pnm/core';
 import {
   FLASH_MS,
+  flowEnd,
+  flowLabel,
+  flowPoint,
   motionEnd,
   sampleSprites,
   shownCount,
@@ -468,6 +471,33 @@ export function buildDynamicScene(
       x: over.pos[0],
       y: over.pos[1],
       text: `+${over.extra}`,
+    });
+  }
+
+  // Amounts on their way along a connector: a dot with the number, +3 into a quantity place and
+  // -3 out of it. They are drawn above the cases, as they belong to no case.
+  for (const flow of anim.flows) {
+    if (now < flow.startedAt || now >= flowEnd(flow)) continue;
+    const { point, progress } = flowPoint(flow, now);
+    const [x, y] = point;
+    layers.tokens.push({
+      layer: 'tokens',
+      elementId: flow.placeId,
+      op: 'circle',
+      x,
+      y,
+      r: 4,
+      fill: flow.direction === 'in' ? 'accent' : 'warn',
+      alpha: progress > 0.8 ? 1 - (progress - 0.8) * 3 : 1,
+    });
+    layers.tokens.push({
+      layer: 'tokens',
+      elementId: flow.placeId,
+      op: 'badge',
+      x,
+      y: y - 13,
+      text: flowLabel(flow),
+      accent: flow.direction === 'in',
     });
   }
 

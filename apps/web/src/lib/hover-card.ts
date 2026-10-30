@@ -1,10 +1,12 @@
 import {
+  placeRoles,
   tokenLabel,
   type BindingResult,
   type Diagnostic,
   type Id,
   type Marking,
   type PetriNet,
+  type PlaceRole,
 } from '@pnm/core';
 import { MAX_CARD_TOKENS } from './flow-model';
 import { boundVariables } from './inscriptions';
@@ -16,6 +18,8 @@ export interface HoverCardModel {
   name: string;
   /** Place type (JSON nets). */
   typeName?: string;
+  /** The role of a place in the simulation: source, sink, resource, case or quantity. */
+  role?: PlaceRole;
   /** Number of tokens of a place. */
   tokenCount?: number;
   /** Labels of the first tokens of a place in a JSON net. */
@@ -78,6 +82,7 @@ export function buildHoverCard({
       kind: 'place',
       name: place.name,
       ...(json && place.type !== undefined && { typeName: place.type }),
+      role: placeRoles(net).get(id) ?? 'case',
       tokenCount: tokens.length,
       tokens: json ? tokens.slice(0, MAX_CARD_TOKENS).map((t) => tokenLabel(t, 60)) : [],
       moreTokens: json ? Math.max(0, tokens.length - MAX_CARD_TOKENS) : 0,

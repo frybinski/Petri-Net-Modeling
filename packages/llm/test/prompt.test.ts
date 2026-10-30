@@ -28,6 +28,16 @@ describe('compactNet', () => {
     expect(compact.transitions.find((t) => t.id === 't_scan')?.role).toBe('step');
   });
 
+  it('names the role quantity, also for a place that is a sink by its arcs', () => {
+    const amounts = structuredClone(net);
+    amounts.places.find((p) => p.id === 'p_done')!.role = 'quantity';
+    amounts.places.find((p) => p.id === 'p_in')!.role = 'quantity';
+    const found = compactNet(amounts);
+    expect(found.places.find((p) => p.id === 'p_done')?.role).toBe('quantity');
+    expect(found.places.find((p) => p.id === 'p_in')?.role).toBe('quantity');
+    expect(found.places.find((p) => p.id === 'p_scanner')?.role).toBe('resource');
+  });
+
   it('gives the initial tokens, the transition a resource belongs to, and the timing', () => {
     const scanner = compact.places.find((p) => p.id === 'p_scanner');
     expect(scanner?.tokens).toBe(net.marking['p_scanner']?.length);
@@ -131,6 +141,16 @@ describe('buildPrompt', () => {
     expect(plain.user).toContain('A process called "Paketzentrum".');
   });
 
+  it('explains the role quantity in one line of the rules, and leaves the examples as they were', () => {
+    const lines = prompt.system.split('\n').filter((line) => line.includes('quantity'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^ {3}- role "quantity" /);
+    expect(lines[0]).toMatch(/unit/);
+    expect(lines[0]).toMatch(/"pool"/);
+    // The worked examples are the two of 1.2.0; neither knows quantities.
+    expect(prompt.user).not.toContain('"role":"quantity"');
+  });
+
   it('has a system text that matches the snapshot', () => {
     expect(systemText()).toMatchSnapshot();
     expect(prompt.system).toBe(systemText());
@@ -170,6 +190,25 @@ describe('buildRepairPrompt', () => {
     expect(prompt.user).toContain('- V4 error at places.p_scanned.kind: Place "Gescannt"');
     expect(prompt.user).toContain('- V5 error at decor[1].rect: Invalid rectangle');
     expect(prompt.user).toContain('- V3 error at places.p_in');
+  });
+
+  it('describes the rule V9 for the model', () => {
+    const v9 = buildRepairPrompt({
+      previous,
+      diagnostics: [
+        {
+          rule: 'V9',
+          severity: 'error',
+          path: 'places.p_in.kind',
+          message: 'Place "Eingang" counts an amount',
+          elementId: 'p_in',
+        },
+      ],
+      net: compactNet(net),
+      canvas: { width: 1200, height: 640 },
+    });
+    expect(v9.user).toContain('- V9 error at places.p_in.kind: Place "Eingang" counts an amount');
+    expect(v9.user).toContain('quantity place');
   });
 
   it('shows only the entries the findings are about', () => {
