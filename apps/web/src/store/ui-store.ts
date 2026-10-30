@@ -69,12 +69,18 @@ export interface TokenDialogRequest {
   index: number | null;
 }
 
+/** The indicator editor dialog: `index` is the indicator being edited, `null` for a new one. */
+export interface IndicatorDialogRequest {
+  index: number | null;
+}
+
 interface UiState {
   theme: Theme;
   /** Show guards, arc inscriptions and place types on the canvas. */
   showInscriptions: boolean;
   typeDialog: TypeDialogRequest | null;
   tokenDialog: TokenDialogRequest | null;
+  indicatorDialog: IndicatorDialogRequest | null;
   /** Grid is shown and nodes snap to it. */
   snapToGrid: boolean;
   showMinimap: boolean;
@@ -130,6 +136,8 @@ interface UiState {
   closeTypeDialog(): void;
   openTokenDialog(placeId: string, index: number | null): void;
   closeTokenDialog(): void;
+  openIndicatorDialog(index: number | null): void;
+  closeIndicatorDialog(): void;
   notify(kind: ToastKind, message: string, extra?: Pick<Toast, 'details' | 'action'>): number;
   dismissToast(id: number): void;
   askConfirm(request: ConfirmRequest): void;
@@ -208,6 +216,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   simTab: 'enabled',
   typeDialog: null,
   tokenDialog: null,
+  indicatorDialog: null,
   toasts: [],
   confirm: null,
   shortcutsOpen: false,
@@ -318,6 +327,12 @@ export const useUiStore = create<UiState>()((set, get) => ({
   },
   closeTokenDialog() {
     set({ tokenDialog: null });
+  },
+  openIndicatorDialog(index) {
+    set({ indicatorDialog: { index } });
+  },
+  closeIndicatorDialog() {
+    set({ indicatorDialog: null });
   },
 
   notify(kind, message, extra) {

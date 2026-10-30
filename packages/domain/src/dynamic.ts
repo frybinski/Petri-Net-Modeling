@@ -1,6 +1,9 @@
 import type { Id } from '@pnm/core';
 import {
   FLASH_MS,
+  flowEnd,
+  flowLabel,
+  flowPoint,
   motionEnd,
   sampleSprites,
   shownCount,
@@ -11,6 +14,7 @@ import { distance, pointInRect } from './geometry';
 import {
   cellSize,
   cellStyleOf,
+  counterBoxLayout,
   spriteSize,
   withHighlight,
   type CellState,
@@ -179,19 +183,17 @@ export function buildDynamicScene(
       });
       continue;
     }
-    const [x, y, w, h] = entry.box;
-    const small = h < 56 || w < 70;
-    const textX = small ? x + w - 8 : x + w / 2;
-    const textY = small ? y + h / 2 : y + h / 2 + 14;
+    const boxLayout = counterBoxLayout(entry.box);
+    const [textX, textY] = boxLayout.text;
     if (pulse > 0) {
       layers.tokens.push({
         layer: 'tokens',
         elementId: place.id,
         op: 'rect',
-        x: textX - (small ? 24 : 20),
-        y: textY - 11,
-        w: small ? 28 : 40,
-        h: 22,
+        x: boxLayout.large ? textX - 70 : textX - (boxLayout.small ? 24 : 20),
+        y: boxLayout.large ? textY - 22 : textY - 11,
+        w: boxLayout.large ? 140 : boxLayout.small ? 28 : 40,
+        h: boxLayout.large ? 44 : 22,
         radius: 6,
         fill: 'ok',
         alpha: 0.35 * pulse,
@@ -204,10 +206,10 @@ export function buildDynamicScene(
       x: textX,
       y: textY,
       text: String(shown),
-      size: small ? 13 : 15,
+      size: boxLayout.textSize,
       weight: 700,
       tone: 'ink',
-      align: small ? 'right' : 'center',
+      align: boxLayout.align,
       baseline: 'middle',
       mono: true,
     });
@@ -468,6 +470,33 @@ export function buildDynamicScene(
       x: over.pos[0],
       y: over.pos[1],
       text: `+${over.extra}`,
+    });
+  }
+
+  // Amounts on their way along a connector: a dot with the number, +3 into a quantity place and
+  // -3 out of it. They are drawn above the cases, as they belong to no case.
+  for (const flow of anim.flows) {
+    if (now < flow.startedAt || now >= flowEnd(flow)) continue;
+    const { point, progress } = flowPoint(flow, now);
+    const [x, y] = point;
+    layers.tokens.push({
+      layer: 'tokens',
+      elementId: flow.placeId,
+      op: 'circle',
+      x,
+      y,
+      r: 4,
+      fill: flow.direction === 'in' ? 'accent' : 'warn',
+      alpha: progress > 0.8 ? 1 - (progress - 0.8) * 3 : 1,
+    });
+    layers.tokens.push({
+      layer: 'tokens',
+      elementId: flow.placeId,
+      op: 'badge',
+      x,
+      y: y - 13,
+      text: flowLabel(flow),
+      accent: flow.direction === 'in',
     });
   }
 

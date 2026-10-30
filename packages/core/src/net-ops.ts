@@ -3,6 +3,7 @@ import type {
   Annotation,
   Arc,
   Id,
+  Indicator,
   PetriNet,
   Place,
   Position,
@@ -567,7 +568,7 @@ export function setRate(net: PetriNet, transitionId: Id, rate: number | undefine
 export function setRole(
   net: PetriNet,
   placeId: Id,
-  role: 'case' | 'resource' | undefined,
+  role: 'case' | 'resource' | 'quantity' | undefined,
 ): PetriNet {
   assertPlace(net, placeId);
   return updateNode(net, placeId, { role });
@@ -598,6 +599,20 @@ export function setSimulationSettings(net: PetriNet, patch: Partial<SimulationSe
   return Object.keys(next).length === 0
     ? rest
     : { ...rest, simulation: next as SimulationSettings };
+}
+
+/**
+ * Sets the indicators of the net, or removes them with `undefined` or an empty list. The ids they
+ * name are not checked here: an indicator that points to a deleted element stays and is reported
+ * by `validate` (use `indicatorProblems` to check one before it is stored).
+ */
+export function setIndicators(
+  net: PetriNet,
+  indicators: readonly Indicator[] | undefined,
+): PetriNet {
+  return setSimulationSettings(net, {
+    indicators: indicators === undefined || indicators.length === 0 ? undefined : [...indicators],
+  });
 }
 
 // --- Domain view -----------------------------------------------------------------------------

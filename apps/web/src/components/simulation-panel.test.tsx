@@ -380,6 +380,83 @@ describe('metrics tab', () => {
     );
   });
 
+  it('lists the places that count an amount in the table, without a waiting time and never red', async () => {
+    const net = shop();
+    net.places.push({ id: 'co2', name: 'CO2e', position: { x: 0, y: 0 }, role: 'quantity' });
+    net.arcs.push({ id: 'a_co2', source: 'serve', target: 'co2', weight: 12 });
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    for (let i = 0; i < 8; i += 1) await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    const rows = screen.getAllByTestId('metrics-place-row');
+    const co2 = rows.find((row) => row.getAttribute('data-place-id') === 'co2')!;
+    expect(co2).toHaveAttribute('data-role', 'quantity');
+    expect(within(co2).getByTestId('metrics-place-now')).toHaveTextContent(/^\d+$/);
+    expect(Number(within(co2).getByTestId('metrics-place-now').textContent)).toBeGreaterThanOrEqual(
+      12,
+    );
+    // 12 or more tokens are above the red threshold of 10, but an amount is not a queue.
+    expect(within(co2).getByTestId('metrics-place-now').className).not.toMatch(/danger|warn/);
+    expect(within(co2).getAllByRole('cell').at(-1)).toHaveTextContent('–');
+    // The place that holds cases comes first.
+    expect(rows[0]!.getAttribute('data-role')).toBe('case');
+    expect(rows.at(-1)!.getAttribute('data-place-id')).toBe('co2');
+  });
+
+  it('shows the indicators of the net with their live values and units', async () => {
+    const net = shop();
+    net.places.push({ id: 'co2', name: 'CO2e', position: { x: 0, y: 0 }, role: 'quantity' });
+    net.arcs.push({ id: 'a_co2', source: 'serve', target: 'co2', weight: 12 });
+    net.simulation = {
+      indicators: [
+        {
+          id: 'co2-per-case',
+          label: 'CO2e per case',
+          unit: 'kg',
+          measure: { kind: 'inflow', of: 'co2' },
+          per: 'case',
+        },
+        {
+          id: 'serves',
+          label: 'Services started',
+          measure: { kind: 'firings', of: 'serve' },
+          digits: 0,
+        },
+      ],
+    };
+    store().loadNet(net, null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    // Before a case is complete the figure relates to nothing.
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    const rows = () => screen.getAllByTestId('metrics-indicator-row');
+    expect(rows()).toHaveLength(2);
+    expect(within(rows()[0]!).getByTestId('metrics-indicator-value')).toHaveTextContent('–');
+    for (let i = 0; i < 12; i += 1) await store().stepNext();
+    await waitFor(() => {
+      expect(within(rows()[0]!).getByTestId('metrics-indicator-value')).toHaveTextContent('12.0');
+    });
+    expect(rows()[0]).toHaveTextContent('CO2e per case');
+    expect(rows()[0]).toHaveTextContent('kg');
+    expect(within(rows()[1]!).getByTestId('metrics-indicator-value')).toHaveTextContent(/^\d+$/);
+  });
+
+  it('has no indicator section for a net without indicators', async () => {
+    store().loadNet(shop(), null);
+    store().startSimulation();
+    await settled();
+    store().setSimSpeed('max');
+    for (let i = 0; i < 6; i += 1) await store().stepNext();
+    useUiStore.setState({ simTab: 'metrics' });
+    renderPanel();
+    expect(screen.queryByTestId('metrics-indicators')).toBeNull();
+  });
+
   it('explains that nets without time have no figures', async () => {
     store().loadNet(plain(), null);
     store().startSimulation();

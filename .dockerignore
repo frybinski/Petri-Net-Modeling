@@ -5,6 +5,7 @@
 .gitlab-ci.yml
 .github
 **/node_modules
+**/.pnpm-store
 **/dist
 **/coverage
 **/test-results

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { REPO } from './helpers';
@@ -286,6 +287,34 @@ describe('.gitlab-ci.yml', () => {
     expect(validateGitlabCi(doc)).toEqual([]);
   });
 
+  it('keeps the pnpm store of the pipeline out of the formatter, the linter and the image context', async () => {
+    // GitLab caches only paths inside the project, so the store sits in it; the check job must not
+    // look at the files of the packages in it (`pnpm format:check` reported 377 of them).
+    const variables = doc['variables'] as Doc;
+    const store = String(variables['PNPM_STORE']);
+    expect(store).toMatch(/^\$CI_PROJECT_DIR\/[^/]+$/);
+    const dir = store.replace('$CI_PROJECT_DIR/', '');
+    const lines = (path: string): string[] =>
+      read(path)
+        .split('\n')
+        .map((line) => line.trim());
+    // It is the directory that the job caches.
+    const cached = ((doc['check'] as Doc)['cache'] as Doc)['paths'] as string[];
+    expect(cached).toContain(`${dir}/`);
+    // Prettier, git and the image build skip it.
+    expect(lines('.prettierignore')).toContain(dir);
+    expect(lines('.gitignore')).toContain(dir);
+    expect(lines('.dockerignore')).toContain(`**/${dir}`);
+    // ESLint ignores it, through an entry of the flat config that has only `ignores`.
+    const config = (await import(pathToFileURL(join(REPO, 'eslint.config.js')).href)) as {
+      default: Array<{ ignores?: string[]; files?: string[] }>;
+    };
+    const ignored = config.default.flatMap((entry) =>
+      entry.ignores !== undefined && entry.files === undefined ? entry.ignores : [],
+    );
+    expect(ignored).toContain(`**/${dir}/**`);
+  });
+
   it('has stages in the order check, image, publish', () => {
     expect(doc['stages']).toEqual(['check', 'image', 'publish']);
   });
@@ -298,18 +327,26 @@ describe('.gitlab-ci.yml', () => {
 
   it('runs lint, format, typecheck, the tests and the build before any image', () => {
     const check = doc['check'] as Doc;
-    const script = (check['script'] as string[]).join('\n');
+    const lines = check['script'] as string[];
+    const script = lines.join('\n');
     for (const command of [
       'pnpm install --frozen-lockfile',
       'pnpm lint',
       'pnpm format:check',
       'pnpm typecheck',
-      'pnpm test',
       'pnpm test:scripts',
       'pnpm build',
     ]) {
       expect(script, command).toContain(command);
     }
+    // The tests of the packages run one package after the other: a shared runner has few cores,
+    // and the property tests and the timing test of the animation fail when packages compete.
+    // The root script `pnpm test` stays as it is, for machines with enough cores.
+    expect(lines).toContain('pnpm -r --workspace-concurrency=1 test');
+    expect(lines).not.toContain('pnpm test');
+    const rootScripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> })
+      .scripts;
+    expect(rootScripts['test']).toBe('pnpm -r test');
     for (const job of ['image-build', 'image-publish']) {
       expect((doc[job] as Doc)['needs'], job).toEqual(['check']);
     }

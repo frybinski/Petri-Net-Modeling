@@ -134,6 +134,7 @@ describe('acceptance A2 for events of a replay (parcel center, 30 minutes)', () 
         layout,
         {
           motions: [],
+          flows: [],
           flashes: [f as never],
           counters: {},
           handled: [],

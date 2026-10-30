@@ -1,0 +1,1775 @@
+{
+  "version": "1.0",
+  "profile": "pt-net",
+  "name": "Fahrradrahmen-Fertigung",
+  "types": {},
+  "places": [
+    {
+      "id": "p_orders",
+      "name": "Aufträge",
+      "position": {
+        "x": 200,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_tubes",
+      "name": "Rohrlager (kg)",
+      "role": "quantity",
+      "position": {
+        "x": 260,
+        "y": 400
+      }
+    },
+    {
+      "id": "p_space",
+      "name": "Lagerplatz frei (kg)",
+      "role": "quantity",
+      "position": {
+        "x": 340,
+        "y": 520
+      }
+    },
+    {
+      "id": "p_saw",
+      "name": "Säge",
+      "position": {
+        "x": 340,
+        "y": 90
+      }
+    },
+    {
+      "id": "p_cut",
+      "name": "Zugeschnitten",
+      "position": {
+        "x": 500,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_welder",
+      "name": "Schweißroboter",
+      "position": {
+        "x": 660,
+        "y": 90
+      }
+    },
+    {
+      "id": "p_welded",
+      "name": "Geschweißt",
+      "position": {
+        "x": 820,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_booth",
+      "name": "Beschichtungskabine",
+      "position": {
+        "x": 980,
+        "y": 90
+      }
+    },
+    {
+      "id": "p_coated",
+      "name": "Beschichtet",
+      "position": {
+        "x": 1140,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_inspector",
+      "name": "Prüferin",
+      "position": {
+        "x": 1300,
+        "y": 90
+      }
+    },
+    {
+      "id": "p_checked",
+      "name": "Geprüft",
+      "position": {
+        "x": 1460,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_rework",
+      "name": "Nacharbeit",
+      "position": {
+        "x": 1460,
+        "y": 400
+      }
+    },
+    {
+      "id": "p_ready",
+      "name": "Versandbereit",
+      "position": {
+        "x": 1780,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_shipped",
+      "name": "Ausgeliefert",
+      "position": {
+        "x": 2100,
+        "y": 220
+      }
+    },
+    {
+      "id": "p_scrap",
+      "name": "Schrott (kg)",
+      "role": "quantity",
+      "position": {
+        "x": 500,
+        "y": 520
+      }
+    },
+    {
+      "id": "p_waste",
+      "name": "Restabfall (kg)",
+      "role": "quantity",
+      "position": {
+        "x": 820,
+        "y": 580
+      }
+    },
+    {
+      "id": "p_co2",
+      "name": "CO₂e (kg)",
+      "role": "quantity",
+      "position": {
+        "x": 1140,
+        "y": 520
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_order",
+      "name": "Auftrag",
+      "rate": 6,
+      "position": {
+        "x": 60,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_cut",
+      "name": "Zuschneiden",
+      "timing": {
+        "kind": "uniform",
+        "min": 240,
+        "max": 360
+      },
+      "position": {
+        "x": 340,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_weld",
+      "name": "Schweißen",
+      "timing": {
+        "kind": "uniform",
+        "min": 480,
+        "max": 720
+      },
+      "position": {
+        "x": 660,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_coat",
+      "name": "Pulverbeschichten",
+      "timing": {
+        "kind": "uniform",
+        "min": 300,
+        "max": 420
+      },
+      "position": {
+        "x": 980,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_check",
+      "name": "Prüfen",
+      "timing": {
+        "kind": "uniform",
+        "min": 120,
+        "max": 240
+      },
+      "position": {
+        "x": 1300,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_release",
+      "name": "Freigeben",
+      "timing": {
+        "kind": "fixed",
+        "value": 5
+      },
+      "priority": 9,
+      "position": {
+        "x": 1620,
+        "y": 160
+      }
+    },
+    {
+      "id": "t_reject",
+      "name": "Zur Nacharbeit",
+      "timing": {
+        "kind": "fixed",
+        "value": 5
+      },
+      "priority": 1,
+      "position": {
+        "x": 1620,
+        "y": 330
+      }
+    },
+    {
+      "id": "t_rework",
+      "name": "Nacharbeiten",
+      "timing": {
+        "kind": "uniform",
+        "min": 600,
+        "max": 900
+      },
+      "position": {
+        "x": 1140,
+        "y": 400
+      }
+    },
+    {
+      "id": "t_ship",
+      "name": "Versenden",
+      "timing": {
+        "kind": "uniform",
+        "min": 60,
+        "max": 120
+      },
+      "position": {
+        "x": 1940,
+        "y": 220
+      }
+    },
+    {
+      "id": "t_recycle",
+      "name": "Schrott aufbereiten",
+      "timing": {
+        "kind": "fixed",
+        "value": 1200
+      },
+      "position": {
+        "x": 660,
+        "y": 520
+      }
+    },
+    {
+      "id": "t_deliver",
+      "name": "Primärstahl anliefern",
+      "timing": {
+        "kind": "uniform",
+        "min": 1800,
+        "max": 3600
+      },
+      "position": {
+        "x": 40,
+        "y": 400
+      }
+    }
+  ],
+  "arcs": [
+    {
+      "id": "a1",
+      "source": "t_order",
+      "target": "p_orders",
+      "weight": 1
+    },
+    {
+      "id": "a2",
+      "source": "p_orders",
+      "target": "t_cut",
+      "weight": 1
+    },
+    {
+      "id": "a3",
+      "source": "p_tubes",
+      "target": "t_cut",
+      "weight": 3
+    },
+    {
+      "id": "a4",
+      "source": "p_saw",
+      "target": "t_cut",
+      "weight": 1
+    },
+    {
+      "id": "a5",
+      "source": "t_cut",
+      "target": "p_cut",
+      "weight": 1
+    },
+    {
+      "id": "a6",
+      "source": "t_cut",
+      "target": "p_space",
+      "weight": 3
+    },
+    {
+      "id": "a7",
+      "source": "t_cut",
+      "target": "p_scrap",
+      "weight": 1
+    },
+    {
+      "id": "a8",
+      "source": "t_cut",
+      "target": "p_co2",
+      "weight": 1
+    },
+    {
+      "id": "a9",
+      "source": "t_cut",
+      "target": "p_saw",
+      "weight": 1
+    },
+    {
+      "id": "a10",
+      "source": "p_cut",
+      "target": "t_weld",
+      "weight": 1
+    },
+    {
+      "id": "a11",
+      "source": "p_welder",
+      "target": "t_weld",
+      "weight": 1
+    },
+    {
+      "id": "a12",
+      "source": "t_weld",
+      "target": "p_welded",
+      "weight": 1
+    },
+    {
+      "id": "a13",
+      "source": "t_weld",
+      "target": "p_co2",
+      "weight": 2
+    },
+    {
+      "id": "a14",
+      "source": "t_weld",
+      "target": "p_welder",
+      "weight": 1
+    },
+    {
+      "id": "a15",
+      "source": "p_welded",
+      "target": "t_coat",
+      "weight": 1
+    },
+    {
+      "id": "a16",
+      "source": "p_booth",
+      "target": "t_coat",
+      "weight": 1
+    },
+    {
+      "id": "a17",
+      "source": "t_coat",
+      "target": "p_coated",
+      "weight": 1
+    },
+    {
+      "id": "a18",
+      "source": "t_coat",
+      "target": "p_co2",
+      "weight": 3
+    },
+    {
+      "id": "a19",
+      "source": "t_coat",
+      "target": "p_booth",
+      "weight": 1
+    },
+    {
+      "id": "a20",
+      "source": "p_coated",
+      "target": "t_check",
+      "weight": 1
+    },
+    {
+      "id": "a21",
+      "source": "p_inspector",
+      "target": "t_check",
+      "weight": 1
+    },
+    {
+      "id": "a22",
+      "source": "t_check",
+      "target": "p_checked",
+      "weight": 1
+    },
+    {
+      "id": "a23",
+      "source": "t_check",
+      "target": "p_inspector",
+      "weight": 1
+    },
+    {
+      "id": "a24",
+      "source": "p_checked",
+      "target": "t_release",
+      "weight": 1
+    },
+    {
+      "id": "a25",
+      "source": "t_release",
+      "target": "p_ready",
+      "weight": 1
+    },
+    {
+      "id": "a26",
+      "source": "p_checked",
+      "target": "t_reject",
+      "weight": 1
+    },
+    {
+      "id": "a27",
+      "source": "t_reject",
+      "target": "p_rework",
+      "weight": 1
+    },
+    {
+      "id": "a28",
+      "source": "p_rework",
+      "target": "t_rework",
+      "weight": 1
+    },
+    {
+      "id": "a29",
+      "source": "p_tubes",
+      "target": "t_rework",
+      "weight": 1
+    },
+    {
+      "id": "a30",
+      "source": "t_rework",
+      "target": "p_welded",
+      "weight": 1
+    },
+    {
+      "id": "a31",
+      "source": "t_rework",
+      "target": "p_space",
+      "weight": 1
+    },
+    {
+      "id": "a32",
+      "source": "t_rework",
+      "target": "p_co2",
+      "weight": 2
+    },
+    {
+      "id": "a33",
+      "source": "p_ready",
+      "target": "t_ship",
+      "weight": 1
+    },
+    {
+      "id": "a34",
+      "source": "t_ship",
+      "target": "p_shipped",
+      "weight": 1
+    },
+    {
+      "id": "a35",
+      "source": "t_ship",
+      "target": "p_co2",
+      "weight": 2
+    },
+    {
+      "id": "a36",
+      "source": "p_scrap",
+      "target": "t_recycle",
+      "weight": 5
+    },
+    {
+      "id": "a37",
+      "source": "p_space",
+      "target": "t_recycle",
+      "weight": 4
+    },
+    {
+      "id": "a38",
+      "source": "t_recycle",
+      "target": "p_tubes",
+      "weight": 4
+    },
+    {
+      "id": "a39",
+      "source": "t_recycle",
+      "target": "p_waste",
+      "weight": 1
+    },
+    {
+      "id": "a40",
+      "source": "t_recycle",
+      "target": "p_co2",
+      "weight": 2
+    },
+    {
+      "id": "a41",
+      "source": "p_space",
+      "target": "t_deliver",
+      "weight": 40
+    },
+    {
+      "id": "a42",
+      "source": "t_deliver",
+      "target": "p_tubes",
+      "weight": 40
+    },
+    {
+      "id": "a43",
+      "source": "t_deliver",
+      "target": "p_co2",
+      "weight": 80
+    }
+  ],
+  "marking": {
+    "p_tubes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "p_space": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "p_saw": [
+      1
+    ],
+    "p_welder": [
+      1,
+      1
+    ],
+    "p_booth": [
+      1
+    ],
+    "p_inspector": [
+      1
+    ]
+  },
+  "simulation": {
+    "seed": 1,
+    "warmup": 3600,
+    "startTime": "2026-01-05T06:00:00Z",
+    "caseIdPrefix": "R-",
+    "indicators": [
+      {
+        "id": "co2-per-frame",
+        "label": "CO₂e je Rahmen",
+        "unit": "kg",
+        "measure": {
+          "kind": "inflow",
+          "of": "p_co2"
+        },
+        "per": "case",
+        "factor": 1,
+        "digits": 1
+      },
+      {
+        "id": "material",
+        "label": "Material je Rahmen",
+        "unit": "kg",
+        "measure": {
+          "kind": "outflow",
+          "of": "p_tubes"
+        },
+        "per": "case",
+        "factor": 1,
+        "digits": 1
+      },
+      {
+        "id": "recycled-share",
+        "label": "Recyclinganteil",
+        "unit": "%",
+        "measure": {
+          "kind": "inflow",
+          "of": "p_tubes",
+          "via": "t_recycle"
+        },
+        "per": {
+          "kind": "inflow",
+          "of": "p_tubes"
+        },
+        "factor": 100,
+        "digits": 0
+      },
+      {
+        "id": "waste",
+        "label": "Restabfall je Rahmen",
+        "unit": "kg",
+        "measure": {
+          "kind": "inflow",
+          "of": "p_waste"
+        },
+        "per": "case",
+        "factor": 1,
+        "digits": 2
+      }
+    ]
+  },
+  "domainView": {
+    "schemaVersion": 1,
+    "netHash": "fnv1a64:c0a6f3a47f620c22",
+    "meta": {
+      "theme": "Fahrradrahmen-Fertigung",
+      "viewName": "Werk 2",
+      "entity": {
+        "singular": "Rahmen",
+        "plural": "Rahmen",
+        "sprite": "vehicle"
+      },
+      "canvas": {
+        "width": 1200,
+        "height": 640
+      },
+      "metersPerPixel": 0.05
+    },
+    "places": {
+      "p_orders": {
+        "kind": "queue",
+        "path": [
+          [
+            286,
+            210
+          ],
+          [
+            446,
+            210
+          ]
+        ],
+        "label": "Aufträge"
+      },
+      "p_tubes": {
+        "kind": "pool",
+        "pos": [
+          122,
+          250
+        ],
+        "label": "Rohrlager (kg)"
+      },
+      "p_space": {
+        "kind": "hidden",
+        "reason": "Hilfsstelle für die Lagergrenze"
+      },
+      "p_saw": {
+        "kind": "slots",
+        "of": "t_cut",
+        "label": "Säge"
+      },
+      "p_cut": {
+        "kind": "conveyor",
+        "path": [
+          [
+            546,
+            210
+          ],
+          [
+            706,
+            210
+          ]
+        ],
+        "label": "Zugeschnitten"
+      },
+      "p_welder": {
+        "kind": "slots",
+        "of": "t_weld",
+        "label": "Schweißroboter"
+      },
+      "p_welded": {
+        "kind": "conveyor",
+        "path": [
+          [
+            864,
+            210
+          ],
+          [
+            864,
+            290
+          ],
+          [
+            350,
+            290
+          ],
+          [
+            350,
+            330
+          ]
+        ],
+        "label": "Geschweißt"
+      },
+      "p_booth": {
+        "kind": "slots",
+        "of": "t_coat",
+        "label": "Kabine"
+      },
+      "p_coated": {
+        "kind": "conveyor",
+        "path": [
+          [
+            400,
+            370
+          ],
+          [
+            560,
+            370
+          ]
+        ],
+        "label": "Beschichtet"
+      },
+      "p_inspector": {
+        "kind": "slots",
+        "of": "t_check",
+        "label": "Prüferin"
+      },
+      "p_checked": {
+        "kind": "buffer",
+        "path": [
+          [
+            660,
+            370
+          ],
+          [
+            820,
+            370
+          ]
+        ],
+        "label": "Geprüft"
+      },
+      "p_rework": {
+        "kind": "queue",
+        "path": [
+          [
+            866,
+            330
+          ],
+          [
+            1040,
+            330
+          ],
+          [
+            1040,
+            210
+          ],
+          [
+            1012,
+            210
+          ]
+        ]
+      },
+      "p_ready": {
+        "kind": "buffer",
+        "path": [
+          [
+            872,
+            385
+          ],
+          [
+            1032,
+            385
+          ]
+        ],
+        "label": "Versandbereit"
+      },
+      "p_shipped": {
+        "kind": "sink",
+        "box": [
+          1084,
+          350,
+          88,
+          70
+        ],
+        "label": "Ausgeliefert"
+      },
+      "p_scrap": {
+        "kind": "pool",
+        "pos": [
+          330,
+          520
+        ],
+        "label": "Schrott (kg)"
+      },
+      "p_waste": {
+        "kind": "sink",
+        "box": [
+          660,
+          500,
+          120,
+          80
+        ],
+        "label": "Restabfall (kg)"
+      },
+      "p_co2": {
+        "kind": "sink",
+        "box": [
+          900,
+          18,
+          276,
+          76
+        ],
+        "label": "CO₂e (kg)"
+      }
+    },
+    "transitions": {
+      "t_order": {
+        "kind": "dock",
+        "pos": [
+          262,
+          210
+        ],
+        "label": "Auftragseingang"
+      },
+      "t_cut": {
+        "kind": "station",
+        "box": [
+          446,
+          165,
+          100,
+          90
+        ],
+        "slots": [
+          [
+            496,
+            210
+          ]
+        ],
+        "label": "Säge"
+      },
+      "t_weld": {
+        "kind": "station",
+        "box": [
+          706,
+          165,
+          120,
+          90
+        ],
+        "slots": [
+          [
+            746,
+            210
+          ],
+          [
+            786,
+            210
+          ]
+        ],
+        "label": "Schweißroboter"
+      },
+      "t_coat": {
+        "kind": "station",
+        "box": [
+          300,
+          330,
+          100,
+          80
+        ],
+        "slots": [
+          [
+            350,
+            370
+          ]
+        ],
+        "label": "Kabine"
+      },
+      "t_check": {
+        "kind": "station",
+        "box": [
+          560,
+          330,
+          100,
+          80
+        ],
+        "slots": [
+          [
+            610,
+            370
+          ]
+        ],
+        "label": "Prüfplatz"
+      },
+      "t_release": {
+        "kind": "waypoint",
+        "pos": [
+          850,
+          385
+        ],
+        "pass": true,
+        "label": "Freigabe"
+      },
+      "t_reject": {
+        "kind": "waypoint",
+        "pos": [
+          850,
+          335
+        ],
+        "pass": true,
+        "label": "Ausschuss"
+      },
+      "t_rework": {
+        "kind": "station",
+        "box": [
+          900,
+          165,
+          110,
+          90
+        ],
+        "slots": [
+          [
+            955,
+            210
+          ]
+        ],
+        "label": "Nacharbeit"
+      },
+      "t_ship": {
+        "kind": "dock",
+        "pos": [
+          1056,
+          385
+        ],
+        "label": "Versand"
+      },
+      "t_recycle": {
+        "kind": "machine",
+        "box": [
+          450,
+          500,
+          110,
+          80
+        ],
+        "slots": [
+          [
+            505,
+            540
+          ]
+        ],
+        "label": "Aufbereitung"
+      },
+      "t_deliver": {
+        "kind": "dock",
+        "pos": [
+          122,
+          170
+        ],
+        "label": "Anlieferung"
+      }
+    },
+    "arcs": {
+      "p_tubes>t_cut": {
+        "path": [
+          [
+            142,
+            250
+          ],
+          [
+            446,
+            250
+          ]
+        ]
+      },
+      "t_deliver>p_tubes": {
+        "path": [
+          [
+            122,
+            194
+          ],
+          [
+            122,
+            232
+          ]
+        ]
+      },
+      "t_recycle>p_tubes": {
+        "path": [
+          [
+            450,
+            570
+          ],
+          [
+            122,
+            570
+          ],
+          [
+            122,
+            268
+          ]
+        ]
+      },
+      "p_scrap>t_recycle": {
+        "path": [
+          [
+            348,
+            520
+          ],
+          [
+            450,
+            520
+          ]
+        ]
+      },
+      "t_recycle>p_waste": {
+        "path": [
+          [
+            560,
+            540
+          ],
+          [
+            660,
+            540
+          ]
+        ]
+      },
+      "t_cut>p_co2": {
+        "path": [
+          [
+            496,
+            165
+          ],
+          [
+            496,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_weld>p_co2": {
+        "path": [
+          [
+            766,
+            165
+          ],
+          [
+            766,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_rework>p_co2": {
+        "path": [
+          [
+            955,
+            165
+          ],
+          [
+            955,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_deliver>p_co2": {
+        "path": [
+          [
+            122,
+            146
+          ],
+          [
+            122,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_coat>p_co2": {
+        "path": [
+          [
+            300,
+            370
+          ],
+          [
+            228,
+            370
+          ],
+          [
+            228,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_recycle>p_co2": {
+        "path": [
+          [
+            450,
+            530
+          ],
+          [
+            228,
+            530
+          ],
+          [
+            228,
+            121
+          ],
+          [
+            1038,
+            121
+          ],
+          [
+            1038,
+            94
+          ]
+        ]
+      },
+      "t_ship>p_co2": {
+        "path": [
+          [
+            1056,
+            372
+          ],
+          [
+            1056,
+            340
+          ],
+          [
+            1130,
+            340
+          ],
+          [
+            1130,
+            94
+          ]
+        ]
+      },
+      "p_checked>t_release": {
+        "path": [
+          [
+            820,
+            370
+          ],
+          [
+            850,
+            385
+          ]
+        ]
+      },
+      "t_release>p_ready": {
+        "path": [
+          [
+            850,
+            385
+          ],
+          [
+            872,
+            385
+          ]
+        ]
+      },
+      "p_checked>t_reject": {
+        "path": [
+          [
+            820,
+            370
+          ],
+          [
+            850,
+            335
+          ]
+        ]
+      },
+      "t_reject>p_rework": {
+        "path": [
+          [
+            850,
+            335
+          ],
+          [
+            866,
+            330
+          ]
+        ]
+      },
+      "t_weld>p_welded": {
+        "path": [
+          [
+            826,
+            210
+          ],
+          [
+            864,
+            210
+          ]
+        ]
+      },
+      "t_rework>p_welded": {
+        "path": [
+          [
+            900,
+            210
+          ],
+          [
+            864,
+            210
+          ]
+        ]
+      }
+    },
+    "decor": [
+      {
+        "kind": "wall",
+        "segs": [
+          [
+            16,
+            16,
+            1184,
+            16
+          ],
+          [
+            1184,
+            16,
+            1184,
+            624
+          ],
+          [
+            1184,
+            624,
+            16,
+            624
+          ],
+          [
+            16,
+            16,
+            16,
+            624
+          ]
+        ],
+        "width": 5
+      },
+      {
+        "kind": "label",
+        "pos": [
+          40,
+          56
+        ],
+        "text": "Werk 2 · Rahmenbau"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          24,
+          128,
+          196,
+          488
+        ],
+        "label": "Lager"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          236,
+          128,
+          940,
+          312
+        ],
+        "label": "Fertigung"
+      },
+      {
+        "kind": "zone",
+        "rect": [
+          236,
+          456,
+          940,
+          160
+        ],
+        "label": "Recycling"
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          36,
+          330,
+          150,
+          18
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          36,
+          372,
+          150,
+          18
+        ]
+      },
+      {
+        "kind": "furniture",
+        "rect": [
+          36,
+          414,
+          150,
+          18
+        ]
+      },
+      {
+        "kind": "scale",
+        "pos": [
+          1000,
+          600
+        ],
+        "px": 160,
+        "label": "8 m"
+      }
+    ],
+    "provenance": {
+      "places.p_orders": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_tubes": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_space": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_saw": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_cut": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_welder": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_welded": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_booth": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_coated": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_inspector": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_checked": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_rework": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_ready": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_shipped": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_scrap": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_waste": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "places.p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_order": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_cut": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_weld": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_coat": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_check": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_release": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_reject": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_rework": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_ship": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_recycle": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "transitions.t_deliver": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.p_tubes>t_cut": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_deliver>p_tubes": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_recycle>p_tubes": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.p_scrap>t_recycle": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_recycle>p_waste": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_cut>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_weld>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_rework>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_deliver>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_coat>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_recycle>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_ship>p_co2": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.p_checked>t_release": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_release>p_ready": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.p_checked>t_reject": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_reject>p_rework": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_weld>p_welded": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      },
+      "arcs.t_rework>p_welded": {
+        "source": "user",
+        "at": "2026-10-30T09:00:00.000Z"
+      }
+    }
+  },
+  "properties": [
+    {
+      "id": "check-before-ship",
+      "kind": "declare",
+      "template": "precedence",
+      "activities": [
+        "Prüfen",
+        "Versenden"
+      ],
+      "name": "Every frame is inspected before it is shipped"
+    },
+    {
+      "id": "cut-then-ship",
+      "kind": "declare",
+      "template": "response",
+      "activities": [
+        "Zuschneiden",
+        "Versenden"
+      ],
+      "name": "Every frame that is cut is eventually shipped"
+    }
+  ]
+}

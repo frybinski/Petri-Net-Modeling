@@ -446,6 +446,11 @@ function genericParts(net: PetriNet, width: number, height: number): GenericPart
     const after = (post.get(place.id) ?? []).map(posOfTransition);
     const label = place.name;
 
+    if (role === 'quantity') {
+      // An amount has no objects to move along a belt: it is a counter.
+      places[place.id] = { kind: 'pool', pos: roundPoint(center), label };
+      continue;
+    }
     if (role === 'resource') {
       const of = slotsOf.get(place.id);
       places[place.id] =

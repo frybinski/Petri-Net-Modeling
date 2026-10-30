@@ -289,6 +289,95 @@ describe('validateDomainView', () => {
       expect(result.diagnostics[0]!.severity).toBe('warning');
       expect(result.ok).toBe(true);
     });
+
+    describe('V9: a quantity place is a counter or hidden', () => {
+      /** `done` counts an amount (a sink by its arcs) and `q` as well (a case place by its arcs). */
+      const quantities = (): ReturnType<typeof smallNet> => {
+        const amounts = smallNet();
+        amounts.places.find((p) => p.id === 'done')!.role = 'quantity';
+        amounts.places.find((p) => p.id === 'q')!.role = 'quantity';
+        return amounts;
+      };
+      const viewFor = (
+        amounts: ReturnType<typeof smallNet>,
+        change: (v: DomainView) => void,
+      ): DomainView =>
+        mutated((v) => {
+          v.netHash = netHash(amounts);
+          change(v);
+        });
+      const belt = [
+        [100, 300],
+        [300, 300],
+      ] as [number, number][];
+
+      it('V9: a quantity place drawn as a queue, conveyor or buffer (error)', () => {
+        const amounts = quantities();
+        for (const kind of ['queue', 'conveyor', 'buffer'] as const) {
+          const view = viewFor(amounts, (v) => {
+            v.places['q'] = { kind, path: belt };
+          });
+          const result = validateDomainView(amounts, view);
+          expect(rules(result.diagnostics), kind).toEqual(['V9']);
+          expect(result.diagnostics[0]).toMatchObject({
+            severity: 'error',
+            path: 'places.q.kind',
+            elementId: 'q',
+          });
+          expect(result.diagnostics[0]!.message).toMatch(/counts an amount/);
+          expect(result.ok).toBe(false);
+        }
+      });
+
+      it('V9: a quantity place drawn as slots (error)', () => {
+        const amounts = quantities();
+        const view = viewFor(amounts, (v) => {
+          v.places['done'] = { kind: 'slots', of: 'work' };
+        });
+        expect(rules(validateDomainView(amounts, view).diagnostics)).toEqual(['V9']);
+      });
+
+      it('is satisfied by a pool, a source, a sink or a hidden entry', () => {
+        const amounts = quantities();
+        const kinds: Array<(v: DomainView) => void> = [
+          (v) => {
+            v.places['q'] = { kind: 'pool', pos: [150, 150] };
+          },
+          (v) => {
+            v.places['q'] = { kind: 'source', box: [50, 50, 80, 40] };
+          },
+          (v) => {
+            v.places['q'] = { kind: 'sink', box: [50, 50, 80, 40] };
+          },
+          (v) => {
+            v.places['q'] = { kind: 'hidden', reason: 'auxiliary place' };
+          },
+        ];
+        for (const change of kinds) {
+          const result = validateDomainView(amounts, viewFor(amounts, change));
+          expect(result.diagnostics).toEqual([]);
+        }
+      });
+
+      it('a hidden quantity place is not reported by V8, which is about cases', () => {
+        const amounts = quantities();
+        const view = viewFor(amounts, (v) => {
+          v.places['q'] = { kind: 'hidden', reason: 'auxiliary place' };
+        });
+        expect(validateDomainView(amounts, view).diagnostics).toEqual([]);
+      });
+
+      it('the rule V4 does not report the same place a second time', () => {
+        const amounts = quantities();
+        // `q` stays a conveyor, which is wrong for a quantity as well.
+        const view = viewFor(amounts, (v) => {
+          v.places['done'] = { kind: 'queue', path: belt };
+        });
+        const found = validateDomainView(amounts, view).diagnostics;
+        expect(found.map((d) => d.rule)).toEqual(['V9', 'V9']);
+        expect(found.map((d) => d.elementId).sort()).toEqual(['done', 'q']);
+      });
+    });
   });
 });
 

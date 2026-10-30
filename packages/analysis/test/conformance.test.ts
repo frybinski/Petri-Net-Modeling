@@ -118,6 +118,19 @@ describe('conformance of a simulated parcel center', () => {
     expect(endActivities(example('traffic-light'))).toEqual([]);
   });
 
+  it('does not take a quantity place for the end of a case', () => {
+    // The scanner also puts a token on `CO2`, a place that nothing empties.
+    const amounts = example('parcel-center');
+    expect(endActivities(amounts)).toContain('Verladen Express');
+    const withCo2 = structuredClone(amounts);
+    withCo2.places.push({ id: 'p_co2', name: 'CO2', position: { x: 0, y: 0 } });
+    withCo2.arcs.push({ id: 'a_co2', source: 't_scan', target: 'p_co2', weight: 1 });
+    // Without the role the scanner would end a case: it feeds a place that nothing empties.
+    expect(endActivities(withCo2)).toContain('Scannen');
+    withCo2.places.find((p) => p.id === 'p_co2')!.role = 'quantity';
+    expect(endActivities(withCo2).sort()).toEqual(endActivities(amounts).sort());
+  });
+
   it('satisfies succession(Scannen, Sortieren) and init(Anlieferung) for 100 % of the finished parcels', async () => {
     const { traces } = await simulate();
     expect(traces.length).toBeGreaterThan(50);

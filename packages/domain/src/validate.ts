@@ -12,9 +12,19 @@ import {
   type TransitionView,
 } from './schema';
 
-export type DomainRule = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8';
+export type DomainRule = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9';
 
-export const DOMAIN_RULES: readonly DomainRule[] = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8'];
+export const DOMAIN_RULES: readonly DomainRule[] = [
+  'V1',
+  'V2',
+  'V3',
+  'V4',
+  'V5',
+  'V6',
+  'V7',
+  'V8',
+  'V9',
+];
 
 export interface DomainDiagnostic {
   rule: DomainRule;
@@ -161,6 +171,9 @@ export function roleAllows(role: PlaceRole, kind: PlaceView['kind']): boolean {
       );
     case 'case':
       return kind !== 'slots';
+    case 'quantity':
+      // An amount has no objects that could be drawn: it is a counter, or it is not drawn.
+      return kind === 'pool' || kind === 'source' || kind === 'sink' || kind === 'hidden';
   }
 }
 
@@ -174,6 +187,8 @@ function allowedKinds(role: PlaceRole): string {
       return 'source, queue, conveyor, buffer or hidden';
     case 'case':
       return 'any kind except slots';
+    case 'quantity':
+      return 'pool, source, sink or hidden';
   }
 }
 
@@ -246,7 +261,7 @@ function slotsOfTransition(view: TransitionView | undefined): Point[] | undefine
 }
 
 /**
- * Checks a domain view against its net (rules V1 to V8). `view` is untrusted input: anything
+ * Checks a domain view against its net (rules V1 to V9). `view` is untrusted input: anything
  * that was parsed from JSON. Errors make the view unusable for a faithful picture; warnings point
  * out things that look wrong (too few slots, stale hash, short queues).
  */
@@ -330,7 +345,8 @@ export function validateDomainView(net: PetriNet, view: unknown): DomainValidati
     const entry = data.places[place.id];
     if (!entry) continue;
     const role = roles.get(place.id) ?? 'case';
-    if (!roleAllows(role, entry.kind)) {
+    // A quantity has its own rule, V9.
+    if (role !== 'quantity' && !roleAllows(role, entry.kind)) {
       add(
         'V4',
         'error',
@@ -515,6 +531,21 @@ export function validateDomainView(net: PetriNet, view: unknown): DomainValidati
         'warning',
         `places.${place.id}`,
         `Place "${place.name}" holds cases and should not be hidden`,
+        place.id,
+      );
+    }
+  }
+
+  // V9: a quantity has no objects to draw, so it is a counter or not drawn at all.
+  for (const place of net.places) {
+    const entry = data.places[place.id];
+    if (!entry || roles.get(place.id) !== 'quantity') continue;
+    if (!roleAllows('quantity', entry.kind)) {
+      add(
+        'V9',
+        'error',
+        `places.${place.id}.kind`,
+        `Place "${place.name}" counts an amount and has no objects to draw; its kind must be ${allowedKinds('quantity')}, not "${entry.kind}"`,
         place.id,
       );
     }

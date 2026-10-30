@@ -10,5 +10,7 @@ export * from './validate';
 export * from './token';
 export * from './types';
 export * from './format';
+export { parseIndicatorList } from './schema';
 export * from './semantics';
 export * from './roles';
+export * from './indicators';

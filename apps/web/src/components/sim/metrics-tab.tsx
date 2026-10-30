@@ -1,4 +1,4 @@
-import type { ReplayStats } from '@pnm/sim';
+import { formatIndicatorValue, type ReplayStats } from '@pnm/sim';
 import { en } from '../../i18n/en';
 import { fitnessText, formatSpan, formatWarmupClock } from '../../lib/sim-format';
 import { openWarmupSetting } from '../../lib/sim-settings';
@@ -223,7 +223,12 @@ export function MetricsTab() {
     );
   }
   const names = new Map(net.places.map((p) => [p.id, p.name]));
-  const queues = metrics.places.filter((p) => p.role === 'case');
+  // Places that hold cases, then those that count an amount (no waiting time for them).
+  const queues = [
+    ...metrics.places.filter((p) => p.role === 'case'),
+    ...metrics.places.filter((p) => p.role === 'quantity'),
+  ];
+  const indicators = metrics.indicators ?? [];
 
   return (
     <div className="flex flex-col" data-testid="metrics-tab">
@@ -259,6 +264,36 @@ export function MetricsTab() {
         </p>
       </section>
 
+      {indicators.length > 0 ? (
+        <PanelSection title={en.indicators.values} hint={en.indicators.valuesHint}>
+          <ul className="m-0 flex list-none flex-col p-0" data-testid="metrics-indicators">
+            {indicators.map((indicator) => (
+              <li
+                key={indicator.id}
+                className="flex items-baseline justify-between gap-3 border-t border-border py-1.5 first:border-t-0"
+                data-testid="metrics-indicator-row"
+                data-indicator-id={indicator.id}
+              >
+                <span className="min-w-0 truncate text-xs" title={indicator.label}>
+                  {indicator.label}
+                </span>
+                <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
+                  <span
+                    className="font-mono text-sm font-semibold tabular-nums"
+                    data-testid="metrics-indicator-value"
+                  >
+                    {formatIndicatorValue(indicator)}
+                  </span>
+                  {indicator.unit !== '' ? (
+                    <span className="text-[11px] text-muted">{indicator.unit}</span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </PanelSection>
+      ) : null}
+
       {queues.length > 0 ? (
         <PanelSection title={en.metrics.places}>
           <table
@@ -280,24 +315,31 @@ export function MetricsTab() {
                   key={p.placeId}
                   className="border-t border-border"
                   data-testid="metrics-place-row"
+                  data-role={p.role}
+                  data-place-id={p.placeId}
                 >
                   <td className="truncate px-1 py-1" title={names.get(p.placeId)}>
                     {names.get(p.placeId)}
                   </td>
                   <td
                     className={`px-1 py-1 text-right tabular-nums ${
-                      p.current >= critical
-                        ? 'font-semibold text-danger'
-                        : p.current >= warn
-                          ? 'font-semibold text-warn'
-                          : ''
+                      p.role === 'quantity'
+                        ? ''
+                        : p.current >= critical
+                          ? 'font-semibold text-danger'
+                          : p.current >= warn
+                            ? 'font-semibold text-warn'
+                            : ''
                     }`}
+                    data-testid="metrics-place-now"
                   >
                     {p.current}
                   </td>
                   <td className="px-1 py-1 text-right tabular-nums">{p.mean.toFixed(1)}</td>
                   <td className="px-1 py-1 text-right tabular-nums">{p.max}</td>
-                  <td className="px-1 py-1 text-right tabular-nums">{formatSpan(p.meanWait)}</td>
+                  <td className="px-1 py-1 text-right tabular-nums">
+                    {p.role === 'quantity' ? '–' : formatSpan(p.meanWait)}
+                  </td>
                 </tr>
               ))}
             </tbody>

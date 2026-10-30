@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-29 · Status: Version 1.2.0 (M0–M6 und D1–D5 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-10-30 · Status: Version 1.3.0 (M0–M6, D1–D5 und N1 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -209,6 +209,16 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Voreinstellung „Server (Ollama)“ ohne Schlüssel im Browser.
 - Nicht Teil von M6: Echtzeit-Zusammenarbeit (Yjs), Konten, „Run on server“ in der App (siehe `docs/limitations.md`).
 
+### N1 · Beispiel Nachhaltigkeit (Mengenstellen und Kennzahlen) · fertig (1.3.0)
+- Beispiel „Fahrradrahmen-Fertigung“: CO₂e, Materialverbrauch, Recyclinganteil und Restabfall in Simulation und
+  Domänenansicht. Dafür Mengenstellen (`role: 'quantity'`, Marken ohne Fall, überschreibt auch Quelle und Senke) und
+  frei definierbare Kennzahlen (`simulation.indicators`, gezählt im Beobachtungsfenster nach der Aufwärmzeit).
+- Domänenansicht: Regel V9 (Mengenstellen sind Zähler oder verborgen), Flusspunkte statt Objekten, große Zähler,
+  Kennzahlenleiste mit den ersten vier Kennzahlen. Replay prüft Mengenstellen nicht gegen das Log. Kennzahlen in Editor,
+  Metriken-Tab, `pnm simulate` und `/api/v1/simulate`.
+- Plan `docs/plan/N1_Umsetzungsplan.md`, ADR 0017, Doku in `docs/simulation.md` (Mengenstellen, Kennzahlen),
+  `docs/domain-view.md`, `docs/replay.md`, `docs/limitations.md` (N1 bis N4).
+
 ## 5. Projektstruktur
 
 ```
@@ -253,13 +263,19 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.2.0 schließt M0 bis M6 und D1 bis D5 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.3.0 schließt M0 bis M6, D1 bis D5 und N1 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
 M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im KIT-Netz aus, vermittelt LLM-Anfragen, bietet
 die Schnittstelle für Werkzeuge und speichert Projekte; die Einschränkungen 8, 22 und 23 sind im Server-Modus behoben. Zum
 Betrieb am AIFB fehlen die Antworten der Betreiber (Ingress, Netznamen, Hostname, GitLab-Gruppe) und die Einrichtung nach
 `deploy/README.md`.
+
+N1 ist mit 1.3.0 fertig: die Rolle `quantity` für Mengen als Marken ohne Fall, Kennzahlen im Netz, Regel V9 und Flusspunkte
+in der Domänenansicht und das Beispiel „Fahrradrahmen-Fertigung“ (`docs/plan/N1_Umsetzungsplan.md`, ADR 0017). Zahlen
+des Beispiels gegenüber dem Plan: das Pulverbeschichten dauert 5 bis 7 statt 6 bis 8 Minuten, weil die Kabine sonst in
+mehreren Seeds über 80 % ausgelastet war und sich davor ein Stau bildete. Offen aus N1: Kennzahlen aus Markendaten
+höherer Netze (D6).
 
 Offen sind optionale Bausteine:
 

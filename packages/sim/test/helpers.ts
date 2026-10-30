@@ -12,7 +12,7 @@ export interface PlaceSpec {
   id: string;
   tokens?: number;
   capacity?: number;
-  role?: 'case' | 'resource';
+  role?: 'case' | 'resource' | 'quantity';
 }
 
 export interface NetSpec {

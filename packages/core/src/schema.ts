@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PetriNet } from './model';
+import type { Indicator, PetriNet } from './model';
 
 const finite = z.number().refine(Number.isFinite, { message: 'must be a finite number' });
 
@@ -16,7 +16,7 @@ const placeSchema = z.object({
   // Ranges (integer >= 1) are checked by `validate()` so that files with such
   // errors can still be opened and repaired in the editor.
   capacity: finite.optional(),
-  role: z.enum(['case', 'resource']).optional(),
+  role: z.enum(['case', 'resource', 'quantity']).optional(),
 });
 
 // Ranges of the timing fields are checked by `validate()` as well.
@@ -26,11 +26,32 @@ const timingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('exponential'), mean: finite }),
 ]);
 
+// What the ids refer to and the range of `digits` are checked by `validate()`.
+const measureSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('tokens'), of: z.string() }),
+  z.object({ kind: z.literal('inflow'), of: z.string(), via: z.string().optional() }),
+  z.object({ kind: z.literal('outflow'), of: z.string(), via: z.string().optional() }),
+  z.object({ kind: z.literal('firings'), of: z.string() }),
+]);
+
+const indicatorSchema = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  unit: z.string().optional(),
+  measure: measureSchema,
+  per: z.union([z.literal('case'), z.literal('hour'), measureSchema]).optional(),
+  factor: finite.optional(),
+  digits: finite.optional(),
+});
+
+const indicatorListSchema = z.array(indicatorSchema);
+
 const simulationSchema = z.object({
   seed: finite.optional(),
   warmup: finite.optional(),
   startTime: z.string().optional(),
   caseIdPrefix: z.string().optional(),
+  indicators: indicatorListSchema.optional(),
 });
 
 const transitionSchema = z.object({
@@ -75,6 +96,16 @@ export const netSchema = z.object({
   // Passed through; `@pnm/analysis` checks the content.
   properties: z.unknown().optional(),
 }) satisfies z.ZodType<PetriNet, unknown>;
+
+/** Checks an untrusted value as a list of indicators (for the PNML reader). */
+export function parseIndicatorList(
+  value: unknown,
+): { ok: true; indicators: Indicator[] } | { ok: false; error: string } {
+  const result = indicatorListSchema.safeParse(value);
+  return result.success
+    ? { ok: true, indicators: result.data }
+    : { ok: false, error: formatIssues(result.error).slice(0, 3).join('; ') };
+}
 
 /** Renders a Zod issue path like `places[2].capacity`. */
 export function formatPath(path: ReadonlyArray<PropertyKey>): string {

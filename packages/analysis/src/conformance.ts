@@ -1,4 +1,4 @@
-import type { PetriNet } from '@pnm/core';
+import { placeRoles, type PetriNet } from '@pnm/core';
 import type { EventLogRow } from '@pnm/io';
 import { declareActivation, type Activation } from './declare';
 import { activityLabels, compileProperty, declareOf, satisfies, type PropertySpec } from './spec';
@@ -36,15 +36,21 @@ export function tracesFromRows(
 
 /**
  * The activities that end a case: the transitions that put a token on a place nothing takes tokens
- * from (a sink place). A case whose last activity is another one has not finished.
+ * from (a sink place). A case whose last activity is another one has not finished. A quantity place
+ * (CO2, waste) that nothing empties is no sink: its tokens belong to no case.
  */
 export function endActivities(net: PetriNet): string[] {
   const { labelOf } = activityLabels(net);
   const placeIds = new Set(net.places.map((p) => p.id));
+  const roles = placeRoles(net);
   const consumed = new Set(net.arcs.filter((a) => placeIds.has(a.source)).map((a) => a.source));
   const ends = new Set<string>();
   for (const arc of net.arcs) {
-    if (placeIds.has(arc.target) && !consumed.has(arc.target)) {
+    if (
+      placeIds.has(arc.target) &&
+      !consumed.has(arc.target) &&
+      roles.get(arc.target) !== 'quantity'
+    ) {
       const label = labelOf.get(arc.source);
       if (label !== undefined) ends.add(label);
     }

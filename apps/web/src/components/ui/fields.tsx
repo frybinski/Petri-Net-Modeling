@@ -20,16 +20,28 @@ interface FieldShellProps {
   htmlFor: string;
   hint?: string;
   hintId?: string;
+  /** What is wrong with the value, shown under the field in the color of errors. */
+  error?: string | undefined;
   children: ReactNode;
 }
 
-function FieldShell({ label, htmlFor, hint, hintId, children }: FieldShellProps) {
+function FieldShell({ label, htmlFor, hint, hintId, error, children }: FieldShellProps) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={htmlFor} className="text-xs font-medium text-muted">
         {label}
       </label>
       {children}
+      {error ? (
+        <p
+          id={`${htmlFor}-error`}
+          role="alert"
+          className="text-[11px] text-danger"
+          data-field-error
+        >
+          {error}
+        </p>
+      ) : null}
       {hint ? (
         <p id={hintId} className="text-[11px] text-muted">
           {hint}
@@ -52,6 +64,7 @@ interface TextFieldProps {
   placeholder?: string;
   hideLabel?: boolean;
   className?: string;
+  error?: string | undefined;
   'data-testid'?: string;
 }
 
@@ -64,6 +77,7 @@ export function TextField({
   placeholder,
   hideLabel,
   className = '',
+  error,
   'data-testid': testId,
 }: TextFieldProps) {
   const id = useId();
@@ -90,6 +104,8 @@ export function TextField({
     value: draft,
     disabled,
     placeholder,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `${id}-error` : undefined,
     'data-testid': testId,
     onChange: (event: { target: { value: string } }) => {
       setDraft(event.target.value);
@@ -132,7 +148,7 @@ export function TextField({
     );
   }
   return (
-    <FieldShell label={label} htmlFor={id}>
+    <FieldShell label={label} htmlFor={id} error={error}>
       {field}
     </FieldShell>
   );
@@ -151,6 +167,7 @@ interface SelectFieldProps {
   disabled?: boolean;
   hint?: string;
   hideLabel?: boolean;
+  error?: string | undefined;
   'data-testid'?: string;
 }
 
@@ -163,6 +180,7 @@ export function SelectField({
   disabled,
   hint,
   hideLabel,
+  error,
   'data-testid': testId,
 }: SelectFieldProps) {
   const id = useId();
@@ -172,7 +190,8 @@ export function SelectField({
       id={id}
       value={value}
       disabled={disabled}
-      aria-describedby={hint ? hintId : undefined}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `${id}-error` : hint ? hintId : undefined}
       data-testid={testId}
       className={`${inputClass} pr-6`}
       onChange={(event) => {
@@ -197,7 +216,7 @@ export function SelectField({
     );
   }
   return (
-    <FieldShell label={label} htmlFor={id} hint={hint} hintId={hintId}>
+    <FieldShell label={label} htmlFor={id} hint={hint} hintId={hintId} error={error}>
       {select}
     </FieldShell>
   );
@@ -217,6 +236,7 @@ interface NumberFieldProps {
   disabled?: boolean;
   hint?: string;
   placeholder?: string;
+  error?: string | undefined;
   'data-testid'?: string;
 }
 
@@ -232,6 +252,7 @@ export function NumberField({
   disabled,
   hint,
   placeholder,
+  error,
   'data-testid': testId,
 }: NumberFieldProps) {
   const id = useId();
@@ -270,7 +291,7 @@ export function NumberField({
   };
 
   return (
-    <FieldShell label={label} htmlFor={id} hint={hint} hintId={hintId}>
+    <FieldShell label={label} htmlFor={id} hint={hint} hintId={hintId} error={error}>
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -290,7 +311,8 @@ export function NumberField({
           value={draft}
           disabled={disabled}
           placeholder={placeholder}
-          aria-describedby={hint ? hintId : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? hintId : undefined}
           data-testid={testId}
           className={`${inputClass} text-center tabular-nums`}
           onChange={(event) => {

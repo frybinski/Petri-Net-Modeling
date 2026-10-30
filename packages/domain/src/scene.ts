@@ -478,6 +478,46 @@ interface TokenSpots {
 }
 
 /** Where the tokens of a queue stand: from the end of the path backwards, 16 px apart. */
+/** How the number of a counter box (a source or sink) is laid out in its box. */
+export interface CounterBoxLayout {
+  /** A box too small for the big glyph: the number sits at the right edge. */
+  small: boolean;
+  /** A large box (200 x 72 px or more): its number is drawn big, as a headline figure. */
+  large: boolean;
+  glyph: Point;
+  glyphSize: number;
+  text: Point;
+  textSize: number;
+  align: 'center' | 'right';
+}
+
+/** The layout of the glyph and the number in a counter box. Static and dynamic scene agree on it. */
+export function counterBoxLayout(box: Rect): CounterBoxLayout {
+  const [x, y, w, h] = box;
+  const small = h < 56 || w < 70;
+  const large = !small && w >= 200 && h >= 72;
+  if (large) {
+    return {
+      small,
+      large,
+      glyph: [x + w / 2, y + h * 0.3],
+      glyphSize: 26,
+      text: [x + w / 2, y + h * 0.7],
+      textSize: 32,
+      align: 'center',
+    };
+  }
+  return {
+    small,
+    large,
+    glyph: [x + (small ? 14 : w / 2), small ? y + h / 2 : y + h / 2 - 12],
+    glyphSize: small ? 16 : 26,
+    text: [small ? x + w - 8 : x + w / 2, small ? y + h / 2 : y + h / 2 + 14],
+    textSize: small ? 13 : 15,
+    align: small ? 'right' : 'center',
+  };
+}
+
 export function tokenSpots(path: readonly Point[], count: number): TokenSpots {
   const length = pathLength(path);
   const fit = Math.max(1, Math.floor((length - 12) / TOKEN_SPACING) + 1);
@@ -739,29 +779,28 @@ export function buildScene(
               ? 'exit'
               : 'arrow-out'
           : 'arrow-in';
-        const small = h < 56 || w < 70;
-        const glyphSize = small ? 16 : 26;
+        const counter = counterBoxLayout(entry.box);
         b.push({
           layer: 'places',
           elementId: place.id,
           op: 'glyph',
           glyph,
-          x: x + (small ? 14 : w / 2),
-          y: small ? y + h / 2 : y + h / 2 - 12,
-          size: glyphSize,
+          x: counter.glyph[0],
+          y: counter.glyph[1],
+          size: counter.glyphSize,
           tone: 'ink2',
         });
         b.push({
           layer: 'tokens',
           elementId: place.id,
           op: 'text',
-          x: small ? x + w - 8 : x + w / 2,
-          y: small ? y + h / 2 : y + h / 2 + 14,
+          x: counter.text[0],
+          y: counter.text[1],
           text: String(count),
-          size: small ? 13 : 15,
+          size: counter.textSize,
           weight: 700,
           tone: 'ink',
-          align: small ? 'right' : 'center',
+          align: counter.align,
           baseline: 'middle',
           mono: true,
         });

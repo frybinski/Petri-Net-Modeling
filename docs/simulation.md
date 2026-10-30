@@ -60,19 +60,51 @@ center the three switches have the weights 0.5, 0.35 and 0.15.
 A transition without input places is a _source transition_. With an `arrival rate` (per hour) it fires by itself,
 with exponentially distributed times between arrivals; a new case enters at every arrival. Without a rate it only
 fires when you click it. The rate can be changed while the simulation runs, in the panel (a slider from off to twice
-the rate of the net). If an arrival finds no room (a full place) it is lost and reported once.
+the rate of the net). If an arrival finds no room (a full place) it is lost and reported once. A source transition
+that puts tokens only on quantity and resource places (see [below](#quantity-places)), a delivery of steel for
+example, brings in no case.
 
 ## Cases
 
-Every token that is not a resource belongs to a **case**. A case enters with an arrival (`C-0001`, `C-0002`, ...; the
-prefix is a simulation setting) or, for tokens of the initial marking, at the start. Cases stay with their tokens: a
-completing transition gives the case of the first token it consumed to every token it produces, so an AND split makes
-copies and an AND join keeps one. Tokens of resource places carry no case and pass none on. A case is finished when
-one of its tokens reaches a _sink_ place.
+Every token that is not a resource or a quantity belongs to a **case**. A case enters with an arrival (`C-0001`,
+`C-0002`, ...; the prefix is a simulation setting) or, for tokens of the initial marking, at the start. Cases stay with
+their tokens: a completing transition gives the case of the first token it consumed to every token it produces, so an
+AND split makes copies and an AND join keeps one. Tokens of resource and quantity places carry no case and pass none
+on. A case is finished when one of its tokens reaches a _sink_ place.
 
 The role of a place follows from the net: no incoming transition makes a `source`, no outgoing transition a `sink`, a
 place with initial tokens that is input and output of one transition a `resource`, everything else a `case` place.
-Resource and case can be forced per place in the properties panel.
+Resource and case can be forced per place in the properties panel, and so can `quantity`.
+
+### Quantity places
+
+A place with the role **quantity** counts an amount: kilograms of steel, litres of water, kilograms of CO₂e, euros.
+One token is one unit (1 token = 1 kg). It exists so that such amounts can be modelled as tokens of a timed net and
+still mean the same in the net, in the domain view and in the analysis. The rules:
+
+- Tokens on a quantity place carry **no case**, like those of a resource, and a firing does not take its case from
+  them. A firing that only takes or puts amounts (a delivery, recycling) has no case: its events have an empty
+  `caseIds`.
+- A quantity place **never starts or completes a case**, even if it is a source or a sink by its arcs. This is what
+  makes the role necessary: if CO₂ were put on an ordinary sink place, every frame would count as finished when its
+  first CO₂ arrived, and throughput, cycle time and the cases in the system would all be wrong. `quantity` is the one
+  role that overrides `source` and `sink`.
+- A **source transition** that puts tokens on quantity places and on nothing but quantity and resource places brings in
+  no case (no `spawn` event). With another output place, or none, it brings in cases as before.
+- Quantity places appear in the table of places of the key figures (now, mean, maximum) but have **no waiting time**
+  and no utilisation, and they never get the colors of a queue.
+- The validation hints (`QUANTITY_LOOKS_LIKE_RESOURCE`) when a quantity place with initial tokens forms a loop with a
+  transition and so looks like a resource; the hint names both roles and leaves the choice to you.
+- The event log (CSV, XES) holds only events with a case, so **firings without a case do not appear in it**: the
+  delivery of steel and the recycling of the example are not in its log. The [replay](replay.md#quantity-places) takes
+  this into account.
+- The domain view draws a quantity place as a counter or not at all ([rule V9](domain-view.md#rules)), and a firing
+  that moves an amount shows a flow marker along the connector instead of a moving object.
+
+The example [`bike-frames.pn.json`](../examples/bike-frames.pn.json), _Fahrradrahmen-Fertigung_, uses them: the store of
+tubes, the free space, scrap, waste and CO₂e are quantity places, the frames are the only cases. The tube store and the
+free space always add up to 200 kg (a place invariant that the [analysis](analysis.md) finds), the store is refilled in
+steps of 40 kg when 40 kg of space are free, and recycling turns 5 kg of scrap into 4 kg of tube.
 
 ## Key figures
 
@@ -87,7 +119,53 @@ simulation because the warm-up is fixed when it starts):
 - **Utilisation** per resource: the share of its tokens that were in use.
 
 Case places with many waiting tokens get a ring on the canvas: yellow from 6, red from 10 tokens (adjustable in the
-Metrics tab).
+Metrics tab). Quantity places are listed in the same table, after the case places, without a waiting time.
+
+### Indicators
+
+An **indicator** is a key figure that you define on the net (`simulation.indicators` in the file, section _Indicators_
+of the net properties). It relates an amount that was counted in the run to the completed cases or to the observed
+hours: _CO₂e per frame_, _recycled share_, _cuts per hour_.
+
+```json
+{
+  "id": "co2-per-frame",
+  "label": "CO₂e je Rahmen",
+  "unit": "kg",
+  "measure": { "kind": "inflow", "of": "p_co2" },
+  "per": "case",
+  "factor": 1,
+  "digits": 1
+}
+```
+
+- `measure` says what is counted. `kind` is `tokens` (the tokens on a place now, a momentary value), `inflow` (the tokens
+  put on a place), `outflow` (the tokens taken from a place) or `firings` (the firings of a transition). `of` is the
+  place, or the transition for `firings`. `via` (only for `inflow` and `outflow`) counts only the flow over the arcs
+  of one transition: `{ "kind": "inflow", "of": "p_tubes", "via": "t_recycle" }` is the tubes that recycling made.
+- `per` (optional) is what it is related to: `case` (the cases completed in the observation window), `hour` (the hours
+  observed) or a second `measure`. Without `per` the value is absolute.
+- The value is `factor` × measure ÷ reference. If the reference is 0 (no case completed yet, no hour observed, the second
+  measure is 0) there is no value: it is `null` in the data and a dash in the displays. `factor` (default 1) must be
+  finite; 100 turns a share into per cent. `digits` (0 to 6, default 1) is the number of decimal places shown; the
+  data keeps the full value.
+- The **observation window** is the one of the other key figures: after the warm-up. A flow counts when the firing
+  that moves the tokens happens in the window (a firing counts when it starts, the tokens it takes when it starts, the
+  tokens it puts when it ends). `tokens` is a momentary value and does not depend on the window.
+- Indicators count **tokens, not values**: in a JSON net an indicator on a place counts its tokens, whatever they
+  contain ([limitations](limitations.md)).
+- The validation reports, with the path of the field, an unknown place or transition, an element of the wrong kind, a
+  duplicate `id`, a `via` that has no arc to the place, a `factor` that is not finite and `digits` out of range. If you
+  delete an element that an indicator points to, the indicator stays and is reported, it is not removed silently.
+
+Where they appear: the _Metrics_ tab (section _Indicators_ with the live values), the key figure strip of the domain
+view (the first four, then a hint to the Metrics tab), `pnm simulate` (a table before the tables of places and
+resources) and the JSON of `pnm simulate --metrics` and `POST /api/v1/simulate` as `metrics.indicators`, a list of
+`{ id, label, unit, value, digits }` (absent for a net without indicators). A replay computes them too. They are
+computed by `@pnm/sim` (`indicatorValues`), the same function for the app, the command line and the server.
+
+For a worked example see the four indicators of `examples/bike-frames.pn.json`. Seed 1, a warm-up of one hour and eight
+simulated hours give 13.4 kg CO₂e and 3.1 kg of tube per frame, 29 % recycled steel and 0.21 kg of waste per frame.
 
 ## The event stream and the event log
 
@@ -101,7 +179,8 @@ transition). The buttons export the whole log:
 
 - **CSV** with the columns `case_id, activity, timestamp, lifecycle`. The activity is the transition name, the
   lifecycle is `start` or `complete`, timestamps are ISO 8601 in UTC with milliseconds, counted from the `startTime`
-  of the simulation settings. One row per event and case; events without a case are left out.
+  of the simulation settings. One row per event and case; events without a case are left out (so the firings of
+  deliveries and recycling in the example, which have none, are not in the log).
 - **XES 1.0** with `concept:name`, `lifecycle:transition` and `time:timestamp`, one trace per case.
 
 Both load in process mining tools. With pm4py (`pip install pm4py pandas`):

@@ -46,6 +46,7 @@ export function validationJson(loaded: LoadedNet, check: NetCheck): Record<strin
       message: d.message,
       ...(d.elementId !== undefined && { elementId: d.elementId }),
       ...(d.typeName !== undefined && { typeName: d.typeName }),
+      ...(d.path !== undefined && { path: d.path }),
     })),
     domainView:
       domain === undefined

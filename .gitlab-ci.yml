@@ -66,7 +66,10 @@ check:
     - pnpm lint
     - pnpm format:check
     - pnpm typecheck
-    - pnpm test
+    # One package at a time: a shared runner has few cores, and the property tests and the
+    # timing test of the animation fail when four packages compete for them. Root `pnpm test`
+    # (all packages at once) stays as it is for machines with enough cores.
+    - pnpm -r --workspace-concurrency=1 test
     - pnpm test:scripts
     - pnpm build
 

@@ -37,6 +37,19 @@ describe('buildHoverCard', () => {
     expect(buildHoverCard(input)).not.toHaveProperty('created');
   });
 
+  it('names the role of a place, and quantity wins over the arcs', () => {
+    let net = jsonNet();
+    // `p` has only an outgoing arc: a source by its arcs.
+    const role = (): string | undefined =>
+      buildHoverCard({ net, marking: net.marking, id: 'p', diagnostics: [] })?.role;
+    expect(role()).toBe('source');
+    net = updateNode(net, 'p', { role: 'quantity' });
+    expect(role()).toBe('quantity');
+    expect(
+      buildHoverCard({ net, marking: net.marking, id: 't', diagnostics: [] }),
+    ).not.toHaveProperty('role');
+  });
+
   it('lists at most ten tokens of a place and counts the rest', () => {
     const net = jsonNet();
     const card = buildHoverCard({ net, marking: net.marking, id: 'p', diagnostics: [] });

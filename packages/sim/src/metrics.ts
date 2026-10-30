@@ -1,4 +1,5 @@
 import { placeRoles, type Id, type PetriNet, type PlaceRole } from '@pnm/core';
+import { counterUpdater, indicatorValues, neededCounters, type IndicatorValue } from './indicators';
 import type { ReplayStats } from './replay/types';
 import type { SimEvent, TokenRef } from './types';
 
@@ -40,6 +41,8 @@ export interface MetricsSnapshot {
   /** Mean time from the arrival of a case to its first token in a sink (seconds). */
   meanCycleTime: number | null;
   maxCycleTime: number | null;
+  /** The indicators of the net (`simulation.indicators`); absent if it has none. */
+  indicators?: IndicatorValue[];
   /** Fitness and deviations; only a replay of an event log has them. */
   replay?: ReplayStats;
 }
@@ -60,6 +63,11 @@ export interface MetricsState {
   cycleSum: number;
   cycleN: number;
   cycleMax: number;
+  /**
+   * Flows and firings that the indicators of the net relate to, in the observation window (see
+   * `counterKey`). Present only if the net has indicators.
+   */
+  flows?: Record<string, number>;
 }
 
 export interface Metrics {
@@ -80,6 +88,9 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
   const roles = placeRoles(net);
   const placeIds = net.places.map((p) => p.id);
   const resourceIds = placeIds.filter((id) => roles.get(id) === 'resource');
+  const neededFlows = neededCounters(net);
+  const hasIndicators = (net.simulation?.indicators?.length ?? 0) > 0;
+  const countFlows = counterUpdater(neededFlows, warmup);
 
   // Append-only records of cases, so that a state is just a pair of lengths.
   const caseOrder: string[] = [];
@@ -103,6 +114,7 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
     cycleSum: 0,
     cycleN: 0,
     cycleMax: 0,
+    ...(hasIndicators && { flows: {} }),
   };
   for (const id of placeIds) {
     const n = net.marking[id]?.length ?? 0;
@@ -138,7 +150,10 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
   };
 
   const add = (placeId: Id, delta: number): void => {
-    st.count[placeId] = (st.count[placeId] ?? 0) + delta;
+    const next = (st.count[placeId] ?? 0) + delta;
+    // A replay takes quantities from the log without checking them against the net; what it took
+    // but the net never had is made up, not owed.
+    st.count[placeId] = roles.get(placeId) === 'quantity' ? Math.max(0, next) : next;
   };
 
   const finishCase = (caseId: string, t: number): void => {
@@ -167,6 +182,7 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
   return {
     apply(event) {
       accrue(event.t);
+      if (st.flows !== undefined) countFlows(st.flows, event);
       switch (event.type) {
         case 'spawn': {
           // Tokens that a replay creates for a new case.
@@ -186,7 +202,7 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
             const role = roles.get(ref.placeId);
             if (role === 'resource') {
               st.inUse[ref.placeId] = (st.inUse[ref.placeId] ?? 0) + 1;
-            } else if (ref.since !== undefined && event.t >= warmup) {
+            } else if (role !== 'quantity' && ref.since !== undefined && event.t >= warmup) {
               st.waitSum[ref.placeId] = (st.waitSum[ref.placeId] ?? 0) + (event.t - ref.since);
               st.waitN[ref.placeId] = (st.waitN[ref.placeId] ?? 0) + 1;
             }
@@ -243,6 +259,14 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
         throughputPerHour: observed >= 1 ? (st.cycleN / observed) * 3600 : null,
         meanCycleTime: st.cycleN > 0 ? st.cycleSum / st.cycleN : null,
         maxCycleTime: st.cycleN > 0 ? st.cycleMax : null,
+        ...(hasIndicators && {
+          indicators: indicatorValues(net, {
+            count: st.count,
+            completedCases: st.cycleN,
+            observedSeconds: observed,
+            counters: st.flows ?? {},
+          }),
+        }),
       };
     },
 
@@ -257,6 +281,7 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
         inUse: copy(st.inUse),
         inUseArea: copy(st.inUseArea),
         capacityArea: copy(st.capacityArea),
+        ...(st.flows !== undefined && { flows: copy(st.flows) }),
       };
     },
 
@@ -282,6 +307,7 @@ export function createMetrics(net: PetriNet, warmup = 0): Metrics {
         inUse: copy(state.inUse),
         inUseArea: copy(state.inUseArea),
         capacityArea: copy(state.capacityArea),
+        ...(state.flows !== undefined && { flows: copy(state.flows) }),
       };
     },
   };

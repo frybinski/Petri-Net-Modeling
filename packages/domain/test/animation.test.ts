@@ -447,6 +447,7 @@ describe('applyEvents: other events', () => {
   it('does not change the state it is given', () => {
     const frozen = Object.freeze({
       motions: Object.freeze([]) as never,
+      flows: Object.freeze([]) as never,
       flashes: Object.freeze([]) as never,
       counters: Object.freeze({}) as never,
       handled: Object.freeze([]) as never,

@@ -1,7 +1,8 @@
 import { parseInputInscription, referencedVariables, tryCompile } from '@pnm/expr';
 import type { Diagnostic } from './diagnostic';
 import type { Arc, Id, PetriNet, Place, Timing } from './model';
-import { hasLoop, isSourceTransition } from './roles';
+import { indicatorProblems } from './indicators';
+import { computedPlaceRole, hasLoop, isSourceTransition } from './roles';
 import { formatIssues, netSchema } from './schema';
 import { tokenLabel } from './token';
 import { compileType, validateTypeName } from './types';
@@ -236,8 +237,34 @@ function validateTimed(net: PetriNet, push: (d: Diagnostic) => void): void {
       });
     }
   }
+  for (const place of net.places) {
+    if (place.role === 'quantity' && computedPlaceRole(net, place.id) === 'resource') {
+      push({
+        severity: 'warning',
+        code: 'QUANTITY_LOOKS_LIKE_RESOURCE',
+        message:
+          `${identifier(place.name)} is marked as a quantity, but a transition takes from it and gives back ` +
+          'to it and it holds tokens at the start, which is also how a resource (a worker or machine that is ' +
+          'taken and returned) looks. Keep "Quantity" if the tokens count an amount; choose "Resource" or ' +
+          '"Automatic" if they are things that are used and returned.',
+        elementId: place.id,
+      });
+    }
+  }
   const settings = net.simulation;
   if (settings) {
+    (settings.indicators ?? []).forEach((indicator, index) => {
+      const earlier = (settings.indicators ?? []).slice(0, index);
+      for (const problem of indicatorProblems(net, indicator, earlier)) {
+        const path = `simulation.indicators[${index}].${problem.path}`;
+        push({
+          severity: 'error',
+          code: 'INDICATOR_INVALID',
+          message: `Indicator ${identifier(indicator.id)} (${path}): ${problem.message}`,
+          path,
+        });
+      }
+    });
     const bad = (message: string): void => {
       push({ severity: 'error', code: 'SIMULATION_INVALID', message });
     };

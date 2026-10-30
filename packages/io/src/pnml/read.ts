@@ -1,6 +1,7 @@
 import {
   NetFormatError,
   isToken,
+  parseIndicatorList,
   parseNet,
   validate,
   type Annotation,
@@ -474,7 +475,7 @@ export function parsePnml(xml: string): PnmlParse {
       const capacity = finite(payload?.['capacity']);
       if (capacity !== undefined) place.capacity = capacity;
       const role = payload?.['role'];
-      if (role === 'case' || role === 'resource') place.role = role;
+      if (role === 'case' || role === 'resource' || role === 'quantity') place.role = role;
       places.push(place);
 
       let count = node.count;
@@ -626,6 +627,14 @@ export function parsePnml(xml: string): PnmlParse {
     if (typeof simulation['startTime'] === 'string') settings.startTime = simulation['startTime'];
     if (typeof simulation['caseIdPrefix'] === 'string') {
       settings.caseIdPrefix = simulation['caseIdPrefix'];
+    }
+    if (simulation['indicators'] !== undefined) {
+      const parsed = parseIndicatorList(simulation['indicators']);
+      if (parsed.ok) {
+        if (parsed.indicators.length > 0) settings.indicators = parsed.indicators;
+      } else {
+        warn(`The indicators in the file are not valid and were left out (${parsed.error}).`);
+      }
     }
     net.simulation = settings;
   }

@@ -9,6 +9,7 @@ import { LazyDialogs } from './components/lazy-parts';
 import { RightPanel } from './components/right-panel';
 import { ShortcutsDialog } from './components/shortcuts-dialog';
 import { TokenDialog } from './components/tokens/token-dialog';
+import { IndicatorDialog } from './components/indicators/indicator-dialog';
 import { TypeDialog } from './components/types/type-dialog';
 import { StatusBar } from './components/status-bar';
 import { Toaster } from './components/toaster';
@@ -51,6 +52,7 @@ export function App() {
   const dirty = useEditorStore(selectIsDirty);
   const typeDialog = useUiStore((s) => s.typeDialog);
   const tokenDialog = useUiStore((s) => s.tokenDialog);
+  const indicatorDialog = useUiStore((s) => s.indicatorDialog);
   const [dropActive, setDropActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logInputRef = useRef<HTMLInputElement>(null);
@@ -181,6 +183,9 @@ export function App() {
         ) : null}
         {typeDialog ? (
           <TypeDialog key={typeDialog.name ?? '(new)'} original={typeDialog.name} />
+        ) : null}
+        {indicatorDialog ? (
+          <IndicatorDialog key={indicatorDialog.index ?? 'new'} index={indicatorDialog.index} />
         ) : null}
         <input
           ref={logInputRef}

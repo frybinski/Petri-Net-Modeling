@@ -18,8 +18,12 @@ export interface Place {
   type?: string;
   /** Optional capacity, an integer >= 1. `undefined` means unbounded. */
   capacity?: number;
-  /** Overrides the role computed from the net structure (timed simulation). */
-  role?: 'case' | 'resource';
+  /**
+   * Overrides the role computed from the net structure (timed simulation). `quantity` marks a place
+   * whose tokens count an amount (kilograms, litres, euros) and belong to no case; it overrides
+   * the structural roles `source` and `sink` as well.
+   */
+  role?: 'case' | 'resource' | 'quantity';
 }
 
 /** How long a transition takes to complete once it has started (simulation seconds). */
@@ -66,6 +70,39 @@ export interface Annotation {
 
 export type Profile = 'pt-net' | 'json-net';
 
+/**
+ * What an indicator counts. `tokens`: the tokens on a place now (a momentary value). `inflow` and
+ * `outflow`: the tokens put on / taken from a place in the observation window, over the arcs of
+ * the transition `via` only if that is given. `firings`: the firings of a transition in the window.
+ * `of` is a place, except for `firings` where it is a transition.
+ */
+export type IndicatorMeasure =
+  | { kind: 'tokens'; of: Id }
+  | { kind: 'inflow'; of: Id; via?: Id }
+  | { kind: 'outflow'; of: Id; via?: Id }
+  | { kind: 'firings'; of: Id };
+
+export type IndicatorMeasureKind = IndicatorMeasure['kind'];
+
+/**
+ * A key figure the user defines on a net: `factor` times a measure, divided by a reference. The
+ * reference (`per`) is the completed cases of the observation window, the observed hours, or a
+ * second measure; without it the value is absolute. If the reference is 0 there is no value.
+ */
+export interface Indicator {
+  /** Unique among the indicators of the net. */
+  id: string;
+  label: string;
+  /** Shown after the value, for example `kg` or `%`. Default none. */
+  unit?: string;
+  measure: IndicatorMeasure;
+  per?: 'case' | 'hour' | IndicatorMeasure;
+  /** Default 1; finite. */
+  factor?: number;
+  /** Decimal places shown, an integer from 0 to 6. Default 1. */
+  digits?: number;
+}
+
 /** Settings of the timed simulation that are stored with the net. */
 export interface SimulationSettings {
   /** Seed of the random number generator. Default 1. */
@@ -76,6 +113,8 @@ export interface SimulationSettings {
   startTime?: string;
   /** Prefix of generated case ids. Default `C-`. */
   caseIdPrefix?: string;
+  /** Key figures defined by the user, computed with the other key figures of a run. */
+  indicators?: Indicator[];
 }
 
 export interface PetriNet {

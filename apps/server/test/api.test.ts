@@ -14,6 +14,7 @@ async function start(env: Record<string, string | undefined> = {}): Promise<Runn
 }
 
 const EXAMPLES = [
+  'bike-frames',
   'complaint-handling',
   'dining-philosophers-3',
   'dining-philosophers-json',
@@ -145,6 +146,58 @@ describe('the interface gives what the command line gives', () => {
       ]);
       expect(await response.json(), name).toEqual(JSON.parse(cli.stdout));
     }
+  });
+
+  it('simulate: the indicators of the net are in the key figures, the same as on the command line', async () => {
+    const { url } = await start();
+    const response = await postJson(url, '/api/v1/simulate', {
+      net: netOf('bike-frames'),
+      seconds: 8 * 3600,
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      metrics: { indicators: Array<{ id: string; label: string; unit: string; value: number }> };
+    };
+    const cli = await pnm([
+      'simulate',
+      example('bike-frames'),
+      '--seconds',
+      '28800',
+      '--metrics',
+      '-',
+      '-q',
+    ]);
+    expect(body).toEqual(JSON.parse(cli.stdout));
+    expect(body.metrics.indicators.map((i) => [i.id, i.unit])).toEqual([
+      ['co2-per-frame', 'kg'],
+      ['material', 'kg'],
+      ['recycled-share', '%'],
+      ['waste', 'kg'],
+    ]);
+    expect(body.metrics.indicators[0]!.value).toBeGreaterThan(10);
+    expect(body.metrics.indicators[0]!.value).toBeLessThan(20);
+    // A net without indicators has none in the answer.
+    const plain = await postJson(url, '/api/v1/simulate', {
+      net: netOf('traffic-light'),
+      seconds: 60,
+    });
+    expect((await json(plain))['metrics']).not.toHaveProperty('indicators');
+  });
+
+  it('validate: reports an indicator that points to nothing, with its path', async () => {
+    const { url } = await start();
+    const net = netOf('bike-frames') as { simulation: { indicators: Array<{ measure: unknown }> } };
+    net.simulation.indicators[0]!.measure = { kind: 'inflow', of: 'p_nowhere' };
+    const body = await json(await postJson(url, '/api/v1/validate', { net }));
+    expect(body['ok']).toBe(false);
+    expect(body['diagnostics']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'INDICATOR_INVALID',
+          path: 'simulation.indicators[0].measure.of',
+        }),
+      ]),
+    );
   });
 
   it('simulate: returns the event log as CSV, XES and as a stream, equal to the files of the CLI', async () => {

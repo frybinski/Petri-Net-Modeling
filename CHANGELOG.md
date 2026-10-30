@@ -2,6 +2,110 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.3.0: Sustainability example
+
+Increment N1. A new example, _Fahrradrahmen-Fertigung_, shows in the simulation and in the domain view what a bicycle
+frame costs in CO₂e and steel, how much of the steel comes from recycling and how much waste is left. For that the tool
+learns two small things that any net can use: **quantity places**, whose tokens count an amount and belong to no case,
+and **indicators**, key figures that you define on the net. The file format stays `1.0`; both additions are optional and
+every file of an earlier version stays valid. The rules are in [docs/simulation.md](docs/simulation.md), the reasons in
+[ADR 0017](docs/adr/0017-quantity-places-and-indicators.md), the plan in
+[docs/plan/N1_Umsetzungsplan.md](docs/plan/N1_Umsetzungsplan.md).
+
+### Added
+
+- **Quantity places** (`role: 'quantity'` on a place). Their tokens carry no case, a quantity place never starts or
+  completes a case even if it is a source or a sink by its arcs (it is the one role that overrides the structure), and a
+  source transition that feeds only quantity and resource places brings in no case. Firings that only move amounts have an
+  empty `caseIds` and are not in the exported event log. The inspector offers the role (also for sources and sinks), the
+  hover card shows it, the Metrics tab lists quantity places without a waiting time, and the validation hints
+  (`QUANTITY_LOOKS_LIKE_RESOURCE`) when a marked quantity forms a loop and so looks like a resource.
+- **Indicators** (`simulation.indicators`): a measure (tokens now, inflow or outflow of a place, optionally over the arcs of
+  one transition, firings of a transition) related to completed cases, hours or a second measure, with a factor, a unit
+  and decimal places. Counted in the observation window after the warm-up, `null` (a dash) while the reference is 0.
+  Validated field by field with the path (`INDICATOR_INVALID`); an indicator that points to a deleted element is reported,
+  not removed. `MetricsSnapshot.indicators` (absent without indicators) is computed by `@pnm/sim` for the app, the command
+  line and the server alike, also during a replay.
+- **App.** A section _Indicators_ in the net properties (list, add, edit, remove; a dialog with the fields name, unit,
+  measure, place or transition, "only over the arcs of", relative to, factor and decimal places; errors stand at the
+  field and block saving; every change is one undo step), a section _Indicators_ with the live values in the Metrics tab,
+  and the first four indicators in the key figure strip of the domain view, with a hint to the Metrics tab for more. The
+  strip wraps into rows and stays inside the view at 1360 px.
+- **Domain view.** Rule **V9** (error): a quantity place is a counter (`pool`, `source`, `sink`) or `hidden`, never a
+  queue, conveyor, buffer or slots. The generic view draws quantity places as pools. Amounts are not drawn as moving
+  objects: a **flow marker** with the number (`+3`, `−3`) runs along the connector for each firing and quantity place, and
+  the log of handled events has the new kind `flow` (acceptance A2 covers it). A counter box of 200 x 72 px or more shows
+  its number big, as a headline figure. The prompt for the language model has one line on the role `quantity`; the
+  worked examples are unchanged.
+- **Replay.** Quantity places are not checked against the log: they count neither as missing nor as left behind nor in the
+  fitness, what the log takes from a quantity that the net lacks is made up without a deviation, and the stock never goes
+  below zero. The exported log of the new example replays with fitness 1, as CSV and as XES.
+- **PNML** writes and reads the role and the indicators (invalid indicators are left out with a remark).
+- **Command line and server.** `pnm simulate` and `pnm replay` list the indicators in a table; the JSON of
+  `pnm simulate --metrics -` and of `POST /api/v1/simulate` has `metrics.indicators`, the same on both sides; `pnm
+validate` and `/api/v1/validate` report indicator errors with their `path`. The plan names `pnm simulate --json`; that
+  command has no such option, its JSON is `--metrics`.
+- **Example `examples/bike-frames.pn.json`, _Fahrradrahmen-Fertigung_.** Seventeen places and eleven transitions: cutting,
+  welding, powder coating, inspection with a rework loop and shipping; a tube store with a limit of 200 kg (the place
+  invariant tube store + free space = 200 kg, which the analysis finds); deliveries of primary steel (2 kg CO₂e per kg) and
+  recycling of scrap (0.5 kg CO₂e per kg); five quantity places; four indicators; the DECLARE properties
+  `precedence(Prüfen, Versenden)` and `response(Zuschneiden, Versenden)`; and a domain view of a hall with the zones
+  _Lager_, _Fertigung_ and _Recycling_, docks, flow connectors and a large CO₂e counter. Seed 1, a warm-up of one hour
+  and eight simulated hours give 13.4 kg CO₂e and 3.1 kg tube per frame, 29 % recycled steel and 0.21 kg waste per
+  frame (the plan's target: 10 to 20 kg and 15 to 40 %), no queue longer than three frames and no machine above 65 %.
+  **Numbers that differ from the plan:** powder coating takes 5 to 7 minutes instead of 6 to 8, because with 6 to 8 the
+  booth was at 82 to 100 % in several seeds and a queue formed in front of it; all other numbers are those of the plan.
+  Review pictures of the example are in `docs/images/review`.
+- **Tests.** Golden tests that pin the output of the ten examples of 1.2.0 (event streams, key figures and final states per
+  seed in `@pnm/sim`; JSON, PNML, CSV and XES in `@pnm/io`) to hashes taken with the unchanged 1.2.0 code, and the tests of
+  the new features in every package, the example and six Playwright tests. In all: 2246 unit and component tests (2086
+  before), 23 tests of the release scripts and 122 Playwright tests (116 before).
+
+### Changed
+
+- The engine, the replay, the key figures, the layout of the domain view, the status of the stations and the animation
+  say "has no case" (`isCaselessRole`: resource or quantity) where they said "is a resource". Nets without quantity
+  places behave exactly as before: the golden tests above, and the existing tests unchanged, show it.
+- The conformance check no longer counts a transition that feeds a quantity place that nothing empties as the end of a
+  case (`endActivities`).
+- The shared form fields of the app take an `error` that is shown under the field.
+- `scripts/screenshots.mjs --review` takes `--only <example>`.
+- All packages are at version 1.3.0.
+
+### Fixed
+
+- **The package store of the GitLab pipeline.** The pipeline keeps the packages in `.pnpm-store` inside the project
+  directory (to cache them between pipelines). Prettier, ESLint and the build context of the image read that directory
+  as if it were source, so `pnpm format:check` and `pnpm lint` failed on thousands of foreign files. The directory is now
+  in `.prettierignore`, `eslint.config.js`, `.gitignore` and `.dockerignore`, and a test in
+  `apps/server/test/pipelines.test.ts` reads the store path from `.gitlab-ci.yml` and checks all four.
+- **Tests that are robust on shared CI runners.** The GitLab `check` job runs the tests one package after the other
+  (`pnpm -r --workspace-concurrency=1 test`), because the property tests and the timing test of the animation compete for
+  the few cores of a shared runner. The root script `pnpm test` is unchanged; the pipelines test asserts both. Three
+  tests that failed by chance on a busy machine are robust now, without a lower bar:
+  - The timing test of the animation (`packages/domain`, 200 tokens per frame) asserts on the median of the warm frames
+    instead of the mean, so that a few frames that the machine delays do not fail it. The limit of 8 ms is the same;
+    median, mean and maximum are printed with `PNM_REPORT_FRAME_BUDGET=1`.
+  - The property tests (fast-check) of core, domain, sim, io, layout and analysis have a limit of 60 s per test, after the
+    search in `packages/analysis/test/check.test.ts` ran into the default of 5 s on a loaded runner. The number of runs is
+    the same.
+  - The Playwright test "an invalid inscription shows an error and a valid one is applied" typed the text and then pressed
+    Escape; Escape sets an inscription editor back to its saved text unless a completion list is open, so the text was
+    sometimes gone before the check. The helper no longer presses Escape and waits for the typed text instead.
+- **Editing a path of about a pixel in the domain view** (since 0.8.0). Inserting, moving or removing a point checked the
+  length of the path before its points were rounded to whole pixels, so a path of about a pixel (the generic view makes
+  such arcs where a queue ends at a station) could collapse to a single point and break rule V5. The check now uses the
+  points as they are stored, and the edit is refused as before for paths without length. Found by the property test
+  `packages/domain/test/edit.property.test.ts` with a rare seed; a unit test keeps the case.
+
+### Compatibility
+
+- Format `1.0`, unchanged. A version before 1.3.0 refuses a file with a quantity place with the message `Invalid net file:
+places[3].role: Invalid option: expected one of "case"|"resource"` and drops `indicators` when it reads a file (the
+  unknown key is ignored); see [docs/limitations.md](docs/limitations.md) (N4).
+- Limits that come with the increment (N1 to N3): firings without a case are not in the event log, a replay does not know
+  them, and indicators count tokens, not values.
+
 ## 1.2.0: Server
 
 Milestone M6. The tool can run on a server for a group: it serves the web app, passes language model requests on with a
