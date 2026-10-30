@@ -219,6 +219,11 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
 - Plan `docs/plan/N1_Umsetzungsplan.md`, ADR 0017, Doku in `docs/simulation.md` (Mengenstellen, Kennzahlen),
   `docs/domain-view.md`, `docs/replay.md`, `docs/limitations.md` (N1 bis N4).
 
+### N2 · Mengen grafisch, Gegenstände nach Fertigungsstand · geplant (1.4.0)
+- Zähler als Füllstand oder Bildstatistik (mit Maßstab und Verlauf), Mengensymbole an Flüssen, Aussehen eines Falls
+  nach der Stelle, auf der er liegt (Auftrag, Rohre, Rohrahmen, Rahmen, Paket). Regeln V10 und V11 für Mengen- und
+  Rollentreue. Plan `docs/plan/N2_Umsetzungsplan.md`.
+
 ## 5. Projektstruktur
 
 ```
