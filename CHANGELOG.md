@@ -72,6 +72,17 @@ validate` and `/api/v1/validate` report indicator errors with their `path`. The 
 - `scripts/screenshots.mjs --review` takes `--only <example>`.
 - All packages are at version 1.3.0.
 
+### Fixed
+
+- **The package store of the GitLab pipeline.** The pipeline keeps the packages in `.pnpm-store` inside the project
+  directory (to cache them between pipelines). Prettier, ESLint and the build context of the image read that directory
+  as if it were source, so `pnpm format:check` and `pnpm lint` failed on thousands of foreign files. The directory is now
+  in `.prettierignore`, `eslint.config.js`, `.gitignore` and `.dockerignore`, and a test in
+  `apps/server/test/pipelines.test.ts` reads the store path from `.gitlab-ci.yml` and checks all four.
+- **Tests that are robust on shared CI runners.** The GitLab `check` job runs the tests one package after the other
+  (`pnpm -r --workspace-concurrency=1 test`), because the property tests and the timing test of the animation compete for
+  the few cores of a shared runner. The root script `pnpm test` is unchanged; the pipelines test asserts both.
+
 ### Compatibility
 
 - Format `1.0`, unchanged. A version before 1.3.0 refuses a file with a quantity place with the message `Invalid net file:
