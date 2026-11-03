@@ -1,6 +1,6 @@
 # Known limitations
 
-What 1.4.0 does not do, and why. Each entry was found during development and decided in the release step: what could
+What 1.4.1 does not do, and why. Each entry was found during development and decided in the release step: what could
 be fixed cheaply was fixed (see the [changelog](../CHANGELOG.md)), what could not is listed here with the reason and,
 where there is one, the way forward. The numbers are those of the [release plan](plan/Release-1.0_Umsetzungsplan.md)
 (in German); the entries of the replay (R1 to R6) come from the [plan of the replay](plan/D5_Umsetzungsplan.md), those
@@ -155,7 +155,7 @@ transition with one case input this is exact. A transition that joins cases from
 consumes several tokens from one of them can show a case in the look of another input place until the firing completes.
 
 **Older versions reject a view with `display` or `appearance` (G6).** The schema of the view is strict, so a version before
-1.4.0 does not draw such a view: the panel _Domain view_ lists the problem with the name of the field (`Unknown field
+1.4.1 does not draw such a view: the panel _Domain view_ lists the problem with the name of the field (`Unknown field
 "display"`, rule V1) and offers the generic view. The net and the file stay as they are, and the format stays `1.0`. Views without the fields, such
 as those of the parcel center and the smart office, open everywhere. The same holds for the new sprites (`frame`,
 `bicycle`, `bars`) in `meta.entity.sprite`.
@@ -238,7 +238,7 @@ for analyses with a large limit. The analysis in the browser runs in a worker as
 validators with `new Function`. The policy allows only scripts of the own origin, so this is no way for foreign code to run,
 but it is weaker than a policy without it. Removing it needs standalone validators or another library for JSON Schema.
 
-## Not in 1.4.0
+## Not in 1.4.1
 
 - Accounts, private projects, and an audit trail on the server.
 - Co-editing and a second user in the same net.
