@@ -353,3 +353,14 @@ describe('what a model did differently', () => {
     expect(choiceDeviations(bike, view, c)).toEqual([]);
   });
 });
+
+describe('places that the view hides', () => {
+  it('are not asked about: the form has no row for the hidden free-space place of the example', () => {
+    expect(bikeView.places['p_space']).toMatchObject({ kind: 'hidden' });
+    const withView = defaultChoices(bike, bikeView);
+    expect(withView.counters).not.toHaveProperty('p_space');
+    expect(withView.counters).toHaveProperty('p_tubes');
+    // Without a view every place of the net is in the form.
+    expect(defaultChoices(bike, null).counters).toHaveProperty('p_space');
+  });
+});

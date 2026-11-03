@@ -223,7 +223,8 @@ function choiceOfDisplay(display: CounterDisplay, base: CounterChoice): CounterC
 
 /**
  * The choices to start from: the view if there is one, else the generic view of the net. `bounds`
- * are the known upper limits of places (from the analysis), used for the limit of a container.
+ * are the known upper limits of places (from the analysis), used for the limit of a container. Places
+ * that the view hides are left out.
  */
 export function defaultChoices(
   net: PetriNet,
@@ -233,7 +234,10 @@ export function defaultChoices(
   const base = view ?? genericDomainView(net, { at: '1970-01-01T00:00:00.000Z' });
   const entity = base.meta.entity;
   const stages: Record<Id, Appearance | null> = {};
+  // A place that the view of the net hides is not asked about: it would have no picture to choose for.
+  const hidden = (id: Id): boolean => view?.places[id]?.kind === 'hidden';
   for (const id of stagePlaces(net)) {
+    if (hidden(id)) continue;
     const entry = base.places[id];
     stages[id] =
       view && entry && 'appearance' in entry && entry.appearance !== undefined
@@ -242,6 +246,7 @@ export function defaultChoices(
   }
   const counters: Record<Id, CounterChoice> = {};
   for (const id of counterPlaces(net)) {
+    if (hidden(id)) continue;
     const entry = base.places[id];
     const fallback = defaultCounterChoice(net, id, bounds);
     counters[id] =

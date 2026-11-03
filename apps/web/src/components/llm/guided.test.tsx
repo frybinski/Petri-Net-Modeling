@@ -131,6 +131,33 @@ describe('the guided form (N4)', () => {
     expect(screen.getByTestId('guided-counter-p_co2-symbol')).toHaveValue('co2');
   });
 
+  it('does not ask about a place that the view hides, also not after a concept', async () => {
+    const user = userEvent.setup();
+    editor().loadNet(loadExample('bike-frames'), 'bike-frames.pn.json');
+    install([
+      {
+        json: {
+          concepts: [
+            {
+              title: 'Free space',
+              idea: 'Shows what the view hides.',
+              entity: { singular: 'x', plural: 'xs', sprite: 'dot' },
+              counters: [{ place: 'p_space', style: 'fill', max: 200 }],
+            },
+          ],
+        },
+      },
+    ]);
+    await openDialog(user);
+    await screen.findByTestId('llm-guided');
+    expect(screen.queryByTestId('guided-counter-p_space')).toBeNull();
+    expect(screen.getByTestId('guided-counter-p_tubes')).toBeInTheDocument();
+    await user.click(screen.getByTestId('guided-suggest'));
+    await user.click(await screen.findByTestId('guided-concept-use'));
+    expect(screen.queryByTestId('guided-counter-p_space')).toBeNull();
+    expect(useGenerationStore.getState().choices?.counters).not.toHaveProperty('p_space');
+  });
+
   it('remembers the last tab', async () => {
     const user = userEvent.setup();
     install([{ json: {} }]);

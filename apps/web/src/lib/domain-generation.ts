@@ -336,7 +336,21 @@ export function pickConcept(index: number): void {
   if (!concept) return;
   // What the person wrote as additions stays; the rest of the form is the concept's.
   const additions = gen.choices?.additions ?? concept.choices.additions;
-  gen.patch({ choices: { ...concept.choices, additions }, concept: concept.title });
+  // The form asks about the places it has rows for (a place that the view hides has none).
+  const rows = gen.choices;
+  const only = <T>(entries: Record<string, T>, known: Record<string, unknown> | undefined) =>
+    known === undefined
+      ? entries
+      : Object.fromEntries(Object.entries(entries).filter(([id]) => id in known));
+  gen.patch({
+    choices: {
+      ...concept.choices,
+      additions,
+      stages: only(concept.choices.stages, rows?.stages),
+      counters: only(concept.choices.counters, rows?.counters),
+    },
+    concept: concept.title,
+  });
 }
 
 /** Puts the generated view and its record into the document, as one undo step. */

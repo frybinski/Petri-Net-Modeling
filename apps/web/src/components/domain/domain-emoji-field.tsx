@@ -14,6 +14,8 @@ export function EmojiField({
   disabled,
   error,
   hint,
+  label = en.domain.emojiLabel,
+  hideLabel,
   'data-testid': testId,
 }: {
   /** The emoji in use; `undefined` if the symbol is a built-in one. */
@@ -23,6 +25,10 @@ export function EmojiField({
   /** An error of the stored view (rule V12) for this field. */
   error?: string | undefined;
   hint?: string;
+  /** The name of the field; default "Emoji…". */
+  label?: string;
+  /** Keeps the label for assistive technology only (in a row with other fields). */
+  hideLabel?: boolean;
   'data-testid'?: string;
 }) {
   const [typed, setTyped] = useState<{ value: string | undefined; message: string } | null>(null);
@@ -31,7 +37,8 @@ export function EmojiField({
   return (
     <div className="flex flex-col gap-1">
       <TextField
-        label={en.domain.emojiLabel}
+        label={label}
+        hideLabel={hideLabel === true}
         value={value ?? ''}
         disabled={disabled}
         placeholder={en.domain.emojiPlaceholder}

@@ -172,6 +172,8 @@ function StageRow({
       {look !== null && look.emoji !== undefined ? (
         <EmojiField
           value={look.emoji}
+          label={`${name}: ${en.llm.guided.emojiOption}`}
+          hideLabel
           error={problems.get(`stages.${id}.emoji`)?.message}
           onCommit={(emoji) => {
             change(emoji === undefined ? null : { emoji });
@@ -247,7 +249,7 @@ function CounterRow({
           {role === 'quantity' ? en.llm.guided.roleAmount : en.llm.guided.roleSink}
         </span>
       </div>
-      <div className="grid items-start gap-2 sm:grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)]">
+      <div className="grid items-end gap-x-4 gap-y-2 sm:grid-cols-[auto_8rem_auto] sm:justify-start">
         <Segmented
           label={en.llm.guided.counterStyle}
           value={counter.style}
@@ -406,8 +408,15 @@ export function GuidedForm() {
   const suggestions = useGenerationStore((s) => s.suggestions);
   const settings = useLlmStore((s) => s.settings);
   const problems = problemMap(useChoiceProblems());
-  const stages = useMemo(() => stagePlaces(net), [net]);
-  const counters = useMemo(() => counterPlaces(net), [net]);
+  // The places the choices are about, in the order of the flow (a place the view hides is not one).
+  const stages = useMemo(
+    () => stagePlaces(net).filter((id) => choices !== null && id in choices.stages),
+    [net, choices],
+  );
+  const counters = useMemo(
+    () => counterPlaces(net).filter((id) => choices !== null && id in choices.counters),
+    [net, choices],
+  );
   if (!choices) {
     return (
       <p className="m-0 flex items-center gap-2 text-sm text-muted" role="status">
