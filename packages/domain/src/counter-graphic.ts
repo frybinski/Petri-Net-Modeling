@@ -1,6 +1,7 @@
 import type { Id, PetriNet } from '@pnm/core';
 import { stepLine, type HistoryPoint } from './history';
 import type { DrawCommand } from './scene';
+import { symbolCommand } from './symbols';
 import type {
   CounterDisplay,
   DisplayIcon,
@@ -188,7 +189,7 @@ export function counterLayout(
   if (display.style === 'fill') {
     const narrow = w < 64;
     const size = large ? 28 : narrow ? 14 : 16;
-    const hasSymbol = display.icon !== undefined;
+    const hasSymbol = display.icon !== undefined || display.emoji !== undefined;
     return {
       ...base,
       number: {
@@ -295,6 +296,8 @@ export interface CounterInfo {
   name: string;
   /** The symbol of the pictogram: the one of the display, else the dot or the entity. */
   icon: DisplayIcon;
+  /** Set instead of `icon` if the symbol is an emoji (N4). */
+  emoji?: string;
 }
 
 /** The symbol of a pictogram without one in its display: the entity for cases, else a dot. */
@@ -311,13 +314,25 @@ export function counterInfo(
   roleIsCases: boolean,
 ): CounterInfo {
   const name = net.places.find((p) => p.id === placeId)?.name ?? placeId;
+  const entity = view.meta.entity;
+  // The emoji of the display, else its icon, else (for cases) the entity of the view, else a dot.
+  const symbol: { icon: DisplayIcon; emoji?: string } =
+    display.emoji !== undefined
+      ? { icon: 'dot', emoji: display.emoji }
+      : display.icon !== undefined
+        ? { icon: display.icon }
+        : !roleIsCases
+          ? { icon: 'dot' }
+          : entity.emoji !== undefined
+            ? { icon: 'dot', emoji: entity.emoji }
+            : { icon: entity.sprite ?? 'dot' };
   return {
     placeId,
     entry,
     display,
     label: entry.label,
     name,
-    icon: display.icon ?? defaultIcon(roleIsCases, view.meta.entity.sprite),
+    ...symbol,
   };
 }
 
@@ -433,15 +448,7 @@ function legendCommands(info: CounterInfo, at: { x: number; y: number }): DrawCo
       baseline: 'middle',
       mono: true,
     },
-    {
-      layer: 'places',
-      elementId: placeId,
-      op: 'icon',
-      icon: info.icon,
-      x: at.x + 17,
-      y: at.y,
-      size: 12,
-    },
+    symbolCommand({ layer: 'places', elementId: placeId }, info, at.x + 17, at.y, 12),
     {
       layer: 'places',
       elementId: placeId,
@@ -550,17 +557,17 @@ export function dynamicCounterCommands(info: CounterInfo, frame: CounterFrame): 
         cap: 'butt',
       });
     }
-    if (layout.symbol && display.icon !== undefined) {
-      push({
-        layer: 'tokens',
-        elementId: placeId,
-        op: 'icon',
-        icon: display.icon,
-        x: layout.symbol.x,
-        y: layout.symbol.y,
-        size: layout.symbol.size,
-        alpha: 0.9,
-      });
+    if (layout.symbol && (display.icon !== undefined || display.emoji !== undefined)) {
+      push(
+        symbolCommand(
+          { layer: 'tokens', elementId: placeId },
+          display,
+          layout.symbol.x,
+          layout.symbol.y,
+          layout.symbol.size,
+          { alpha: 0.9 },
+        ),
+      );
     }
     if (layout.caption && !over) {
       push({
@@ -610,16 +617,11 @@ export function dynamicCounterCommands(info: CounterInfo, frame: CounterFrame): 
     for (let i = 0; i < symbols.shown; i += 1) {
       const [cx, cy] = cellCenter(cells, i);
       const partial = i === symbols.full && symbols.part > 0;
-      push({
-        layer: 'tokens',
-        elementId: placeId,
-        op: 'icon',
-        icon: info.icon,
-        x: cx,
-        y: cy,
-        size: cells.size,
-        ...(partial && { fraction: symbols.part }),
-      });
+      push(
+        symbolCommand({ layer: 'tokens', elementId: placeId }, info, cx, cy, cells.size, {
+          ...(partial && { fraction: symbols.part }),
+        }),
+      );
     }
     if (symbols.hidden > 0) {
       const [cx, cy] = cellCenter(cells, symbols.shown);

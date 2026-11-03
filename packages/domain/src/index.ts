@@ -6,6 +6,8 @@ export * from './generic';
 export * from './convert-legacy';
 export * from './palette';
 export * from './scene';
+export * from './symbols';
+export * from './emoji';
 export * from './appearance';
 export * from './history';
 export * from './counter-graphic';

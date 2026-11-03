@@ -1,5 +1,6 @@
 import type { Id } from '@pnm/core';
 import { z } from 'zod';
+import { emojiProblem } from './emoji';
 
 /** A point `[x, y]` in canvas pixels. */
 export type Point = [number, number];
@@ -28,10 +29,36 @@ export type Tint = 'accent' | 'ok' | 'warn' | 'danger' | 'info' | 'neutral';
 
 export const TINTS: readonly Tint[] = ['accent', 'ok', 'warn', 'danger', 'info', 'neutral'];
 
-/** How the cases on a place look: a picture and optionally a tint (N2). */
-export interface Appearance {
+/** A built-in picture with an optional tint. */
+export interface SpriteAppearance {
   sprite: Sprite;
   tint?: Tint;
+  emoji?: never;
+}
+
+/** A single emoji (N4). It cannot be tinted. */
+export interface EmojiAppearance {
+  emoji: string;
+  sprite?: never;
+  tint?: never;
+}
+
+/** How the cases on a place look: a built-in picture and optionally a tint (N2), or an emoji (N4). */
+export type Appearance = SpriteAppearance | EmojiAppearance;
+
+/**
+ * What the cases of a view are, by default: a built-in picture or an emoji (N4). Exactly one of
+ * the two is set in a valid view; rule V12 and the schema report the other cases, so that code
+ * that edits a view in steps (`{ ...entity, sprite }`) still type-checks.
+ */
+export interface EntityLook {
+  sprite?: Sprite;
+  emoji?: string;
+}
+
+/** The look that an entity gives its cases: its emoji, else its sprite (a dot if it has none). */
+export function entityAppearance(entity: EntityLook): Appearance {
+  return entity.emoji !== undefined ? { emoji: entity.emoji } : { sprite: entity.sprite ?? 'dot' };
 }
 
 /** The pictures of amounts (kilograms, litres, ...) that flow markers and pictograms show. */
@@ -70,6 +97,8 @@ export function isItemIcon(icon: DisplayIcon): icon is Sprite {
 export interface CounterDisplayBase {
   /** The symbol of the amount: on the flow markers, in a pictogram and in the container. */
   icon?: DisplayIcon;
+  /** An emoji as the symbol instead of `icon` (N4); never both. */
+  emoji?: string;
   /** The unit for the legend and the hover card; by default the one in the brackets of the label. */
   unit?: string;
   /** A small curve of the count over the simulated time (the last eight hours). */
@@ -155,7 +184,7 @@ export interface Provenance {
 export interface DomainMeta {
   theme: string;
   viewName: string;
-  entity: { singular: string; plural: string; sprite: Sprite };
+  entity: { singular: string; plural: string } & EntityLook;
   canvas: { width: number; height: number };
   metersPerPixel?: number;
 }
@@ -185,33 +214,77 @@ const iconSchema = z.enum(DISPLAY_ICONS as [DisplayIcon, ...DisplayIcon[]]);
 const positive = finite.refine((n) => n > 0, { message: 'must be positive' });
 
 /** Schema of the `appearance` of the cases on a place. */
-export const appearanceSchema = z.strictObject({
-  sprite: spriteSchema,
-  tint: tintSchema.optional(),
-});
+export const appearanceSchema = z
+  .strictObject({
+    sprite: spriteSchema.optional(),
+    emoji: z.string().optional(),
+    tint: tintSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    checkSymbol(ctx, value, 'sprite');
+    if (value.emoji !== undefined && value.tint !== undefined) {
+      v12(ctx, ['tint'], 'An emoji cannot be tinted; use "tint" only together with "sprite"');
+    }
+  }) as unknown as z.ZodType<Appearance, unknown>;
+
+/** Adds an issue of rule V12 (the emoji of a view) to the check of a schema. */
+function v12(ctx: z.RefinementCtx, path: Array<string | number>, message: string): void {
+  ctx.addIssue({ code: 'custom', message, path, params: { rule: 'V12' } });
+}
+
+/** The check that a symbol is exactly one of the built-in name (`field`) or one emoji. */
+function checkSymbol(
+  ctx: z.RefinementCtx,
+  value: { emoji?: string | undefined } & Record<string, unknown>,
+  field: 'sprite' | 'icon',
+): void {
+  const named = value[field] !== undefined;
+  if (value.emoji === undefined) {
+    if (!named && field === 'sprite') {
+      // Not a problem of an emoji: the field is simply missing (rule V11 or V1 by its place).
+      ctx.addIssue({ code: 'custom', message: 'Write a "sprite" or an "emoji"', path: ['sprite'] });
+    }
+    return;
+  }
+  if (named) {
+    v12(ctx, ['emoji'], `Write either "${field}" or "emoji", not both`);
+  }
+  const problem = emojiProblem(value.emoji);
+  if (problem !== null) v12(ctx, ['emoji'], problem);
+}
 
 const displayBase = {
   icon: iconSchema.optional(),
+  emoji: z.string().optional(),
   unit: z.string().optional(),
   history: z.boolean().optional(),
 };
 
 /** Schema of the `display` of a counter. */
+const checkDisplaySymbol = (
+  value: { emoji?: string | undefined } & Record<string, unknown>,
+  ctx: z.RefinementCtx,
+): void => checkSymbol(ctx, value, 'icon');
+
 export const counterDisplaySchema = z.discriminatedUnion('style', [
-  z.strictObject({ style: z.literal('number'), ...displayBase }),
-  z.strictObject({
-    style: z.literal('fill'),
-    max: positive,
-    low: finite.refine((n) => n >= 0, { message: 'must not be negative' }).optional(),
-    size: z.tuple([positive, positive]).optional(),
-    ...displayBase,
-  }),
-  z.strictObject({
-    style: z.literal('pictogram'),
-    per: positive,
-    size: z.tuple([positive, positive]).optional(),
-    ...displayBase,
-  }),
+  z.strictObject({ style: z.literal('number'), ...displayBase }).superRefine(checkDisplaySymbol),
+  z
+    .strictObject({
+      style: z.literal('fill'),
+      max: positive,
+      low: finite.refine((n) => n >= 0, { message: 'must not be negative' }).optional(),
+      size: z.tuple([positive, positive]).optional(),
+      ...displayBase,
+    })
+    .superRefine(checkDisplaySymbol),
+  z
+    .strictObject({
+      style: z.literal('pictogram'),
+      per: positive,
+      size: z.tuple([positive, positive]).optional(),
+      ...displayBase,
+    })
+    .superRefine(checkDisplaySymbol),
 ]);
 
 /** Schema of one entry of `places`. */
@@ -287,11 +360,17 @@ const provenanceSchema = z.strictObject({
 const metaSchema = z.strictObject({
   theme: z.string(),
   viewName: z.string(),
-  entity: z.strictObject({
-    singular: z.string(),
-    plural: z.string(),
-    sprite: spriteSchema,
-  }),
+  entity: z
+    .strictObject({
+      singular: z.string(),
+      plural: z.string(),
+      sprite: spriteSchema.optional(),
+      emoji: z.string().optional(),
+    })
+    .superRefine((value, ctx) => checkSymbol(ctx, value, 'sprite')) as unknown as z.ZodType<
+    DomainMeta['entity'],
+    unknown
+  >,
   canvas: z.strictObject({
     width: finite.refine((n) => n > 0, 'must be positive'),
     height: finite.refine((n) => n > 0, 'must be positive'),

@@ -19,7 +19,7 @@ import {
 } from './schema';
 
 export type DomainRule =
-  'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11';
+  'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12';
 
 export const DOMAIN_RULES: readonly DomainRule[] = [
   'V1',
@@ -33,6 +33,7 @@ export const DOMAIN_RULES: readonly DomainRule[] = [
   'V9',
   'V10',
   'V11',
+  'V12',
 ];
 
 export interface DomainDiagnostic {
@@ -127,10 +128,13 @@ export function schemaDiagnostics(
         : section === 'places' && field === 'appearance'
           ? 'V11'
           : 'V1';
+    // A problem with an emoji (a custom issue of the schema) is rule V12 wherever it lies.
+    const emojiIssue =
+      issue.code === 'custom' && (issue.params as { rule?: unknown } | undefined)?.rule === 'V12';
     const make = (
       path: string,
       message: string,
-      rule: DomainRule = fieldRule,
+      rule: DomainRule = emojiIssue ? 'V12' : fieldRule,
     ): DomainDiagnostic => ({
       rule,
       severity: 'error',

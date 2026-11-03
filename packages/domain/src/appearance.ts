@@ -1,5 +1,5 @@
 import { isCaselessRole, type Id, type PlaceRole } from '@pnm/core';
-import type { Appearance, DomainView } from './schema';
+import { entityAppearance, type Appearance, type DomainView } from './schema';
 
 /**
  * How cases look (N2). A case is drawn with the `appearance` of the place it lies on; where a
@@ -22,7 +22,7 @@ const defaultAppearances = new WeakMap<DomainView, Appearance>();
 export function defaultAppearance(view: DomainView): Appearance {
   let known = defaultAppearances.get(view);
   if (!known) {
-    known = { sprite: view.meta.entity.sprite };
+    known = entityAppearance(view.meta.entity);
     defaultAppearances.set(view, known);
   }
   return known;
@@ -39,7 +39,7 @@ export function appearanceOfPlace(view: DomainView, placeId: Id): Appearance {
 
 /** True if two appearances draw the same picture. */
 export function sameAppearance(a: Appearance, b: Appearance): boolean {
-  return a === b || (a.sprite === b.sprite && a.tint === b.tint);
+  return a === b || (a.sprite === b.sprite && a.emoji === b.emoji && a.tint === b.tint);
 }
 
 /**
