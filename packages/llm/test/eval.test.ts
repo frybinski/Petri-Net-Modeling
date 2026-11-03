@@ -22,6 +22,8 @@ let server: Server;
 let baseUrl = '';
 let requests: Array<{ authorization: string | undefined; body: Record<string, unknown> }> = [];
 const calls = new Map<string, number>();
+/** Notes that the simulated model adds to its first answers (N4); `null` for none. */
+let notesForNextAnswers: string[] | null = null;
 
 function answerFor(netName: string, repair: boolean): unknown {
   const id = EXAMPLE_IDS.find((x) => loadExample(x).net.name === netName);
@@ -39,7 +41,9 @@ function answerFor(netName: string, repair: boolean): unknown {
   const answer = modelAnswer(view) as {
     places: Record<string, unknown>;
     transitions: Record<string, unknown>;
+    notes?: string[];
   };
+  if (notesForNextAnswers) answer.notes = notesForNextAnswers;
   answer.places[place] = { kind: 'slots', of: station };
   answer.transitions[station] = { kind: 'station', box: [view.meta.canvas.width + 5, 0, 40, 40] };
   return answer;
@@ -648,4 +652,134 @@ describe('evaluation script, options of N3', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 120_000);
+});
+
+describe('evaluation script, the guided way with --choices (N4)', () => {
+  const choices = {
+    'parcel-center': {
+      setting: 'A post office for fairy tales',
+      entity: { singular: 'Unicorn', plural: 'Unicorns', emoji: '🦄' },
+      stages: { p_scanned: { emoji: '✨' } },
+      counters: { p_done: { style: 'pictogram', per: 10, emoji: '🎁' } },
+      equipment: 'zones',
+      additions: 'Everything is friendly.',
+    },
+  };
+
+  async function evaluate(extra: Partial<EvalOptions>, dir = tempDir()) {
+    requests = [];
+    calls.clear();
+    const outcome = await runEval({
+      baseUrl,
+      model: 'sim',
+      examples: ['parcel-center'],
+      examplesDir: join(repositoryRoot(), 'examples'),
+      outDir: dir,
+      date: '2026-11-03',
+      log: () => undefined,
+      ...extra,
+    });
+    return { dir, outcome };
+  }
+
+  function choicesFile(dir: string, content: unknown): string {
+    const file = join(dir, 'choices.json');
+    writeFileSync(file, JSON.stringify(content));
+    return file;
+  }
+
+  it('reads --choices', () => {
+    const parsed = parseArgs(['--base-url', 'u', '--model', 'm', '--choices', 'c.json']);
+    expect(parsed.options.choicesFile).toBe('c.json');
+    expect(parseArgs(['--base-url', 'u', '--model', 'm']).options.choicesFile).toBeUndefined();
+    expect(() => parseArgs(['--base-url', 'u', '--model', 'm', '--choices'])).toThrow(
+      /needs a value/,
+    );
+  });
+
+  it('sends the choices as binding, applies them, and names the way in the report', async () => {
+    const dir = tempDir();
+    try {
+      const file = choicesFile(dir, choices);
+      const { outcome } = await evaluate({ choicesFile: file, maxRounds: 2 }, dir);
+      const user = firstRequests()[0]?.user ?? '';
+      expect(user).toContain('## Binding choices');
+      expect(user).toContain('"emoji" "🦄"');
+      expect(user).toContain('A post office for fairy tales. Everything is friendly.');
+      expect(user).toContain('Zones and labels');
+      const view = JSON.parse(
+        readFileSync(join(dir, outcome.rows[0]!.viewFile!), 'utf8'),
+      ) as DomainView;
+      expect(view.meta.entity).toMatchObject({ emoji: '🦄' });
+      expect(view.places['p_scanned']).toMatchObject({ appearance: { emoji: '✨' } });
+      expect(view.places['p_done']).toMatchObject({
+        display: { style: 'pictogram', per: 10, emoji: '🎁' },
+      });
+      expect(outcome.rows[0]).toMatchObject({ way: 'guided' });
+      const report = readFileSync(outcome.reportPath, 'utf8');
+      expect(report).toContain('Way: parcel-center guided');
+      expect(report).toContain('Note: Choice applied');
+      const data = JSON.parse(
+        readFileSync(join(dir, 'llm-sim-2026-11-03.report.json'), 'utf8'),
+      ) as { prompts: Array<{ way: string }> };
+      expect(data.prompts[0]?.way).toBe('guided');
+      // The same net without the file runs the free way.
+      const free = await evaluate({ maxRounds: 1 });
+      expect(free.outcome.rows[0]).toMatchObject({ way: 'free' });
+      expect(firstRequests()[0]?.user).not.toContain('Binding choices');
+      rmSync(free.dir, { recursive: true, force: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('lists the notes of the model in the report', async () => {
+    const dir = tempDir();
+    notesForNextAnswers = ['The color pink is not available.'];
+    try {
+      const { outcome } = await evaluate({ maxRounds: 1 }, dir);
+      expect(outcome.rows[0]?.modelNotes).toEqual(['The color pink is not available.']);
+      const report = readFileSync(outcome.reportPath, 'utf8');
+      expect(report).toContain('Note of the model: The color pink is not available.');
+      expect(report).not.toContain('notes');
+    } finally {
+      notesForNextAnswers = null;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a bad file before the first request', async () => {
+    const dir = tempDir();
+    try {
+      const bad: Array<[unknown, RegExp]> = [
+        [{ 'smart-office': {} }, /not one of the evaluated nets/],
+        [
+          { 'parcel-center': { stages: { p_done: { emoji: '🦄' } } } },
+          /not a place that holds cases/,
+        ],
+        [
+          { 'parcel-center': { counters: { p_in: { style: 'fill' } } } },
+          /not a place of an amount/,
+        ],
+        [{ 'parcel-center': { entity: { singular: 'A', plural: 'As', emoji: 'ab' } } }, /V12/],
+        [{ 'parcel-center': { layout: 'diagonal' } }, /invalid at layout/],
+        [
+          { 'parcel-center': { counters: { p_done: { style: 'fill', max: -1 } } } },
+          /invalid at counters/,
+        ],
+        [[], /must be a JSON object/],
+      ];
+      for (const [content, message] of bad) {
+        await expect(evaluate({ choicesFile: choicesFile(dir, content) }, dir)).rejects.toThrow(
+          message,
+        );
+      }
+      await expect(evaluate({ choicesFile: join(dir, 'missing.json') }, dir)).rejects.toThrow(
+        /Cannot read the choices file/,
+      );
+      expect(requests).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
