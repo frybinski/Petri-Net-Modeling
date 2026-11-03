@@ -8,6 +8,7 @@ export * from './palette';
 export * from './scene';
 export * from './symbols';
 export * from './emoji';
+export * from './choices';
 export * from './appearance';
 export * from './history';
 export * from './counter-graphic';
