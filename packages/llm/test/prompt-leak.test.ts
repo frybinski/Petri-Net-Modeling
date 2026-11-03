@@ -82,6 +82,11 @@ const ENGLISH: Record<string, string[]> = {
     'rework',
     'steel',
     'scrap',
+    // The counters of the example: CO2e, residual waste and shipped frames as pictograms.
+    'emission',
+    'emissions',
+    'residual waste',
+    'shipped goods',
   ],
 };
 

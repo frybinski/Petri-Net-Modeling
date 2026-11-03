@@ -277,7 +277,8 @@ describe('display and appearance in the prompt (N2)', () => {
     const display = rule[1]!;
     expect(display).toMatch(/"fill"/);
     expect(display).toMatch(/"pictogram"/);
-    expect(display).toMatch(/store with a known limit/);
+    expect(display).toMatch(/stock with a known upper limit/);
+    expect(display).toMatch(/totals that only grow/);
     expect(display).toMatch(/about 5 to 30 symbols/);
     expect(display).toMatch(/"history": true/);
   });

@@ -19,6 +19,11 @@ the app still sends the editor positions and the two default examples. The plan 
   name, which are the values of the parcel center. Both rules now take their examples from a hospital outpatient clinic
   that no example net uses ("Hospital outpatient clinic", "Ground floor", a patient as a `person` who is `neutral` while
   waiting and `ok` after the treatment, a laboratory sample as a `document`). The content of the rules is unchanged.
+  Found in the review as well: the examples for the display of counters in rule 10 ("a store with a known limit", "such as
+  emissions, waste or shipped goods") matched the counters of the bicycle frame example one by one (the tube store as a fill
+  level; CO₂e, residual waste and shipped frames as pictograms). They are hospital examples now too ("the beds of a ward",
+  "treated patients or used test kits"), and the leak test knows _emission(s)_, _residual waste_ and _shipped goods_ (it
+  fails on the earlier wording).
   **Earlier evaluation runs (prompt version 1) contained the hint "Parcel sorting center / Hall 2", and those of 1.4.0 also
   the stages of the bicycle frame example;** they should not be compared with runs of 1.4.1 without saying so.
 
