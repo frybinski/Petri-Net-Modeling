@@ -68,7 +68,7 @@ describe('compactNet', () => {
 });
 
 describe('answerSchema', () => {
-  it('is the schema of a view without netHash and provenance', () => {
+  it('is the schema of a view without netHash and provenance, with the optional notes (N4)', () => {
     const schema = answerSchema();
     const properties = schema['properties'] as Record<string, unknown>;
     expect(Object.keys(properties)).toEqual([
@@ -78,7 +78,9 @@ describe('answerSchema', () => {
       'transitions',
       'arcs',
       'decor',
+      'notes',
     ]);
+    expect(schema['properties']).toHaveProperty('notes.maxItems', 5);
     expect(schema['required']).toEqual(['schemaVersion', 'meta', 'places', 'transitions']);
   });
 });
@@ -381,8 +383,8 @@ describe('version and positions of the prompt (N3)', () => {
     schema: answerSchema(),
   };
 
-  it('is version 2; the prompt of 1.4.0 and before counts as version 1', () => {
-    expect(PROMPT_VERSION).toBe(2);
+  it('is version 3 (N4: emoji, wishes, notes); the prompt of 1.4.0 and before counts as version 1', () => {
+    expect(PROMPT_VERSION).toBe(3);
   });
 
   it('names a hospital in rules 7 and 10, not the examples of the repository', () => {

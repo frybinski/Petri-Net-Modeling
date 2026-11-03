@@ -1,4 +1,10 @@
-import type { DomainDiagnostic } from '@pnm/domain';
+import {
+  DOMAIN_RULES,
+  viewChoicesSchema,
+  type DomainDiagnostic,
+  type DomainRule,
+  type ViewChoices,
+} from '@pnm/domain';
 import { z } from 'zod';
 
 export type RoundKind = 'generate' | 'repair';
@@ -38,11 +44,20 @@ export interface DomainViewGeneration {
   filled: string[];
   /** Paths of entries of the model that were left out because they were invalid. */
   dropped: string[];
+  /** Remarks of the tool, for example a failed round or a choice that replaced the model's. */
   notes?: string[];
+  /** The way of the dialog: a free description or the guided form (N4); absent before 1.5.0. */
+  mode?: 'free' | 'guided';
+  /** The binding choices of the guided way. */
+  choices?: ViewChoices;
+  /** The title of the concept the guided form was filled from, if one was picked. */
+  concept?: string;
+  /** What the model said it could not do or only approximated (the `notes` of its answers). */
+  modelNotes?: string[];
 }
 
 const diagnosticSchema = z.object({
-  rule: z.enum(['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9']),
+  rule: z.enum(DOMAIN_RULES as [DomainRule, ...DomainRule[]]),
   severity: z.enum(['error', 'warning']),
   path: z.string(),
   message: z.string(),
@@ -72,6 +87,10 @@ export const domainViewGenerationSchema = z.object({
   filled: z.array(z.string()),
   dropped: z.array(z.string()),
   notes: z.array(z.string()).optional(),
+  mode: z.enum(['free', 'guided']).optional(),
+  choices: viewChoicesSchema.optional(),
+  concept: z.string().optional(),
+  modelNotes: z.array(z.string()).optional(),
 }) satisfies z.ZodType<DomainViewGeneration, unknown>;
 
 /** Reads the `domainViewGeneration` field of a net; null if it is absent or malformed. */

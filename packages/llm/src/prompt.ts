@@ -7,8 +7,10 @@ import {
   domainViewJsonSchema,
   type DomainDiagnostic,
   type DomainView,
+  type ViewChoices,
 } from '@pnm/domain';
 import { compactNet, type CompactNet } from './compact-net';
+import { choicesSection } from './choices-text';
 import { compactJson } from './format';
 
 export interface Canvas {
@@ -31,6 +33,8 @@ export interface PromptInput {
   schema: unknown;
   /** Send the editor positions of the net and of the examples. Default true. */
   positions?: boolean;
+  /** The binding choices of the guided way (N4); they become a section of the request. */
+  choices?: ViewChoices;
 }
 
 export interface Prompt {
@@ -38,12 +42,15 @@ export interface Prompt {
   user: string;
 }
 
+/** The most notes that one answer of the model may carry (the rest is cut off). */
+export const MAX_NOTES_PER_ANSWER = 5;
+
 /** Decor entries kept in an example. */
 export const EXAMPLE_DECOR_LIMIT = 8;
 
 /**
  * The JSON Schema of what the model writes: a domain view without `netHash` and `provenance`,
- * which the tool sets.
+ * which the tool sets, and with the optional `notes` (N4), which are no part of a view.
  */
 export function answerSchema(): Record<string, unknown> {
   const schema = structuredClone(domainViewJsonSchema());
@@ -51,6 +58,14 @@ export function answerSchema(): Record<string, unknown> {
   if (properties) {
     delete properties['netHash'];
     delete properties['provenance'];
+  }
+  if (properties) {
+    properties['notes'] = {
+      type: 'array',
+      items: { type: 'string' },
+      maxItems: MAX_NOTES_PER_ANSWER,
+      description: 'Wishes of the description that could not be fulfilled, at most five sentences',
+    };
   }
   const required = schema['required'];
   if (Array.isArray(required)) {
@@ -63,9 +78,10 @@ export function answerSchema(): Record<string, unknown> {
  * The version of the fixed texts of the prompt. It is raised with every change of their content
  * and named in the generation log and in the evaluation report. Version 1 is the prompt of 1.4.0
  * and before, which still named the stages of the bicycle frame example in rule 10 and the
- * parcel center in rule 7.
+ * parcel center in rule 7. Version 3 (1.5.0) adds the emoji as a free symbol, the wishes of the
+ * description, the optional "notes" of the answer and the section of binding choices.
  */
-export const PROMPT_VERSION = 2;
+export const PROMPT_VERSION = 3;
 
 /** The sentence about the editor positions; it is left out when no positions are sent. */
 const POSITION_SENTENCE =
@@ -87,18 +103,21 @@ Rules. A program checks every one of them and reports what is broken:
 4. A transition that a "slots" place refers to needs at least as many slot points as the resource place has tokens at the start. Slot points lie inside the box of the transition, at least 24 px apart.
 5. Geometry is in canvas pixels, origin at the top left, y grows downwards. Every point and rectangle lies completely inside the canvas. A rectangle is [x, y, width, height] with positive width and height. A point is [x, y]. A path has at least two points of different position, in the direction in which cases move. Paths of queues, conveyors and buffers should be at least ${MIN_QUEUE_LENGTH} px long (they hold about ten tokens).
 6. A view describes only geometry and labels. Never write durations, weights, rates, probabilities, priorities, guards, conditions or capacities; the net has them.
-7. "meta" has "theme" (the setting, for example "Hospital outpatient clinic"), "viewName" (for example "Ground floor"), "entity" with "singular", "plural" and "sprite" (one of ${SPRITES.join(', ')}), the canvas size exactly as given, and optionally "metersPerPixel".
+7. "meta" has "theme" (the setting, for example "Hospital outpatient clinic"), "viewName" (for example "Ground floor"), "entity" with "singular", "plural" and "sprite" (one of ${SPRITES.join(', ')}) or, if none of them fits, "emoji" (see rule 11), the canvas size exactly as given, and optionally "metersPerPixel".
 8. "arcs" is optional: keys are "sourceId>targetId", values {"path": [[x, y], [x, y]]}. A straight path from the border of one element to the border of the other is fine. Arcs you leave out are drawn automatically.
 9. "decor" is optional scenery that gives context: "room" or "zone" ({"rect", "label"?}), "wall" ({"segs": [[x1, y1, x2, y2], ...], "width"?}), "label" ({"pos", "text"}), "furniture" ({"rect"}) and "scale" ({"pos", "px", "label"}). Use at most ten entries.
 10. Optional, and only where the process gives a reason: how a counter shows its amount, and how cases look at each stage.
-   - "display" on a counter ("pool", "source" or "sink") draws the amount as more than a number; the number stays. {"style": "fill", "max": N, "low"?: M, "icon"?} is a container with a fill level, full at N (a stock with a known upper limit, such as the beds of a ward); below M the level turns yellow. {"style": "pictogram", "per": K, "icon"?} draws one symbol for every K tokens (choose K so that about 5 to 30 symbols appear; for totals that only grow during a run, such as treated patients or used test kits). "history": true adds a small curve over the simulated time. "icon" is one of ${QUANTITY_ICONS.join(', ')} for a counter of an amount (a sink of cases may use them too), and one of ${SPRITES.join(', ')} for a place that holds cases. Without "display" a counter shows its number.
-   - "appearance" {"sprite", "tint"?} on a place that holds cases ("queue", "conveyor", "buffer", "source" or "sink") draws the cases on it as that sprite (one of ${SPRITES.join(', ')}), so that one case can look different at each stage of the process: a patient as "person" with tint "neutral" while waiting and with tint "ok" after the treatment, a laboratory sample as "document". "tint" is one of ${TINTS.join(', ')}; never write a color. Never give an "appearance" to a resource or to a place that counts an amount, and never give a "display" to a queue, conveyor, buffer or hidden place.
+   - "display" on a counter ("pool", "source" or "sink") draws the amount as more than a number; the number stays. {"style": "fill", "max": N, "low"?: M, "icon"? or "emoji"?} is a container with a fill level, full at N (a stock with a known upper limit, such as the beds of a ward); below M the level turns yellow. {"style": "pictogram", "per": K, "icon"? or "emoji"?} draws one symbol for every K tokens (choose K so that about 5 to 30 symbols appear; for totals that only grow during a run, such as treated patients or used test kits). "history": true adds a small curve over the simulated time. "icon" is one of ${QUANTITY_ICONS.join(', ')} for a counter of an amount (a sink of cases may use them too), and one of ${SPRITES.join(', ')} for a place that holds cases. Without "display" a counter shows its number.
+   - "appearance" {"sprite", "tint"?} or {"emoji"} on a place that holds cases ("queue", "conveyor", "buffer", "source" or "sink") draws the cases on it as that sprite (one of ${SPRITES.join(', ')}), so that one case can look different at each stage of the process: a patient as "person" with tint "neutral" while waiting and with tint "ok" after the treatment, a laboratory sample as "document". "tint" is one of ${TINTS.join(', ')}; never write a color. Never give an "appearance" to a resource or to a place that counts an amount, and never give a "display" to a queue, conveyor, buffer or hidden place.
+11. Wishes and emoji. The description of the domain may contain wishes about the look: which symbols or pictures to use, colors, the arrangement. Follow them as far as this format allows; they go before your own taste, but never before rules 1 to 10. A built-in symbol is better where one fits, because it stays readable in the light and the dark theme and can be tinted. Where none fits, or the description asks for something else (for example a library whose books are to be shown as 📚), write "emoji" in place of "sprite" or "icon": a string of exactly one emoji such as "📚" or "🧑‍🎓", never a word and never several emoji. "emoji" is allowed in "meta.entity", in "appearance" and in "display"; it never stands next to "sprite" or "icon", and an emoji has no "tint". A color can only be approximated by a "tint"; a free color value is not possible.
+12. Notes. The answer may contain "notes": at most five short sentences in the language of the description. Each names a wish that you could not fulfil or only approximated, and why (for example a color that no tint offers, or an arrangement that breaks a rule). Leave "notes" out if everything was done as wished. Notes are not part of the view.
+13. Binding choices. If the request has a section "Binding choices", they come from the user: write exactly these symbols (entity, appearance, display) and use the given arrangement and equipment. The tool replaces anything that deviates, so spend your effort on geometry, labels and decor.
 
 Layout. Follow the flow of the process, usually from left to right.@@POSITIONS@@ Put every transition next to the places it connects, keep at least 40 px between boxes, and make boxes large enough for their labels. Labels are short and use the language of the names in the net.`;
 
 const REPAIR_ADDENDUM = `
 
-In this request you repair an answer. You get the findings of the checking program and the entries they are about. Fix exactly those findings and change nothing else.`;
+In this request you repair an answer. You get the findings of the checking program and the entries they are about. Fix exactly those findings and change nothing else. If a wish of the description still cannot be fulfilled, you may add "notes" (rule 12) to your correction.`;
 
 export interface TextOptions {
   /** Whether the net carries editor positions; without them the sentence about them is left out. Default true. */
@@ -147,6 +166,7 @@ export function buildPrompt(input: PromptInput): Prompt {
     '## Domain',
     text,
     '',
+    ...(input.choices ? [...choicesSection(net, input.choices, { positions }), ''] : []),
     '## Canvas',
     `The canvas is ${canvas.width} px wide and ${canvas.height} px high. Write exactly these numbers to "meta.canvas".`,
     '',
@@ -184,6 +204,7 @@ const RULE_HINTS: Record<string, string> = {
   V9: 'a quantity place is drawn as something other than a counter',
   V10: 'the display of a counter is wrong (limit, symbol for the role, or not a counter)',
   V11: 'an appearance belongs only to places that hold cases',
+  V12: 'an emoji must be exactly one emoji, never next to a sprite or icon, and without a tint',
 };
 
 export interface RepairInput {
