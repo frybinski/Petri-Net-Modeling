@@ -8,7 +8,10 @@ import { promisify } from 'node:util';
 import { placeRoles } from '@pnm/core';
 import { validateDomainView, type DomainView } from '@pnm/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { parseArgs, repositoryRoot, runEval } from '../scripts/eval-lib';
+import { createHash } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { PROMPT_VERSION } from '../src';
+import { parseArgs, repositoryRoot, runEval, type EvalOptions } from '../scripts/eval-lib';
 import { EXAMPLE_IDS, loadExample, modelAnswer } from './helpers';
 
 const run = promisify(execFile);
@@ -165,6 +168,7 @@ describe('evaluation script', () => {
         'llm-sim-model-1-2026-10-28-parcel-center.json',
         'llm-sim-model-1-2026-10-28-smart-office.json',
         'llm-sim-model-1-2026-10-28.md',
+        'llm-sim-model-1-2026-10-28.report.json',
       ]);
       const report = readFileSync(outcome.reportPath, 'utf8');
       expect(report).toContain('| Paketzentrum | PASS | 2 | 2 → 0 |');
@@ -251,6 +255,397 @@ describe('evaluation script', () => {
       expect(help.stdout).toContain('--base-url');
     } finally {
       rmSync(outDir, { recursive: true, force: true });
+    }
+  }, 120_000);
+});
+
+const BASE = ['--base-url', 'http://x/v1', '--model', 'm'];
+
+describe('parseArgs, options of N3', () => {
+  it('reads --shots as a list or none, and leaves it unset by default', () => {
+    expect(parseArgs(BASE).options.shots).toBeUndefined();
+    expect(parseArgs([...BASE, '--shots', 'smart-office, bike-frames']).options.shots).toEqual([
+      'smart-office',
+      'bike-frames',
+    ]);
+    expect(parseArgs([...BASE, '--shots', 'none']).options.shots).toEqual([]);
+    expect(() => parseArgs([...BASE, '--shots', ','])).toThrow(/--shots/);
+  });
+
+  it('reads --no-positions and --save-prompts as flags', () => {
+    const plain = parseArgs(BASE).options;
+    expect(plain.positions).toBeUndefined();
+    expect(plain.savePrompts).toBeUndefined();
+    const set = parseArgs([...BASE, '--no-positions', '--save-prompts']).options;
+    expect(set.positions).toBe(false);
+    expect(set.savePrompts).toBe(true);
+  });
+
+  it('reads --description more than once, with = inside the text', () => {
+    const { options } = parseArgs([
+      ...BASE,
+      '--description',
+      'bike-frames=A factory with a = b',
+      '--description',
+      'parcel-center=Parcels',
+    ]);
+    expect(options.descriptions).toEqual({
+      'bike-frames': 'A factory with a = b',
+      'parcel-center': 'Parcels',
+    });
+  });
+
+  it('refuses a malformed or doubled --description', () => {
+    expect(() => parseArgs([...BASE, '--description', 'no-equals'])).toThrow(/<id>=<text>/);
+    expect(() => parseArgs([...BASE, '--description', '=text'])).toThrow(/<id>=<text>/);
+    expect(() => parseArgs([...BASE, '--description', 'a='])).toThrow(/<id>=<text>/);
+    expect(() => parseArgs([...BASE, '--description', 'a=x', '--description', 'a=y'])).toThrow(
+      /"a" is given twice/,
+    );
+  });
+
+  it('reads --descriptions and --repeat, and refuses a bad count', () => {
+    const { options } = parseArgs([...BASE, '--descriptions', 'd.json', '--repeat', '3']);
+    expect(options.descriptionsFile).toBe('d.json');
+    expect(options.repeat).toBe(3);
+    for (const bad of ['0', '1.5', '-1', '101', 'x']) {
+      expect(() => parseArgs([...BASE, '--repeat', bad])).toThrow(/--repeat/);
+    }
+  });
+});
+
+function sha(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+function firstRequests(): Array<{ system: string; user: string }> {
+  return requests.map((r) => {
+    const messages = r.body['messages'] as Array<{ content: string }>;
+    return { system: messages[0]?.content ?? '', user: messages[1]?.content ?? '' };
+  });
+}
+
+describe('evaluation script, options of N3', () => {
+  async function evaluate(
+    extra: Partial<EvalOptions>,
+    dir = tempDir(),
+  ): Promise<{ dir: string; outcome: Awaited<ReturnType<typeof runEval>> }> {
+    requests = [];
+    calls.clear();
+    const outcome = await runEval({
+      baseUrl,
+      model: 'sim',
+      examples: ['parcel-center'],
+      examplesDir: join(repositoryRoot(), 'examples'),
+      outDir: dir,
+      date: '2026-11-03',
+      log: () => undefined,
+      ...extra,
+    });
+    return { dir, outcome };
+  }
+
+  it('refuses an unknown net id in --examples, --shots and --description, before any request', async () => {
+    requests = [];
+    const dir = tempDir();
+    try {
+      await expect(evaluate({ examples: ['nope'] }, dir)).rejects.toThrow(/--examples.*"nope"/);
+      await expect(evaluate({ shots: ['nope'] }, dir)).rejects.toThrow(/--shots.*"nope"/);
+      await expect(evaluate({ descriptions: { nope: 'x' } }, dir)).rejects.toThrow(
+        /--description.*"nope"/,
+      );
+      await expect(evaluate({ shots: ['order-processing'] }, dir)).rejects.toThrow(
+        /no domain view/,
+      );
+      expect(requests).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('shows the nets of --shots, never the evaluated net, and none for none', async () => {
+    const dir = tempDir();
+    try {
+      const only = await evaluate({ shots: ['smart-office'], maxRounds: 1 }, dir);
+      let first = firstRequests()[0]?.user ?? '';
+      expect(first.match(/### Example/g)).toHaveLength(1);
+      expect(first).toContain('### Example 1: Smart Office');
+      // The evaluated net among the shots is left out, and the same net is given twice only once.
+      await evaluate(
+        { examples: ['smart-office'], shots: ['smart-office', 'parcel-center'], maxRounds: 1 },
+        dir,
+      );
+      first = firstRequests()[0]?.user ?? '';
+      expect(first.match(/### Example/g)).toHaveLength(1);
+      expect(first).toContain('### Example 1: Paketzentrum');
+      await evaluate({ shots: [], maxRounds: 1 }, dir);
+      first = firstRequests()[0]?.user ?? '';
+      expect(first).not.toContain('### Example');
+      expect(first).not.toContain('Smart Office\n');
+      expect(only.outcome.rows[0]?.example).toBe('parcel-center');
+      // The default is as before: both examples, minus the net itself.
+      await evaluate({ examples: ['bike-frames'], maxRounds: 1 }, dir);
+      first = firstRequests()[0]?.user ?? '';
+      expect(first.match(/### Example/g)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('sends no positions and no sentence about them with positions: false', async () => {
+    const dir = tempDir();
+    try {
+      await evaluate({ maxRounds: 2 }, dir);
+      for (const request of firstRequests()) {
+        expect(request.user).toContain('"positions"');
+        expect(request.system).toContain('The positions of the net in the editor');
+      }
+      await evaluate({ positions: false, maxRounds: 2 }, dir);
+      expect(firstRequests().length).toBeGreaterThan(1);
+      for (const request of firstRequests()) {
+        expect(request.user).not.toContain('"positions"');
+        expect(request.system).not.toContain('The positions of the net in the editor');
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('takes the description from the option, the file, or the built-in sentence, in this order', async () => {
+    const dir = tempDir();
+    try {
+      await evaluate({ maxRounds: 1 }, dir);
+      expect(firstRequests()[0]?.user).toContain('A parcel sorting center: parcels arrive');
+      const file = join(dir, 'descriptions.json');
+      writeFileSync(file, JSON.stringify({ 'parcel-center': 'From the file.' }));
+      await evaluate({ maxRounds: 1, descriptionsFile: file }, dir);
+      expect(firstRequests()[0]?.user).toContain('From the file.');
+      expect(firstRequests()[0]?.user).not.toContain('parcels arrive');
+      await evaluate(
+        {
+          maxRounds: 1,
+          descriptionsFile: file,
+          descriptions: { 'parcel-center': 'From the option.' },
+        },
+        dir,
+      );
+      expect(firstRequests()[0]?.user).toContain('From the option.');
+      expect(firstRequests()[0]?.user).not.toContain('From the file.');
+      // bike-frames has a built-in sentence now.
+      await evaluate({ examples: ['bike-frames'], maxRounds: 1 }, dir);
+      expect(firstRequests()[0]?.user).toContain('A bicycle frame factory');
+      // A net without one keeps "A process called ...".
+      await evaluate({ examples: ['order-processing'], maxRounds: 1 }, dir);
+      expect(firstRequests()[0]?.user).toContain('A process called "Order processing"');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a descriptions file that is not an object of strings', async () => {
+    const dir = tempDir();
+    try {
+      const file = join(dir, 'bad.json');
+      writeFileSync(file, JSON.stringify({ 'parcel-center': 3 }));
+      await expect(evaluate({ descriptionsFile: file }, dir)).rejects.toThrow(/must be a string/);
+      writeFileSync(file, '[1]');
+      await expect(evaluate({ descriptionsFile: file }, dir)).rejects.toThrow(/JSON object/);
+      await expect(evaluate({ descriptionsFile: join(dir, 'missing.json') }, dir)).rejects.toThrow(
+        /Cannot read/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('generates every net --repeat times and summarizes the runs', async () => {
+    const dir = tempDir();
+    try {
+      const { outcome } = await evaluate({ examples: [...EXAMPLE_IDS], repeat: 3 }, dir);
+      expect(outcome.rows).toHaveLength(6);
+      expect(outcome.rows.map((r) => [r.example, r.run])).toEqual([
+        ['parcel-center', 1],
+        ['parcel-center', 2],
+        ['parcel-center', 3],
+        ['smart-office', 1],
+        ['smart-office', 2],
+        ['smart-office', 3],
+      ]);
+      expect(requests).toHaveLength(12);
+      const files = readdirSync(dir).sort();
+      expect(files).toContain('llm-sim-2026-11-03-parcel-center-run3.json');
+      expect(files).toContain('llm-sim-2026-11-03-smart-office-run1.json');
+      const report = readFileSync(outcome.reportPath, 'utf8');
+      expect(report).toContain('| Paketzentrum #2 | PASS | 2 | 2 → 0 |');
+      expect(report).toContain('## Summary of the runs');
+      expect(report).toContain('| Paketzentrum | 3 | 3 of 3 (100 %) | 3× 2 |');
+      const data = JSON.parse(
+        readFileSync(join(dir, 'llm-sim-2026-11-03.report.json'), 'utf8'),
+      ) as {
+        runs: unknown[];
+        summary: Array<{
+          example: string;
+          runs: number;
+          passed: number;
+          roundsDistribution: object;
+        }>;
+      };
+      expect(data.runs).toHaveLength(6);
+      expect(data.summary[1]).toMatchObject({
+        example: 'smart-office',
+        runs: 3,
+        passed: 3,
+        roundsDistribution: { '2': 3 },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps one run without a summary of runs, as before', async () => {
+    const dir = tempDir();
+    try {
+      const { outcome } = await evaluate({}, dir);
+      expect(readFileSync(outcome.reportPath, 'utf8')).not.toContain('## Summary of the runs');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('writes the first request with --save-prompts, and its hashes into the report', async () => {
+    const dir = tempDir();
+    try {
+      const { outcome } = await evaluate({ savePrompts: true, repeat: 2, maxRounds: 2 }, dir);
+      const system = readFileSync(
+        join(dir, 'llm-sim-2026-11-03-parcel-center-prompt-system.txt'),
+        'utf8',
+      );
+      const user = readFileSync(
+        join(dir, 'llm-sim-2026-11-03-parcel-center-prompt-user.txt'),
+        'utf8',
+      );
+      const sent = firstRequests()[0];
+      expect(system).toBe(sent?.system);
+      expect(user).toBe(sent?.user);
+      expect(readdirSync(dir).filter((f) => f.includes('-prompt-'))).toHaveLength(2);
+      const report = readFileSync(outcome.reportPath, 'utf8');
+      expect(report).toContain(sha(system));
+      expect(report).toContain(sha(user));
+      const data = JSON.parse(
+        readFileSync(join(dir, 'llm-sim-2026-11-03.report.json'), 'utf8'),
+      ) as {
+        prompts: Array<{ systemSha256: string; userSha256: string; promptVersion: number }>;
+      };
+      expect(data.prompts).toEqual([
+        expect.objectContaining({
+          example: 'parcel-center',
+          promptVersion: PROMPT_VERSION,
+          systemSha256: sha(system),
+          userSha256: sha(user),
+          shots: ['smart-office'],
+        }),
+      ]);
+      // Without the option, no prompt files.
+      const none = await evaluate({ maxRounds: 1 });
+      expect(none.outcome.files.some((f) => f.includes('-prompt-'))).toBe(false);
+      rmSync(none.dir, { recursive: true, force: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('names the prompt version, the conditions and the similarity in the report', async () => {
+    const dir = tempDir();
+    try {
+      const { outcome } = await evaluate(
+        { shots: [], positions: false, repeat: 2, temperature: 0.7, maxRounds: 2 },
+        dir,
+      );
+      const report = readFileSync(outcome.reportPath, 'utf8');
+      expect(report).toContain(`Prompt version: ${PROMPT_VERSION}`);
+      expect(report).toContain('Worked examples (shots): none (zero-shot)');
+      expect(report).toContain('Editor positions sent: no');
+      expect(report).toContain('Temperature: 0.7');
+      expect(report).toContain('Runs per net: 2');
+      expect(report).toContain('## Similarity to the reference view');
+      expect(report).toContain('## First request');
+      // The answers are the reference view with two mistakes in two entries.
+      const data = JSON.parse(
+        readFileSync(join(dir, 'llm-sim-2026-11-03.report.json'), 'utf8'),
+      ) as {
+        conditions: Record<string, unknown>;
+        runs: Array<{ similarity: { kindPercent: number; meanDistance: number } }>;
+      };
+      expect(data.conditions).toMatchObject({
+        promptVersion: PROMPT_VERSION,
+        shots: [],
+        positions: false,
+        temperature: 0.7,
+        repeat: 2,
+        maxRounds: 2,
+      });
+      for (const run of data.runs) {
+        expect(run.similarity.kindPercent).toBe(100);
+        expect(run.similarity.meanDistance).toBe(0);
+      }
+      expect(report).not.toContain(KEY);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('runs against the simulated server from the command line with the new options', async () => {
+    const dir = tempDir();
+    const root = join(repositoryRoot(), 'packages', 'llm');
+    try {
+      const jiti = join(root, 'node_modules', 'jiti', 'lib', 'jiti-cli.mjs');
+      const { stdout } = await run(
+        process.execPath,
+        [
+          jiti,
+          'scripts/eval.ts',
+          '--base-url',
+          baseUrl,
+          '--model',
+          'cli-model',
+          '--out-dir',
+          dir,
+          '--date',
+          '2026-11-03',
+          '--shots',
+          'none',
+          '--no-positions',
+          '--repeat',
+          '2',
+          '--save-prompts',
+          '--examples',
+          'parcel-center',
+        ],
+        { cwd: root, timeout: 90_000 },
+      );
+      expect(stdout).toContain('Paketzentrum #1');
+      expect(stdout).toContain('Paketzentrum #2');
+      expect(readdirSync(dir)).toContain('llm-cli-model-2026-11-03-parcel-center-prompt-user.txt');
+      await expect(
+        run(
+          process.execPath,
+          [
+            jiti,
+            'scripts/eval.ts',
+            '--base-url',
+            baseUrl,
+            '--model',
+            'm',
+            '--shots',
+            'nope',
+            '--out-dir',
+            dir,
+          ],
+          { cwd: root },
+        ),
+      ).rejects.toMatchObject({ code: 64 });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   }, 120_000);
 });
