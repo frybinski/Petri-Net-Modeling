@@ -160,6 +160,35 @@ consumes several tokens from one of them can show a case in the look of another 
 as those of the parcel center and the smart office, open everywhere. The same holds for the new sprites (`frame`,
 `bicycle`, `bars`) in `meta.entity.sprite`.
 
+## Emoji and wishes
+
+The rules are in [domain-view.md](domain-view.md#emoji) and [the plan N4](plan/N4_Umsetzungsplan.md).
+
+**An emoji looks different on every system (G7).** The view stores the emoji, not a picture of it, and the browser draws it
+with the emoji font of the machine (`"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"`). The same view looks
+different on macOS, Windows and Linux, and where no emoji font is installed the browser shows a replacement character. An
+exported PNG shows the emoji of the machine that exported it. A newer emoji may be missing on an old system. For a picture
+that must look the same everywhere, use a built-in symbol.
+
+**An emoji cannot be tinted, and colors are only tokens (G8).** A wish for a color ("the parcels are pink") can only be
+approximated by one of the six tints of a sprite (`accent`, `ok`, `warn`, `danger`, `info`, `neutral`); free color values
+are not possible, so that both themes stay right. The model is told so and may say in its notes that it approximated.
+
+**The notes of the model are not checked (G9).** A note says what the model claims it could not do. The tool does not
+compare it with the description: a model can leave a wish unfulfilled and say nothing, or note something it did. The
+notes help the reader; they are no proof of fidelity.
+
+**Arrangement and equipment of the guided way act through the prompt only (G10).** The tool sets symbols and displays
+exactly as chosen, because they are fields it can write. Where things stand (left to right, rooms, zones) is geometry that
+only the model draws, and it may deviate; the dialog says so. _Apply without LLM_ leaves the geometry as it is.
+
+**No uploaded images, no SVG symbols (G11).** The free vocabulary is the emoji. A picture of one's own (a logo, a photo of
+a machine) is not part of the format; it would need a way to store and to export it, and a decision about the size of a
+file.
+
+**Older versions reject a view with `emoji` (G6, continued).** The schema is strict: a version before 1.5.0 lists
+`Unknown field "emoji"` (rule V1) and offers the generic view. The format stays `1.0`; views without emoji open everywhere.
+
 ## Domain view
 
 **A resource place with cells edits its station (20).** The cells of a resource (desks, rooms, machines) sit on the card
@@ -238,7 +267,7 @@ for analyses with a large limit. The analysis in the browser runs in a worker as
 validators with `new Function`. The policy allows only scripts of the own origin, so this is no way for foreign code to run,
 but it is weaker than a policy without it. Removing it needs standalone validators or another library for JSON Schema.
 
-## Not in 1.4.1
+## Not in 1.5.0
 
 - Accounts, private projects, and an audit trail on the server.
 - Co-editing and a second user in the same net.

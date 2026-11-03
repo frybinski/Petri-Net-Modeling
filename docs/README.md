@@ -16,7 +16,7 @@ An index of everything in `docs/`. The README in the repository root is the firs
 | [cli.md](cli.md)                           | The command line `pnm`: install from a release or build, every command with its options and exit statuses.              |
 | [server.md](server.md)                     | The server: web app, language model proxy, HTTP interface, project store, security, settings and what the app adds.     |
 | [../deploy/README.md](../deploy/README.md) | Setting up the server with Docker Compose: registry, ingress, update, backup, key rotation, troubleshooting.            |
-| [limitations.md](limitations.md)           | What 1.3.0 does not do, with the reason for each limitation and the way forward.                                        |
+| [limitations.md](limitations.md)           | What 1.5.0 does not do, with the reason for each limitation and the way forward.                                        |
 
 ## Decisions
 
@@ -43,6 +43,7 @@ consequences.
 | [0016](adr/0016-server.md)                                 | A small server on node:http: files, threads with hard limits, a positive-list proxy.      |
 | [0017](adr/0017-quantity-places-and-indicators.md)         | A role for amounts (tokens without a case) and indicators defined in the net.             |
 | [0018](adr/0018-quantity-graphics-and-appearance.md)       | Isotype and fill levels instead of free scaling; the look of a case hangs on the place.   |
+| [0019](adr/0019-emoji-symbols-and-binding-choices.md)      | Emoji as free symbols, wishes with notes, and binding choices of the guided way.          |
 
 ## Plans
 
@@ -64,6 +65,8 @@ The plans of the increments, in German, written before the work and kept as the 
 | [M6](plan/M6_Umsetzungsplan.md)                                    | The server next to Ollama: proxy, interface, project store, image, Compose and ingress.                                |
 | [N1](plan/N1_Umsetzungsplan.md)                                    | The sustainability example: quantity places, indicators and the bicycle frame production.                              |
 | [N2](plan/N2_Umsetzungsplan.md)                                    | Quantities as graphics (fill levels, pictograms, curves) and the look of cases by stage.                               |
+| [N3](plan/N3_Umsetzungsplan.md)                                    | A prompt without leaks and an evaluation for experiments.                                                              |
+| [N4](plan/N4_Umsetzungsplan.md)                                    | Emoji as free symbols, wishes and notes, the guided and the free way of generating a view.                             |
 
 ## Material
 

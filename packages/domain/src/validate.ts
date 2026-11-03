@@ -356,7 +356,7 @@ export function roleHoldsCases(role: PlaceRole): boolean {
 }
 
 /**
- * Checks a domain view against its net (rules V1 to V11). `view` is untrusted input: anything
+ * Checks a domain view against its net (rules V1 to V12). `view` is untrusted input: anything
  * that was parsed from JSON. Errors make the view unusable for a faithful picture; warnings point
  * out things that look wrong (too few slots, stale hash, short queues).
  */
