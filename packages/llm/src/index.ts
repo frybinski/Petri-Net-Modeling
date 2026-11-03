@@ -6,3 +6,4 @@ export * from './prompt';
 export { defaultExamples } from './examples';
 export * from './record';
 export * from './generate';
+export * from './similarity';
