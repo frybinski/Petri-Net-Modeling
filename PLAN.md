@@ -241,6 +241,11 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Referenzansicht (`compareViews`). Plan `docs/plan/N3_Umsetzungsplan.md`, Doku in `docs/domain-view.md` und
   `docs/eval/README.md`.
 
+### N4 · Freie Symbole, Wünsche an die Darstellung, geführt oder frei · geplant (1.5.0)
+- Emoji als freies Symbolvokabular (Regel V12), Wünsche in der Beschreibung werden befolgt und nicht erfüllbare als
+  Hinweise des Modells gemeldet; im Generierungsdialog ein geführter Weg (Formular, Konzeptvorschläge des LLM,
+  verbindliche Wahl, Anwenden ohne LLM) und ein freier Weg. Plan `docs/plan/N4_Umsetzungsplan.md`.
+
 ## 5. Projektstruktur
 
 ```
