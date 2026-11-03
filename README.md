@@ -9,7 +9,7 @@ logic also runs in a command line tool and in an LLM processing chain.
   <img alt="The editor in simulation mode, showing the traffic light example" src="docs/images/editor-light.png">
 </picture>
 
-**Version 1.4.0.** Try it in the browser: [frybinski.github.io/Petri-Net-Modeling](https://frybinski.github.io/Petri-Net-Modeling/).
+**Version 1.4.1.** Try it in the browser: [frybinski.github.io/Petri-Net-Modeling](https://frybinski.github.io/Petri-Net-Modeling/).
 The command line comes as one file with each [release](https://github.com/frybinski/Petri-Net-Modeling/releases); a small
 [server](#running-on-a-server) shares the tool with a group.
 
@@ -200,7 +200,7 @@ All documents are indexed in [docs/README.md](docs/README.md).
 
 ## Known limitations
 
-What 1.4.0 does not do, in short; the reasons and the way forward are in [docs/limitations.md](docs/limitations.md).
+What 1.4.1 does not do, in short; the reasons and the way forward are in [docs/limitations.md](docs/limitations.md).
 
 - **Tab with a selected node** adds the next node and connects it instead of moving the focus. `Esc` deselects and gives
   `Tab` back; the shortcut help (`?`) says so.

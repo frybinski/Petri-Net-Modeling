@@ -3,9 +3,12 @@ import { validateDomainView, type DomainView } from '@pnm/domain';
 import { describe, expect, it } from 'vitest';
 import {
   LlmError,
+  PROMPT_VERSION,
   generateDomainView,
   parseGeneration,
   toGenerationRecord,
+  defaultExamples,
+  withoutOwnExample,
   type GenerateProgress,
 } from '../src';
 import { FAKE_MODEL, createFakeProvider, type FakeScript } from '../src/testing';
@@ -393,6 +396,49 @@ describe('generateDomainView', () => {
   });
 });
 
+describe('positions and examples of the prompt (N3)', () => {
+  const { net } = loadExample('order-processing');
+
+  it('sends positions in every request by default', async () => {
+    const provider = createFakeProvider([{ text: 'no' }]);
+    await generateDomainView(net, provider, { description: 'x', maxRounds: 2, now: clock() });
+    expect(provider.calls.length).toBeGreaterThan(1);
+    for (const call of provider.calls) {
+      expect(call.user).toContain('"positions"');
+      expect(call.system).toContain('The positions of the net in the editor');
+    }
+  });
+
+  it('leaves them out of every request, repairs included, with positions: false', async () => {
+    const provider = createFakeProvider([{ json: { places: { nope: { kind: 'queue' } } } }]);
+    await generateDomainView(net, provider, {
+      description: 'x',
+      maxRounds: 3,
+      positions: false,
+      now: clock(),
+    });
+    expect(provider.calls).toHaveLength(3);
+    for (const call of provider.calls) {
+      expect(call.user).not.toContain('"positions"');
+      expect(call.system).not.toContain('The positions of the net in the editor');
+    }
+  });
+
+  it('shows no example with examples: [], and never the net itself', async () => {
+    const zero = createFakeProvider([{ text: 'no' }]);
+    await generateDomainView(net, zero, { description: 'x', maxRounds: 1, examples: [] });
+    expect(zero.calls[0]?.user).not.toContain('### Example');
+    const own = loadExample('parcel-center');
+    const withOwn = createFakeProvider([{ text: 'no' }]);
+    await generateDomainView(own.net, withOwn, {
+      description: 'x',
+      maxRounds: 1,
+      examples: withoutOwnExample(own.net, defaultExamples()),
+    });
+    expect(withOwn.calls[0]?.user.match(/### Example/g)).toHaveLength(1);
+  });
+});
+
 describe('generation record', () => {
   const { net, view } = loadExample('smart-office');
 
@@ -411,6 +457,7 @@ describe('generation record', () => {
     });
     expect(record.baseUrl).toBe('https://api.example.com/v1');
     expect(record.model).toBe(FAKE_MODEL);
+    expect(record.promptVersion).toBe(PROMPT_VERSION);
     expect(record.rounds).toHaveLength(2);
     expect(record.prompt.user).toContain('An office');
     const roundTrip = parseGeneration(JSON.parse(JSON.stringify(record)));
@@ -418,6 +465,29 @@ describe('generation record', () => {
     const text = JSON.stringify(record);
     expect(text).not.toContain('hunter2');
     expect(text).not.toContain('abc');
+  });
+
+  it('reads a record of 1.4.0 without a prompt version', () => {
+    const record = toGenerationRecord(
+      {
+        view,
+        rounds: [],
+        filled: [],
+        dropped: [],
+        diagnostics: [],
+        fellBack: true,
+        notes: [],
+        model: 'm',
+        startedAt: 'a',
+        finishedAt: 'b',
+        prompt: { system: 's', user: 'u' },
+        canvas: { width: 1, height: 1 },
+      },
+      { description: '', baseUrl: 'http://x/v1' },
+    );
+    const { promptVersion: _version, ...old } = record;
+    expect(parseGeneration(old)?.promptVersion).toBeUndefined();
+    expect(parseGeneration({ ...old, promptVersion: 0 })).toBeNull();
   });
 
   it('rejects malformed records', () => {

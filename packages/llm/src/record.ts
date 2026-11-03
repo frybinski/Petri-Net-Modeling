@@ -23,6 +23,8 @@ export interface RoundLog {
 /** How a view was generated; stored with the net next to, not inside, the view. */
 export interface DomainViewGeneration {
   model: string;
+  /** `PROMPT_VERSION` of the texts that were sent; absent in records of 1.4.0 and before (version 1). */
+  promptVersion?: number;
   /** The server, without credentials. The API key is never stored. */
   baseUrl: string;
   startedAt: string;
@@ -60,6 +62,7 @@ const roundSchema = z.object({
 
 export const domainViewGenerationSchema = z.object({
   model: z.string(),
+  promptVersion: z.number().int().positive().optional(),
   baseUrl: z.string(),
   startedAt: z.string(),
   finishedAt: z.string(),

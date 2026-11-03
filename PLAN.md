@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-10-30 · Status: Version 1.4.0 (M0–M6, D1–D5, N1 und N2 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-11-03 · Status: Version 1.4.1 (M0–M6, D1–D5, N1 bis N3 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -232,6 +232,15 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Domänenansicht am Feld, im Status der Ansicht (Überlauf) und in der Reparaturrunde des LLM. Plan
   `docs/plan/N2_Umsetzungsplan.md`, ADR 0018, Doku in `docs/domain-view.md` und `docs/limitations.md` (G1 bis G6).
 
+### N3 · Prompt ohne Lecks, Auswertung für Experimente · fertig (1.4.1)
+- Die festen Texte des Prompts nennen keine Lösungen der Beispiele mehr: Die Beispiele der Regeln 7 und 10 stammen aus einer
+  Klinik, ein Test (`packages/llm/test/prompt-leak.test.ts`) prüft das für alle Beispielnetze mit Ansicht und schlug auf dem
+  Stand von 1.4.0 an. `PROMPT_VERSION` (2; die Fassung von 1.4.0 und davor ist 1) steht im Protokoll der App und im Bericht.
+- Das Eval-Skript bekam Optionen für Ablationen (`--shots`, `--no-positions`, `--description`, `--descriptions`, `--repeat`,
+  `--save-prompts`); der Bericht nennt Prompt-Version, SHA-256 der ersten Anfrage, die Bedingungen und die Ähnlichkeit zur
+  Referenzansicht (`compareViews`). Plan `docs/plan/N3_Umsetzungsplan.md`, Doku in `docs/domain-view.md` und
+  `docs/eval/README.md`.
+
 ## 5. Projektstruktur
 
 ```
@@ -276,7 +285,7 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.4.0 schließt M0 bis M6, D1 bis D5, N1 und N2 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.4.1 schließt M0 bis M6, D1 bis D5 und N1 bis N3 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
 M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im KIT-Netz aus, vermittelt LLM-Anfragen, bietet
@@ -295,6 +304,13 @@ Flusspunkten, das Aussehen eines Falls nach der Stelle (Auftrag, Rohre, Rohrahme
 (`docs/plan/N2_Umsetzungsplan.md`, ADR 0018). Gegenüber dem Plan: die Beschriftung eines großen Zählerkastens steht als
 Titel in ihm, und die Boxen von CO₂e, Ausgeliefert und Restabfall sind größer (siehe CHANGELOG). Offen aus N2: Aussehen aus
 Markendaten höherer Netze (D6) und der Abgleich von `max` mit den Invarianten der Analyse.
+
+N3 ist mit 1.4.1 fertig: Beobachtung war, dass eine mit dem LLM erzeugte Ansicht des Fahrradbeispiels der gespeicherten auffällig
+ähnelte; Ursache waren Beispiele in den Regeln 7 und 10 des Prompts, die Lösungen der Beispielnetze nannten. Sie sind
+ersetzt, ein Test sichert das ab, und das Eval-Skript trennt für die Experimente X1 bis X4, was das Modell beiträgt und
+was es aus dem Prompt übernimmt (`docs/plan/N3_Umsetzungsplan.md`). Läufe mit Prompt-Version 1 (bis 1.4.0) sind damit nicht
+unmittelbar mit späteren vergleichbar. Offen aus N3: Die englischen Entsprechungen des Lecktests werden von Hand gepflegt
+und decken keine Umschreibungen ab.
 
 Offen sind optionale Bausteine:
 

@@ -2,6 +2,85 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.4.1: A prompt without leaks, an evaluation for experiments
+
+Increment N3. The fixed texts of the prompt for the language model gave away parts of the solutions of the examples, so a
+generated view of the bicycle frame example could resemble the stored one for a reason that has nothing to do with the
+model. This release removes the leaks, guards against new ones with a test, and gives the evaluation script the options and
+the report that experiments need. **Nothing changes in the file format, the simulation or the views of the examples**, and
+the app still sends the editor positions and the two default examples. The plan is
+[docs/plan/N3_Umsetzungsplan.md](docs/plan/N3_Umsetzungsplan.md).
+
+### Fixed
+
+- **The prompt leaked solutions of the examples.** Rule 10 (since 1.4.0) described the stages of the bicycle frame example
+  word by word: an order as a document, cut tubes as bars, a raw frame as a neutral frame, a coated one as an accent frame,
+  the shipped item as a parcel. Rule 7 (since D3) named "Parcel sorting center" and "Hall 2" as examples of theme and view
+  name, which are the values of the parcel center. Both rules now take their examples from a hospital outpatient clinic
+  that no example net uses ("Hospital outpatient clinic", "Ground floor", a patient as a `person` who is `neutral` while
+  waiting and `ok` after the treatment, a laboratory sample as a `document`). The content of the rules is unchanged.
+  Found in the review as well: the examples for the display of counters in rule 10 ("a store with a known limit", "such as
+  emissions, waste or shipped goods") matched the counters of the bicycle frame example one by one (the tube store as a fill
+  level; CO₂e, residual waste and shipped frames as pictograms). They are hospital examples now too ("the beds of a ward",
+  "treated patients or used test kits"), and the leak test knows _emission(s)_, _residual waste_ and _shipped goods_ (it
+  fails on the earlier wording).
+- **An empty section of worked examples.** Without examples (`--shots none`) the first request still had the heading
+  _Worked examples_ and the sentence "These show the format …" with nothing after them. The section is left out now when
+  there are no examples; the default request with the two examples is unchanged.
+  **Earlier evaluation runs (prompt version 1) contained the hint "Parcel sorting center / Hall 2", and those of 1.4.0 also
+  the stages of the bicycle frame example;** they should not be compared with runs of 1.4.1 without saying so.
+
+### Added
+
+- **`PROMPT_VERSION`** (exported by `@pnm/llm`), 2 from this release on; the prompt of 1.4.0 and before is version 1. It is
+  raised with every change of the content of the texts. The generation record stores it (`promptVersion`; a record without it
+  reads as version 1), the log of the generation in the app shows it (_Prompt version_), and the evaluation report names it.
+- **Leak test** `packages/llm/test/prompt-leak.test.ts`. For every net in `examples/` that has a domain view (new ones are
+  found by themselves) it checks that the system text, the repair system text and the fixed frame of the requests
+  (everything except _Net to map_ and _Worked examples_) contain none of: the theme and the view name, the entity names, the
+  labels and texts of the view, the names of the places and transitions, and a list of English equivalents kept by hand
+  (_parcel sorting_, _sorting center_, _hall 2_, _smart office_, _meeting room_, _bicycle frame_, _tube_, _coated_, _weld_,
+  _saw_ and so on). Whole words in any case, single words from four letters. The enumerations of sprites, icons and tints are
+  exempt, removed with the constants the prompt itself uses. **It fails on the text of 1.4.0** (shown once before the fix:
+  `parcel sorting`, `sorting center`, `hall 2` for the parcel center and `tubes`, `coated` for the bicycle frame example, in
+  the system text and the repair system text) and passes on this one.
+- **Options of the evaluation** (`pnpm --filter @pnm/llm eval`; `--examples` still names the nets that are evaluated):
+  `--shots <ids>|none` (the nets shown as worked examples; the evaluated net is always left out, by its hash),
+  `--no-positions` (no editor positions, and the sentence about them leaves the system text too), `--description <id>=<text>`
+  (repeatable), `--descriptions <file>`, `--repeat <n>` (independent runs, every run and a summary in the report) and
+  `--save-prompts` (the first request of every net as text files). An unknown net id, a description given twice and a bad
+  file are refused before the first request. A built-in description sentence exists for `bike-frames` now.
+- **Report.** `PROMPT_VERSION`, the SHA-256 of the system text and of the user text of the first request of each net, the
+  conditions of the run (examples, positions, temperature, JSON mode, rounds, runs, descriptions), a summary of the runs
+  (share that passed, rounds per run as a distribution, time, tokens), and the **similarity to the reference view** of the net:
+  kind agreement, mean distance of the element centers divided by the diagonal of the canvas, and agreement of appearance and
+  display. The calculation is `compareViews` in `@pnm/llm` (tested by hand calculation, and the reference against itself gives
+  100 % and distance 0), with its limits documented: a hidden element and a `slots` place have no center and count for the
+  kind only, decor, arcs and labels are not compared. The report is also written as `llm-<model>-<date>.report.json`.
+- `systemText`, `repairSystemText`, `buildPrompt`, `buildRepairPrompt` and `generateDomainView` take `positions: false`;
+  `withoutOwnExample` is exported.
+- Documentation: what the prompt contains and what it must not ([docs/domain-view.md](docs/domain-view.md)), the options and
+  how to state a run in a paper ([docs/eval/README.md](docs/eval/README.md)).
+- **Tests.** The leak test, tests of `compareViews`, of the prompt version and the positions, of every new option of the script (reading, errors, shots, positions, descriptions, repeat, saved prompts, hashes, conditions, similarity; also as a command line run against a simulated server) and of the log in the app. In all: 2422 unit and component tests (2382 before), 23 tests of the release scripts and 126 Playwright tests (115 in the project `chromium`, 11 in `server`; unchanged). The golden tests of N1 and N2 are unchanged and green.
+
+### Changed
+
+- The snapshot of the system text changed in rules 7 and 10 only; the default system text (with positions) is otherwise
+  identical to that of 1.4.0.
+- The evaluation of a net without a built-in description sentence now sends "A process called ..." (as the plan says)
+  instead of a fixed sentence, and the server address in the report is written without credentials. The existing test that
+  lists the files of a run now also lists `report.json`.
+- All packages are at version 1.4.1.
+
+### Known limitations
+
+- Runs with prompt version 1 cannot be told apart from version 2 in a record that was stored without the field; they read as
+  version 1.
+- The similarity is a rough measure: it says how close a result is to the one reference view, not whether it is good, and it
+  does not compare decor, arcs or labels.
+- The English equivalents of the leak test are kept by hand and cannot be complete; the test finds a leak of a name or a
+  word on its list, not a paraphrase.
+
 ## 1.4.0: Quantities as graphics, cases by stage
 
 Increment N2. Amounts no longer have to be numbers only, and a case no longer looks the same from the first order to the

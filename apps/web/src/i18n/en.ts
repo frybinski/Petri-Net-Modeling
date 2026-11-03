@@ -1281,6 +1281,8 @@ export const en = {
     showLog: 'Show the log',
     logTitle: 'Log of the generation',
     logModel: 'Model',
+    logPromptVersion: 'Prompt version',
+    logPromptVersionOld: (n: number) => `${n} (before 1.4.1)`,
     logServer: 'Server',
     logStarted: 'Started',
     logDuration: 'Duration',

@@ -262,6 +262,13 @@ export function RecordSummary({ record }: { record: DomainViewGeneration }) {
   const finished = Date.parse(record.finishedAt);
   const rows: Array<[string, string]> = [
     [en.llm.logModel, record.model],
+    [
+      en.llm.logPromptVersion,
+      // A record without the field was written by 1.4.0 or before: prompt version 1.
+      record.promptVersion === undefined
+        ? en.llm.logPromptVersionOld(1)
+        : String(record.promptVersion),
+    ],
     [en.llm.logServer, record.baseUrl],
     [en.llm.logStarted, record.startedAt.replace('T', ' ').slice(0, 19) + ' UTC'],
     [

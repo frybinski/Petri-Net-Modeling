@@ -1,10 +1,17 @@
 import { genericDomainView, type DomainView } from '@pnm/domain';
-import type { ChatRequest, ChatResult, Provider, ProviderConfig } from '@pnm/llm';
+import {
+  PROMPT_VERSION,
+  type ChatRequest,
+  type ChatResult,
+  type Provider,
+  type ProviderConfig,
+} from '@pnm/llm';
 import { createFakeProvider, type FakeScript } from '@pnm/llm/testing';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../App';
+import { RecordSummary } from './generation-parts';
 import { setProviderFactory } from '../../lib/domain-generation';
 import { API_KEY_KEY, DEFAULT_SETTINGS, SETTINGS_KEY } from '../../lib/llm-settings';
 import { useEditorStore } from '../../store/editor-store';
@@ -213,12 +220,34 @@ describe('generate dialog', () => {
     await user.click(screen.getByTestId('domain-show-log'));
     const log = await screen.findByTestId('llm-log');
     expect(within(log).getByTestId('llm-record')).toHaveTextContent('test-model');
+    expect(within(log).getByTestId('llm-record')).toHaveTextContent(
+      `Prompt version${PROMPT_VERSION}`,
+    );
     expect(within(log).getAllByTestId('llm-round')).toHaveLength(2);
 
     editor().select(['q']);
     await waitFor(() => {
       expect(screen.getByTestId('domain-entry-badge')).toHaveTextContent('LLM (test-model)');
     });
+  });
+
+  it('names the prompt version in the log, and version 1 for a record of 1.4.0', () => {
+    const record = {
+      model: 'm',
+      baseUrl: 'http://x/v1',
+      startedAt: '2026-11-03T10:00:00.000Z',
+      finishedAt: '2026-11-03T10:00:05.000Z',
+      description: 'd',
+      prompt: { system: 's', user: 'u' },
+      rounds: [],
+      filled: [],
+      dropped: [],
+    };
+    const { unmount } = render(<RecordSummary record={record} />);
+    expect(screen.getByTestId('llm-record')).toHaveTextContent('Prompt version1 (before 1.4.1)');
+    unmount();
+    render(<RecordSummary record={{ ...record, promptVersion: 2 }} />);
+    expect(screen.getByTestId('llm-record')).toHaveTextContent(/Prompt version2Server/);
   });
 
   it('cancels a running generation and returns to the form', async () => {
