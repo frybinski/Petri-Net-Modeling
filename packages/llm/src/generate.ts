@@ -26,6 +26,7 @@ import {
   answerSchema,
   buildPrompt,
   buildRepairPrompt,
+  PROMPT_VERSION,
   type Canvas,
   type Prompt,
   type PromptExample,
@@ -57,6 +58,8 @@ export interface GenerateOptions {
    * the structure of the net itself.
    */
   examples?: PromptExample[];
+  /** Send the editor positions of the net and of the examples (default true). */
+  positions?: boolean;
   onProgress?: (progress: GenerateProgress) => void;
   signal?: AbortSignal;
   /** The clock in milliseconds since the epoch (tests). */
@@ -86,9 +89,13 @@ export interface GenerateResult {
 }
 
 /** The worked examples, without one that has the structure of this very net: no free answer. */
-function examplesFor(net: PetriNet): PromptExample[] {
+export function withoutOwnExample(net: PetriNet, examples: PromptExample[]): PromptExample[] {
   const own = netHash(net);
-  return defaultExamples().filter((example) => netHash(example.net) !== own);
+  return examples.filter((example) => netHash(example.net) !== own);
+}
+
+function examplesFor(net: PetriNet): PromptExample[] {
+  return withoutOwnExample(net, defaultExamples());
 }
 
 function iso(ms: number): string {
@@ -136,6 +143,7 @@ export async function generateDomainView(
     options.onProgress?.({ round, phase, ...(diagnostics ? { diagnostics } : {}) });
   };
 
+  const positions = options.positions !== false;
   const startedMs = now();
   const startedAt = iso(startedMs);
   const canvas = options.canvas ?? genericDomainView(net, { at: startedAt }).meta.canvas;
@@ -147,8 +155,9 @@ export async function generateDomainView(
     canvas,
     examples: options.examples ?? examplesFor(net),
     schema: answerSchema(),
+    positions,
   });
-  const compact = compactNet(net);
+  const compact = compactNet(net, { positions });
 
   const rounds: RoundLog[] = [];
   const notes: string[] = [];
@@ -231,6 +240,7 @@ export async function generateDomainView(
         diagnostics,
         net: compact,
         canvas,
+        positions,
       });
     }
   }
@@ -305,6 +315,7 @@ export function toGenerationRecord(
 ): DomainViewGeneration {
   return {
     model: result.model,
+    promptVersion: PROMPT_VERSION,
     baseUrl: publicBaseUrl(info.baseUrl),
     startedAt: result.startedAt,
     finishedAt: result.finishedAt,

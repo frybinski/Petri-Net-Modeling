@@ -29,6 +29,8 @@ export interface PromptInput {
   examples: PromptExample[];
   /** JSON Schema of the answer; see `answerSchema`. */
   schema: unknown;
+  /** Send the editor positions of the net and of the examples. Default true. */
+  positions?: boolean;
 }
 
 export interface Prompt {
@@ -57,6 +59,18 @@ export function answerSchema(): Record<string, unknown> {
   return schema;
 }
 
+/**
+ * The version of the fixed texts of the prompt. It is raised with every change of their content
+ * and named in the generation log and in the evaluation report. Version 1 is the prompt of 1.4.0
+ * and before, which still named the stages of the bicycle frame example in rule 10 and the
+ * parcel center in rule 7.
+ */
+export const PROMPT_VERSION = 2;
+
+/** The sentence about the editor positions; it is left out when no positions are sent. */
+const POSITION_SENTENCE =
+  ' The positions of the net in the editor (scaled to 0..1) show how the author arranged it; use them as a hint, but use the whole canvas.';
+
 const ROLE_AND_RULES = `You map a Petri net onto a domain view: a picture of the real place where the process happens (a hall, a floor plan, a workshop). You decide only WHERE things are drawn and WHAT they are drawn as. You never change what the net does: the net alone defines the behaviour, and a program checks your answer against the net.
 
 Answer with exactly one JSON object and nothing else: no explanation, no Markdown. The object has the keys "schemaVersion" (always 1), "meta", "places", "transitions" and, optionally, "arcs" and "decor". Do not write "netHash" or "provenance"; the tool adds them.
@@ -73,27 +87,39 @@ Rules. A program checks every one of them and reports what is broken:
 4. A transition that a "slots" place refers to needs at least as many slot points as the resource place has tokens at the start. Slot points lie inside the box of the transition, at least 24 px apart.
 5. Geometry is in canvas pixels, origin at the top left, y grows downwards. Every point and rectangle lies completely inside the canvas. A rectangle is [x, y, width, height] with positive width and height. A point is [x, y]. A path has at least two points of different position, in the direction in which cases move. Paths of queues, conveyors and buffers should be at least ${MIN_QUEUE_LENGTH} px long (they hold about ten tokens).
 6. A view describes only geometry and labels. Never write durations, weights, rates, probabilities, priorities, guards, conditions or capacities; the net has them.
-7. "meta" has "theme" (the setting, for example "Parcel sorting center"), "viewName" (for example "Hall 2"), "entity" with "singular", "plural" and "sprite" (one of ${SPRITES.join(', ')}), the canvas size exactly as given, and optionally "metersPerPixel".
+7. "meta" has "theme" (the setting, for example "Hospital outpatient clinic"), "viewName" (for example "Ground floor"), "entity" with "singular", "plural" and "sprite" (one of ${SPRITES.join(', ')}), the canvas size exactly as given, and optionally "metersPerPixel".
 8. "arcs" is optional: keys are "sourceId>targetId", values {"path": [[x, y], [x, y]]}. A straight path from the border of one element to the border of the other is fine. Arcs you leave out are drawn automatically.
 9. "decor" is optional scenery that gives context: "room" or "zone" ({"rect", "label"?}), "wall" ({"segs": [[x1, y1, x2, y2], ...], "width"?}), "label" ({"pos", "text"}), "furniture" ({"rect"}) and "scale" ({"pos", "px", "label"}). Use at most ten entries.
 10. Optional, and only where the process gives a reason: how a counter shows its amount, and how cases look at each stage.
    - "display" on a counter ("pool", "source" or "sink") draws the amount as more than a number; the number stays. {"style": "fill", "max": N, "low"?: M, "icon"?} is a container with a fill level, full at N (a store with a known limit); below M the level turns yellow. {"style": "pictogram", "per": K, "icon"?} draws one symbol for every K tokens (choose K so that about 5 to 30 symbols appear; for totals that only grow, such as emissions, waste or shipped goods). "history": true adds a small curve over the simulated time. "icon" is one of ${QUANTITY_ICONS.join(', ')} for a counter of an amount (a sink of cases may use them too), and one of ${SPRITES.join(', ')} for a place that holds cases. Without "display" a counter shows its number.
-   - "appearance" {"sprite", "tint"?} on a place that holds cases ("queue", "conveyor", "buffer", "source" or "sink") draws the cases on it as that sprite (one of ${SPRITES.join(', ')}), so that one case can look different at each stage of the process: an order as "document", cut tubes as "bars", a raw frame as "frame" with tint "neutral", a coated one as "frame" with tint "accent", the shipped item as "parcel". "tint" is one of ${TINTS.join(', ')}; never write a color. Never give an "appearance" to a resource or to a place that counts an amount, and never give a "display" to a queue, conveyor, buffer or hidden place.
+   - "appearance" {"sprite", "tint"?} on a place that holds cases ("queue", "conveyor", "buffer", "source" or "sink") draws the cases on it as that sprite (one of ${SPRITES.join(', ')}), so that one case can look different at each stage of the process: a patient as "person" with tint "neutral" while waiting and with tint "ok" after the treatment, a laboratory sample as "document". "tint" is one of ${TINTS.join(', ')}; never write a color. Never give an "appearance" to a resource or to a place that counts an amount, and never give a "display" to a queue, conveyor, buffer or hidden place.
 
-Layout. Follow the flow of the process, usually from left to right. The positions of the net in the editor (scaled to 0..1) show how the author arranged it; use them as a hint, but use the whole canvas. Put every transition next to the places it connects, keep at least 40 px between boxes, and make boxes large enough for their labels. Labels are short and use the language of the names in the net.`;
+Layout. Follow the flow of the process, usually from left to right.@@POSITIONS@@ Put every transition next to the places it connects, keep at least 40 px between boxes, and make boxes large enough for their labels. Labels are short and use the language of the names in the net.`;
 
 const REPAIR_ADDENDUM = `
 
 In this request you repair an answer. You get the findings of the checking program and the entries they are about. Fix exactly those findings and change nothing else.`;
 
+export interface TextOptions {
+  /** Whether the net carries editor positions; without them the sentence about them is left out. Default true. */
+  positions?: boolean;
+}
+
+function rulesText(options: TextOptions): string {
+  return ROLE_AND_RULES.replace(
+    '@@POSITIONS@@',
+    options.positions === false ? '' : POSITION_SENTENCE,
+  );
+}
+
 /** The system text of the first request. */
-export function systemText(): string {
-  return ROLE_AND_RULES;
+export function systemText(options: TextOptions = {}): string {
+  return rulesText(options);
 }
 
 /** The system text of a repair request. */
-export function repairSystemText(): string {
-  return ROLE_AND_RULES + REPAIR_ADDENDUM;
+export function repairSystemText(options: TextOptions = {}): string {
+  return rulesText(options) + REPAIR_ADDENDUM;
 }
 
 /** An example view as shown to the model: no provenance, no hash, no arcs, little decor. */
@@ -102,11 +128,11 @@ export function shortenExample(view: DomainView): Omit<DomainView, 'netHash' | '
   return { ...rest, ...(decor ? { decor: decor.slice(0, EXAMPLE_DECOR_LIMIT) } : {}) };
 }
 
-function exampleText(example: PromptExample, index: number): string {
+function exampleText(example: PromptExample, index: number, positions: boolean): string {
   return [
     `### Example ${index + 1}: ${example.net.name}`,
     'Net:',
-    compactJson(compactNet(example.net), 2),
+    compactJson(compactNet(example.net, { positions }), 2),
     'Domain view (arcs left out here; they are optional):',
     compactJson(shortenExample(example.view), 2),
   ].join('\n');
@@ -115,6 +141,7 @@ function exampleText(example: PromptExample, index: number): string {
 /** The first request: the domain, the net, the schema and two worked examples. */
 export function buildPrompt(input: PromptInput): Prompt {
   const { net, description, canvas, examples, schema } = input;
+  const positions = input.positions !== false;
   const text = description.trim() === '' ? `A process called "${net.name}".` : description.trim();
   const user = [
     '## Domain',
@@ -124,7 +151,7 @@ export function buildPrompt(input: PromptInput): Prompt {
     `The canvas is ${canvas.width} px wide and ${canvas.height} px high. Write exactly these numbers to "meta.canvas".`,
     '',
     '## Net to map',
-    compactJson(compactNet(net), 2),
+    compactJson(compactNet(net, { positions }), 2),
     '',
     '## JSON Schema of your answer',
     JSON.stringify(schema),
@@ -132,11 +159,11 @@ export function buildPrompt(input: PromptInput): Prompt {
     '## Worked examples',
     'These show the format and the level of detail. Do not copy their geometry.',
     '',
-    ...examples.flatMap((example, i) => [exampleText(example, i), '']),
+    ...examples.flatMap((example, i) => [exampleText(example, i, positions), '']),
     '## Task',
     `Write the domain view for the net "${net.name}" above. Answer with the JSON object only.`,
   ].join('\n');
-  return { system: systemText(), user };
+  return { system: systemText({ positions }), user };
 }
 
 /** The rules that the findings belong to, in a short form for the model. */
@@ -166,6 +193,8 @@ export interface RepairInput {
   diagnostics: DomainDiagnostic[];
   net: CompactNet;
   canvas: Canvas;
+  /** Whether the first request sent positions; the system text then matches it. Default true. */
+  positions?: boolean;
 }
 
 /** At most this many findings are sent back. */
@@ -250,5 +279,5 @@ export function buildRepairPrompt(input: RepairInput): Prompt {
     '{ "places": { "<id>": { ... } }, "transitions": { "<id>": { ... } }, "arcs": { "<key>": { ... } }, "decor": [ ... ] }',
     'Leave out every section that you do not change. An entry you write replaces the old entry completely, so write it in full. If you change "decor", write the complete corrected list. If "meta" is wrong, include a complete "meta". Entries that are missing must be added. Answer with the JSON object only.',
   ].join('\n');
-  return { system: repairSystemText(), user };
+  return { system: repairSystemText({ positions: input.positions !== false }), user };
 }

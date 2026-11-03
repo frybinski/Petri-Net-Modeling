@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DomainDiagnostic } from '@pnm/domain';
 import {
   EXAMPLE_DECOR_LIMIT,
+  PROMPT_VERSION,
   answerSchema,
   buildPrompt,
   buildRepairPrompt,
@@ -351,5 +352,52 @@ describe('display and appearance in the prompt (N2)', () => {
     expect(repair.user).toContain('an appearance belongs only to places that hold cases');
     // The entry the finding is about is sent back with its old content.
     expect(repair.user.slice(repair.user.indexOf('## Your entries'))).toContain('"display"');
+  });
+});
+
+describe('version and positions of the prompt (N3)', () => {
+  const { net } = loadExample('parcel-center');
+  const sentence = 'The positions of the net in the editor';
+  const input = {
+    net,
+    description: 'x',
+    canvas: { width: 1200, height: 640 },
+    examples: defaultExamples(),
+    schema: answerSchema(),
+  };
+
+  it('is version 2; the prompt of 1.4.0 and before counts as version 1', () => {
+    expect(PROMPT_VERSION).toBe(2);
+  });
+
+  it('names a hospital in rules 7 and 10, not the examples of the repository', () => {
+    const lines = systemText().split('\n');
+    expect(lines.find((l) => l.startsWith('7. '))).toContain('Hospital outpatient clinic');
+    expect(lines.find((l) => l.includes('"appearance" {'))).toContain('a patient as "person"');
+  });
+
+  it('sends positions by default and says so in the system text', () => {
+    const prompt = buildPrompt(input);
+    expect(prompt.system).toContain(sentence);
+    expect(prompt.user).toContain('"positions"');
+    expect(prompt.system).toBe(systemText({ positions: true }));
+  });
+
+  it('leaves positions and the sentence about them out on request, also in examples and repair', () => {
+    const prompt = buildPrompt({ ...input, positions: false });
+    expect(prompt.system).not.toContain(sentence);
+    expect(prompt.system).toContain('usually from left to right. Put every transition');
+    expect(prompt.user).not.toContain('"positions"');
+    expect(prompt.system).toBe(systemText({ positions: false }));
+    const repair = buildRepairPrompt({
+      previous: {},
+      diagnostics: [{ rule: 'V1', severity: 'error', path: '(root)', message: 'x' }],
+      net: compactNet(net, { positions: false }),
+      canvas: input.canvas,
+      positions: false,
+    });
+    expect(repair.system).toBe(repairSystemText({ positions: false }));
+    expect(repair.system).not.toContain(sentence);
+    expect(repair.user).not.toContain('"positions"');
   });
 });
