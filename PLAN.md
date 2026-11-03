@@ -232,6 +232,11 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Domänenansicht am Feld, im Status der Ansicht (Überlauf) und in der Reparaturrunde des LLM. Plan
   `docs/plan/N2_Umsetzungsplan.md`, ADR 0018, Doku in `docs/domain-view.md` und `docs/limitations.md` (G1 bis G6).
 
+### N3 · Prompt ohne Lecks, Auswertung für Experimente · geplant (1.4.1)
+- Die festen Texte des Prompts nennen keine Lösungen der Beispiele mehr (Test), `PROMPT_VERSION`, und das Eval-Skript
+  bekommt Optionen für Ablationen (Beispiele, Positionen, Beschreibungen, Wiederholungen) sowie Prompt-Hash, Bedingungen
+  und Ähnlichkeit zur Referenzansicht im Bericht. Plan `docs/plan/N3_Umsetzungsplan.md`.
+
 ## 5. Projektstruktur
 
 ```
