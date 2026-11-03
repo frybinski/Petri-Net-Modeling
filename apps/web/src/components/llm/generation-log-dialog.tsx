@@ -27,6 +27,32 @@ export function GenerationLogDialog() {
       {record ? (
         <div className="flex flex-col gap-4" data-testid="llm-log">
           <RecordSummary record={record} />
+          {record.modelNotes && record.modelNotes.length > 0 ? (
+            <section aria-label={en.llm.logModelNotes} data-testid="llm-log-model-notes">
+              <h3 className="m-0 mb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">
+                {en.llm.logModelNotes}
+              </h3>
+              <ul className="m-0 list-disc pl-5 text-xs">
+                {record.modelNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {record.notes && record.notes.length > 0 ? (
+            <ul className="m-0 list-disc pl-5 text-xs text-muted" aria-label={en.llm.notes}>
+              {record.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
+          {record.choices ? (
+            <Details title={en.llm.logChoices} testId="llm-log-choices">
+              <pre className="m-0 max-h-48 overflow-auto font-mono text-[11px] leading-4 whitespace-pre-wrap">
+                {JSON.stringify(record.choices, null, 2)}
+              </pre>
+            </Details>
+          ) : null}
           <Details title={`${en.llm.rounds} (${record.rounds.length})`}>
             <RoundLogList rounds={record.rounds} />
           </Details>

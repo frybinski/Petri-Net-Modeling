@@ -133,6 +133,8 @@ describe('generate dialog', () => {
     const harness = installProvider(script, { gated: true });
     await openDialog(user);
 
+    // The guided form comes first; the description is on the free tab (N4).
+    await user.click(screen.getByTestId('llm-tab-free'));
     // The form starts with the name of the net and shows the provider.
     const description = screen.getByTestId<HTMLTextAreaElement>('llm-description');
     expect(description).toHaveValue('Small');

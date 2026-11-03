@@ -1,18 +1,22 @@
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Circle,
   Loader2,
   RotateCcw,
   Settings,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { en } from '../../i18n/en';
 import {
+  applyChoicesWithoutLlm,
   applyGeneratedView,
   backToForm,
   cancelGeneration,
+  chooseTab,
   closeGenerateDialog,
   failureHint,
   startGeneration,
@@ -24,12 +28,15 @@ import { useEditorStore } from '../../store/editor-store';
 import {
   useGenerationStore,
   type GenerationFailure,
+  type GenerationTab,
   type StepRow,
 } from '../../store/generation-store';
 import { useLlmStore } from '../../store/llm-store';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { NumberField, inputClass } from '../ui/fields';
+import { useChoiceProblems } from '../../lib/use-choice-problems';
+import { GuidedForm } from './guided-form';
 import {
   Details,
   FindingList,
@@ -160,38 +167,98 @@ function ProviderLine() {
   );
 }
 
-function FormBody() {
+/** The two ways into the dialog: a form with choices, or a free description (N4). */
+function Tabs() {
+  const tab = useGenerationStore((s) => s.tab);
+  const tabs: ReadonlyArray<{ id: GenerationTab; label: string }> = [
+    { id: 'guided', label: en.llm.tabGuided },
+    { id: 'free', label: en.llm.tabFree },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label={en.llm.tabs}
+      className="flex gap-1 border-b border-border"
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        chooseTab(tab === 'guided' ? 'free' : 'guided');
+        window.setTimeout(() => {
+          event.currentTarget.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+        });
+      }}
+    >
+      {tabs.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="tab"
+          id={`llm-tab-${item.id}`}
+          aria-selected={tab === item.id}
+          aria-controls="llm-tab-panel"
+          tabIndex={tab === item.id ? 0 : -1}
+          onClick={() => {
+            chooseTab(item.id);
+          }}
+          data-testid={`llm-tab-${item.id}`}
+          className="-mb-px border-b-2 border-transparent px-3 py-1.5 text-sm font-medium text-muted hover:text-fg aria-selected:border-accent aria-selected:text-fg"
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The free way: a description in the person's own words, wishes about the look included. */
+function FreeText() {
   const description = useGenerationStore((s) => s.description);
+  const patch = useGenerationStore((s) => s.patch);
+  const id = useId();
+  const hintId = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-xs font-medium text-muted">
+        {en.llm.describe}
+      </label>
+      <textarea
+        id={id}
+        rows={4}
+        autoFocus
+        value={description}
+        placeholder={en.llm.describePlaceholder}
+        aria-describedby={hintId}
+        className={`${inputClass} h-auto resize-y py-1.5`}
+        data-testid="llm-description"
+        onChange={(event) => {
+          patch({ description: event.target.value });
+        }}
+      />
+      <p id={hintId} className="m-0 text-[11px] text-muted">
+        {en.llm.describeHint}
+      </p>
+    </div>
+  );
+}
+
+function FormBody() {
+  const tab = useGenerationStore((s) => s.tab);
   const width = useGenerationStore((s) => s.width);
   const height = useGenerationStore((s) => s.height);
   const patch = useGenerationStore((s) => s.patch);
   const net = useEditorStore((s) => s.net);
-  const id = useId();
-  const hintId = useId();
   const view = analyseDomainView(net).validation?.view ?? null;
   return (
     <div className="flex flex-col gap-4">
+      <Tabs />
       <ProviderLine />
-      <div className="flex flex-col gap-1">
-        <label htmlFor={id} className="text-xs font-medium text-muted">
-          {en.llm.describe}
-        </label>
-        <textarea
-          id={id}
-          rows={4}
-          autoFocus
-          value={description}
-          placeholder={en.llm.describePlaceholder}
-          aria-describedby={hintId}
-          className={`${inputClass} h-auto resize-y py-1.5`}
-          data-testid="llm-description"
-          onChange={(event) => {
-            patch({ description: event.target.value });
-          }}
-        />
-        <p id={hintId} className="m-0 text-[11px] text-muted">
-          {en.llm.describeHint}
-        </p>
+      <div
+        role="tabpanel"
+        id="llm-tab-panel"
+        aria-labelledby={`llm-tab-${tab}`}
+        className="flex flex-col gap-4"
+      >
+        {tab === 'guided' ? <GuidedForm /> : <FreeText />}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <NumberField
@@ -221,7 +288,7 @@ function FormBody() {
           role="note"
           data-testid="llm-replace-note"
         >
-          {en.llm.replaceNote}
+          {tab === 'guided' ? en.llm.guided.replaceNote : en.llm.replaceNote}
         </p>
       ) : null}
     </div>
@@ -250,6 +317,25 @@ function ResultBody() {
         <CheckCircle2 size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-ok" />
         <span>{outcome}</span>
       </p>
+      {generation.modelNotes.length > 0 ? (
+        <section
+          className="flex flex-col gap-1 rounded-md border border-warn bg-warn-soft px-3 py-2"
+          aria-label={en.llm.modelNotes}
+          data-testid="llm-model-notes"
+        >
+          <h3 className="m-0 flex items-center gap-1.5 text-xs font-semibold text-warn">
+            <AlertTriangle size={13} aria-hidden="true" />
+            {en.llm.modelNotes}
+          </h3>
+          <ul className="m-0 list-disc pl-5 text-xs">
+            {generation.modelNotes.map((note) => (
+              <li key={note} data-testid="llm-model-note">
+                {note}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <ViewPreview net={net} view={generation.view} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
@@ -276,7 +362,11 @@ function ResultBody() {
         </div>
       </div>
       {generation.notes.length > 0 ? (
-        <ul className="m-0 list-disc pl-5 text-xs text-muted" aria-label={en.llm.notes}>
+        <ul
+          className="m-0 list-disc pl-5 text-xs text-muted"
+          aria-label={en.llm.notes}
+          data-testid="llm-notes"
+        >
           {generation.notes.map((note) => (
             <li key={note}>{note}</li>
           ))}
@@ -329,6 +419,11 @@ export function GenerateDialog() {
   const failure = useGenerationStore((s) => s.failure);
   const settings = useLlmStore((s) => s.settings);
   const locked = useEditorStore((s) => s.mode === 'simulate');
+  const tab = useGenerationStore((s) => s.tab);
+  const choices = useGenerationStore((s) => s.choices);
+  const problems = useChoiceProblems();
+  // The guided way needs a form without errors; the free one needs nothing.
+  const guidedBlocked = tab === 'guided' && (choices === null || problems.length > 0);
 
   let footer;
   let body;
@@ -391,13 +486,26 @@ export function GenerateDialog() {
         <Button onClick={closeGenerateDialog} data-testid="llm-close">
           {en.llm.close}
         </Button>
+        {tab === 'guided' ? (
+          <Button
+            icon={<Wand2 size={14} aria-hidden="true" />}
+            onClick={() => {
+              void applyChoicesWithoutLlm();
+            }}
+            disabled={guidedBlocked || locked}
+            title={locked ? en.llm.lockedTip : en.llm.guided.applyTip}
+            data-testid="guided-apply"
+          >
+            {en.llm.guided.apply}
+          </Button>
+        ) : null}
         <Button
           variant="primary"
           icon={<Sparkles size={14} aria-hidden="true" />}
           onClick={() => {
             void startGeneration();
           }}
-          disabled={!isConfigured(settings) || locked}
+          disabled={!isConfigured(settings) || locked || guidedBlocked}
           title={locked ? en.llm.lockedTip : undefined}
           data-testid="llm-start"
         >

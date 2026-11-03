@@ -1,9 +1,22 @@
 import type { PetriNet } from '@pnm/core';
-import type { DomainDiagnostic } from '@pnm/domain';
-import type { DomainViewGeneration, GeneratePhase, GenerateResult } from '@pnm/llm';
+import type { DomainDiagnostic, ViewChoices } from '@pnm/domain';
+import type { Concept, DomainViewGeneration, GeneratePhase, GenerateResult } from '@pnm/llm';
 import { create } from 'zustand';
 
 export type GenerationStage = 'form' | 'running' | 'result' | 'error';
+
+/** The two ways into the dialog (N4): a form with choices, or a free description. */
+export type GenerationTab = 'guided' | 'free';
+
+/** The concepts that the model suggested for the form, with what went wrong asking for them. */
+export interface ConceptState {
+  busy: boolean;
+  concepts: Concept[];
+  notes: string[];
+  error: string | null;
+}
+
+export const NO_CONCEPTS: ConceptState = { busy: false, concepts: [], notes: [], error: null };
 
 /** One line of the progress list: a phase of a round, with its duration. */
 export interface StepRow {
@@ -27,7 +40,16 @@ interface GenerationState {
   /** The log of the generation stored with the net is shown. */
   logOpen: boolean;
   stage: GenerationStage;
+  /** The way of the form (remembered between sessions). */
+  tab: GenerationTab;
   description: string;
+  /** The form of the guided way; `null` until the dialog was opened for a net. */
+  choices: ViewChoices | null;
+  /** The title of the concept that filled the form, if the person picked one. */
+  concept: string | null;
+  suggestions: ConceptState;
+  /** The way of the generation that is under way or whose result is shown. */
+  runMode: GenerationTab;
   width: number;
   height: number;
   maxRounds: number;
@@ -66,7 +88,12 @@ const FORM: Pick<
 export const useGenerationStore = create<GenerationState>()((set, get) => ({
   open: false,
   logOpen: false,
+  tab: 'guided',
   description: '',
+  choices: null,
+  concept: null,
+  suggestions: NO_CONCEPTS,
+  runMode: 'guided',
   width: 1200,
   height: 700,
   ...FORM,
