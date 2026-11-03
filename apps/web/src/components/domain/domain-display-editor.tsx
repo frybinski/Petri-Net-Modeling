@@ -3,6 +3,7 @@ import {
   SPRITES,
   TINTS,
   allowedIcons,
+  entityAppearance,
   entryOf,
   roleHoldsCases,
   suggestDisplay,
@@ -21,11 +22,15 @@ import { Checkbox } from '../ui/checkbox';
 import { NumberField } from '../ui/fields';
 import { Segmented } from '../ui/segmented';
 import {
+  EMOJI_VALUE,
+  emojiOption,
   iconOption,
+  lookOption,
   spriteOption,
   tintOption,
   type PictureOption,
 } from '../../lib/domain-picture-options';
+import { EmojiField } from './domain-emoji-field';
 import { PicturePicker } from './domain-picture-picker';
 
 type Field = 'style' | 'max' | 'low' | 'per' | 'icon';
@@ -36,7 +41,7 @@ function fieldOf(path: string, base: string): Field {
   if (rest.startsWith('max')) return 'max';
   if (rest.startsWith('low')) return 'low';
   if (rest.startsWith('per')) return 'per';
-  if (rest.startsWith('icon')) return 'icon';
+  if (rest.startsWith('icon') || rest.startsWith('emoji')) return 'icon';
   return 'style';
 }
 
@@ -46,6 +51,7 @@ function nothingToShow(display: CounterDisplay): boolean {
     display.style === 'number' &&
     display.history !== true &&
     display.icon === undefined &&
+    display.emoji === undefined &&
     display.unit === undefined
   );
 }
@@ -112,6 +118,7 @@ export function DisplayEditor({
       },
     },
     ...allowedIcons(role).map((icon) => iconOption(icon, en.domain.displayIcons[icon] ?? icon)),
+    ...(display?.emoji !== undefined ? [emojiOption(display.emoji, en.domain.emojiOption)] : []),
   ];
 
   return (
@@ -184,19 +191,32 @@ export function DisplayEditor({
       ) : null}
       <PicturePicker
         label={en.domain.displayIcon}
-        value={display?.icon ?? ''}
+        value={display?.emoji !== undefined ? EMOJI_VALUE : (display?.icon ?? '')}
         options={icons}
         disabled={locked}
-        error={errors.icon}
         onChange={(value) => {
+          if (value === EMOJI_VALUE) return;
           const icon = allowedIcons(role).find((i) => i === value);
           const next: CounterDisplay = display ?? { style: 'number' };
-          const { icon: _old, ...rest } = next;
+          const { icon: _old, emoji: _emoji, ...rest } = next;
           apply(
             icon === undefined ? (rest as CounterDisplay) : ({ ...rest, icon } as CounterDisplay),
           );
         }}
         data-testid="domain-field-display-icon"
+      />
+      <EmojiField
+        value={display?.emoji}
+        disabled={locked}
+        error={errors.icon}
+        onCommit={(emoji) => {
+          const next: CounterDisplay = display ?? { style: 'number' };
+          const { icon: _old, emoji: _emoji, ...rest } = next;
+          apply(
+            emoji === undefined ? (rest as CounterDisplay) : ({ ...rest, emoji } as CounterDisplay),
+          );
+        }}
+        data-testid="domain-field-display-emoji"
       />
       <Checkbox
         label={en.domain.displayHistory}
@@ -254,16 +274,16 @@ export function AppearanceEditor({
   const apply = (next: Appearance | undefined): void => {
     setTyped({ key: JSON.stringify(appearance ?? null), errors: changeAppearance(entry, next) });
   };
-  const entity = view.meta.entity.sprite;
+  const entity = entityAppearance(view.meta.entity);
   const sprites: PictureOption[] = [
     {
-      ...spriteOption(entity, en.domain.appearanceDefault),
+      ...lookOption(entity, en.domain.appearanceDefault),
       value: '',
       draw: (ctx, size, palette) => {
         // The entity of the view, drawn faintly inside a dashed ring.
         ctx.save();
         ctx.globalAlpha = 0.55;
-        spriteOption(entity, '').draw(ctx, size, palette);
+        lookOption(entity, '').draw(ctx, size, palette);
         ctx.restore();
         ctx.beginPath();
         ctx.arc(size / 2, size / 2, size * 0.45, 0, Math.PI * 2);
@@ -277,6 +297,9 @@ export function AppearanceEditor({
     ...SPRITES.map((sprite) =>
       spriteOption(sprite, en.domain.sprites[sprite] ?? sprite, appearance?.tint),
     ),
+    ...(appearance?.emoji !== undefined
+      ? [emojiOption(appearance.emoji, en.domain.emojiOption)]
+      : []),
   ];
   const tints: PictureOption[] = [
     tintOption(null, en.domain.appearanceTintNone),
@@ -290,11 +313,11 @@ export function AppearanceEditor({
       </legend>
       <PicturePicker
         label={en.domain.appearanceSprite}
-        value={appearance?.sprite ?? ''}
+        value={appearance?.emoji !== undefined ? EMOJI_VALUE : (appearance?.sprite ?? '')}
         options={sprites}
         disabled={locked}
-        error={error}
         onChange={(value) => {
+          if (value === EMOJI_VALUE) return;
           const sprite = SPRITES.find((s) => s === value);
           apply(
             sprite === undefined
@@ -304,18 +327,32 @@ export function AppearanceEditor({
         }}
         data-testid="domain-field-appearance-sprite"
       />
+      <EmojiField
+        value={appearance?.emoji}
+        disabled={locked}
+        error={error}
+        onCommit={(emoji) => {
+          apply(emoji === undefined ? undefined : { emoji });
+        }}
+        data-testid="domain-field-appearance-emoji"
+      />
       <PicturePicker
         label={en.domain.appearanceTint}
         value={appearance?.tint ?? ''}
         options={tints}
-        disabled={locked}
+        disabled={locked || appearance?.emoji !== undefined}
         onChange={(value) => {
           const tint: Tint | undefined = TINTS.find((t) => t === value);
-          apply({ sprite: appearance?.sprite ?? entity, ...(tint !== undefined && { tint }) });
+          apply({
+            sprite: appearance?.sprite ?? entity.sprite ?? 'dot',
+            ...(tint !== undefined && { tint }),
+          });
         }}
         data-testid="domain-field-appearance-tint"
       />
-      <p className="m-0 text-[11px] text-muted">{en.domain.appearanceHint}</p>
+      <p className="m-0 text-[11px] text-muted">
+        {appearance?.emoji !== undefined ? en.domain.emojiNoTint : en.domain.appearanceHint}
+      </p>
     </fieldset>
   );
 }

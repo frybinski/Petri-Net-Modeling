@@ -13,7 +13,7 @@ import {
   type Provenance,
 } from '@pnm/domain';
 import { z } from 'zod';
-import type { Canvas } from './prompt';
+import { MAX_NOTES_PER_ANSWER, type Canvas } from './prompt';
 
 /**
  * What the model has written so far, as loosely typed data. It is merged from the answers of the
@@ -55,6 +55,31 @@ function unwrap(json: unknown): Record<string, unknown> | null {
   const only = inner.length === 1 ? inner[0] : undefined;
   if (isRecord(only) && SECTIONS.some((key) => key in only)) return only;
   return json;
+}
+
+/** The longest note that is kept; a model that writes an essay gets it cut. */
+export const MAX_NOTE_LENGTH = 300;
+
+/**
+ * The `notes` of an answer (N4): short sentences about wishes the model could not fulfil. They are
+ * no part of a view, so they are taken out here, before the answer is checked or stored. At most
+ * `limit` are kept, each one cut to `MAX_NOTE_LENGTH` characters.
+ */
+export function notesOf(json: unknown, limit = MAX_NOTES_PER_ANSWER): string[] {
+  const holders = [json, unwrap(json)].filter(isRecord);
+  const found: string[] = [];
+  for (const holder of holders) {
+    const raw = holder['notes'];
+    const items = typeof raw === 'string' ? [raw] : Array.isArray(raw) ? raw : [];
+    for (const item of items) {
+      if (typeof item !== 'string') continue;
+      const text = item.replace(/\s+/g, ' ').trim();
+      if (text === '') continue;
+      const cut = text.length > MAX_NOTE_LENGTH ? `${text.slice(0, MAX_NOTE_LENGTH - 1)}…` : text;
+      if (!found.includes(cut)) found.push(cut);
+    }
+  }
+  return found.slice(0, limit);
 }
 
 export interface MergeResult {
@@ -113,7 +138,7 @@ const candidateSchema = z.strictObject({
 });
 
 export interface Inspection {
-  /** All findings: the schema problems of single entries and the rules V2 to V11 on the rest. */
+  /** All findings: the schema problems of single entries and the rules V2 to V12 on the rest. */
   diagnostics: DomainDiagnostic[];
   /** The candidate without the entries that break the schema; it passes the schema check. */
   view: DomainView;
@@ -152,7 +177,7 @@ function provenanceFor(
 
 /**
  * Checks a candidate against the net. Entries that break the schema are reported (rule V1) and
- * left out, so that the rules V2 to V11 can still be checked on everything else; one round then
+ * left out, so that the rules V2 to V12 can still be checked on everything else; one round then
  * reports all findings and not only the first kind.
  */
 export function inspect(

@@ -864,6 +864,7 @@ export function suggestDisplay(
   const count = net.marking[placeId]?.length ?? 0;
   const common = {
     ...(previous?.icon !== undefined && { icon: previous.icon }),
+    ...(previous?.emoji !== undefined && { emoji: previous.emoji }),
     ...(previous?.unit !== undefined && { unit: previous.unit }),
     ...(previous?.history === true && { history: true }),
   };

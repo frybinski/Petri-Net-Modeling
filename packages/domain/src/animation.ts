@@ -23,7 +23,7 @@ import {
   type TokenLayout,
 } from './token-layout';
 import type { Appearance, DisplayIcon, Point } from './schema';
-import { spriteSize } from './scene';
+import { appearanceSize } from './symbols';
 
 /** How long a token needs for one move, in milliseconds of wall-clock time. */
 export const MOTION_MS = 300;
@@ -79,6 +79,8 @@ export interface FlowMarker {
   count: number;
   /** The symbol of the amount, from the `display.icon` of the place; without one a plain dot runs. */
   icon?: DisplayIcon;
+  /** An emoji as the symbol of the amount (N4), instead of `icon`. */
+  emoji?: string;
   /** From the place to the transition (`out`) or from the transition to the place (`in`). */
   path: Point[];
   /** Wall-clock milliseconds (the clock the caller passes as `now`). */
@@ -308,7 +310,7 @@ export function sampleSprites(
       moving: false,
       state: token.state,
       appearance,
-      size: spriteSize(appearance.sprite),
+      size: appearanceSize(appearance),
     });
   }
   for (const motion of moving.values()) {
@@ -325,7 +327,7 @@ export function sampleSprites(
       moving: true,
       state: laid?.state ?? 'waiting',
       appearance,
-      size: Math.max(spriteSize(appearance.sprite), blend ? spriteSize(blend.from.sprite) : 0),
+      size: Math.max(appearanceSize(appearance), blend ? appearanceSize(blend.from) : 0),
       ...(blend && { blend }),
     });
   }
@@ -484,7 +486,9 @@ export function applyEvents(
       );
       if (path.length < 2) continue;
       const shown = view.places[placeId];
-      const icon = shown !== undefined && 'display' in shown ? shown.display?.icon : undefined;
+      const display = shown !== undefined && 'display' in shown ? shown.display : undefined;
+      const icon = display?.icon;
+      const emoji = display?.emoji;
       pendingFlows.push({
         eventId: event.id,
         placeId,
@@ -492,6 +496,7 @@ export function applyEvents(
         direction,
         count,
         ...(icon !== undefined && { icon }),
+        ...(emoji !== undefined && { emoji }),
         path,
       });
     }

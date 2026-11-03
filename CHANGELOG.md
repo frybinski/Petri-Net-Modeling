@@ -2,6 +2,90 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.5.0: Free symbols, wishes for the view, guided or free
+
+Increment N4. A person wrote in the description for the language model that the tokens should be shown as unicorns, and
+nothing changed: the tool knew eight fixed sprites, the answer schema enforced them, the description was only context in
+the prompt, and the model had no way to say what it could not do. This release adds an **emoji** as a free vocabulary of
+symbols, lets the prompt follow **wishes** about the look and the model **report** what it could not do, and gives the
+generate dialog two ways: a **guided** form with binding choices and a **free** description. **The file format stays
+`1.0`; all new fields are optional, the simulation outputs and the views and scenes of all examples are unchanged**
+(the golden tests of N1 and N2 pass without a change), and the app's default request still sends the editor positions and
+the two default examples. The plan is [docs/plan/N4_Umsetzungsplan.md](docs/plan/N4_Umsetzungsplan.md).
+
+### Added
+
+- **Emoji as symbols (rule V12).** `meta.entity`, the `appearance` of a place and the `display` of a counter (in place of
+  `icon`) take `"emoji": "🦄"`: exactly one of `sprite` or `emoji` (`tint` only with `sprite`, as an emoji cannot be
+  tinted). An emoji is exactly one grapheme cluster (`Intl.Segmenter`) with an `Extended_Pictographic` character (also with
+  a variation selector, a skin tone or a ZWJ sequence: 👩‍⚕️, ❤️), a flag (🇩🇪) or a keycap (1️⃣); `"ab"`, `"🦄🦄"`, `""` and
+  `"a🦄"` are rejected. **V12** reports it at the field, in the status of the view and in the repair round of the model;
+  V10 and V11 hold for an emoji as for a sprite. An older version rejects a view with `emoji` (the schema is strict), see
+  [limitations G6 and G7](docs/limitations.md).
+- **Drawing.** An emoji is a text command with `emoji: true` in the scene (testable without a canvas), drawn with
+  `fillText` in `"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif` wherever a sprite or an icon appears:
+  cases on belts, in slots and in motion, the change of look at the end of a firing (also from a sprite to an emoji), the
+  pictogram (the last symbol partly filled), the legend, the flow dots, the hover card and the PNG export. Emoji look
+  different on every system and an exported image shows those of the machine that exported it (limitation G7).
+  `@pnm/domain` exports `emojiProblem`, `isEmoji`, `graphemes`, `EMOJI_FONT`, `appearanceSize`, `entityAppearance`.
+- **Wishes and notes (prompt version 3).** The system text now says that the description may contain wishes about the look
+  and to follow them within the format, to prefer a built-in symbol where one fits and to write an `emoji` where none does,
+  that a color can only be approximated by a tint, and that the answer may carry `notes` (at most five short sentences). The
+  examples in the new text come from a library, a domain no example net uses; the leak test is green. The tool takes the
+  `notes` out of the answer **before** checking and storing, collects them over the repair rounds without duplicates and shows
+  them in the result step in a box _Notes from the model_ above the preview; the generation record keeps them
+  (`modelNotes`) and the log shows them. `PROMPT_VERSION` is 3.
+- **The guided way in the generate dialog.** Two tabs: _Guided_ (the first tab at the first opening, the last choice is
+  remembered) and _Free_. The form is prefilled from the net and its view: setting, entity (sprite or emoji), the look of
+  each place that holds cases in the order of the flow (like the entity, a sprite with a color, or an emoji), the display of
+  each amount and each sink of cases (number, fill level with `max` from the capacity or a known bound of the analysis,
+  pictogram with `per` for about 10 to 20 symbols; symbol; curve), arrangement, equipment and additions. The fields are
+  checked against V10 to V12 at once. **Suggest concepts** sends one short request and shows up to three concepts as cards
+  (invalid parts are left out and noted; the leak test covers this prompt too); a click fills the form. **The choices are
+  binding:** they go into the request as the section _Binding choices_, and afterwards the tool sets entity, looks and
+  displays to exactly the choice and notes every deviation of the model (_Choice applied: …_). Arrangement and equipment
+  act through the prompt only, and the dialog says so. **Apply without LLM** sets the choices on the current or the generic
+  view without changing geometry, as one undo step with provenance `user`, and works without a provider. The generation
+  record stores the way (`mode`), the choices and the concept.
+- **Inspector.** An input _Emoji…_ for the entity, the look of a stage and the symbol of a counter, checked at once
+  (V12 at the field), one undo step per change. The canvas has `data-entity` and its `data-looks` name emoji for tests.
+- **Evaluation.** `--choices <file>` runs the nets in `{ "<id>": <choices> }` the guided way (the nets not in it run the
+  free way, so both can be compared in one run); the report names the way of each net and lists the notes of the model per
+  run. See [docs/eval/README.md](docs/eval/README.md).
+- [ADR 0019](docs/adr/0019-emoji-symbols-and-binding-choices.md) records why: emoji and not uploaded images, a text command
+  in the scene, notes that are not checked, and choices that the tool enforces where it can.
+- **Review pictures** `docs/images/review/n4_*` (the dialog in both ways, the result with the notes, a view with emoji, in
+  light and dark) and `scripts/review-n4.mjs` that makes them.
+- **Tests.** Emoji: the check, the schema and V12 with valid and invalid cases, scenes with emoji (entity, appearance and
+  change, pictogram with a part, flow dot), painting with `fillText`, 200 emoji against the unchanged frame budget; notes
+  (stripped, collected, kept), an answer with emoji, binding choices, deviations, concepts (good, invalid, more than three,
+  none), `applyChoices` and the defaults; the inspector, the dialog (both tabs, the form, concepts, binding generation,
+  apply without LLM, notes, log), `--choices`; and three Playwright tests with the simulated model: free way (the
+  description asks for unicorns, the result shows the note, after _Use_ the running view carries 🦄), guided way (pick a
+  concept, generate, the view carries the chosen symbols and displays) and apply without LLM. In all: 2522 unit and
+  component tests (2422 before), 23 tests of the release scripts and 129 Playwright tests (118 in the project
+  `chromium`, 11 in `server`).
+
+### Changed
+
+- The snapshot of the system text changed (rule 7, rule 10 and the new rules 11 to 13 for wishes and emoji, notes and the
+  binding choices); the version and the answer schema (`notes`) are pinned in `prompt.test.ts` with the new values, on
+  purpose. The record schema listed the rules V1 to V9 only and now knows V10 to V12 (a record with a finding of V10 or V11
+  could not be read back before).
+- `meta.entity` is `{ singular, plural, sprite? , emoji? }` in the types; the schema and V12 decide that exactly one is set,
+  so that code that edits a view in steps still compiles.
+- The existing tests that type a description (`llm.test.tsx`, `llm.spec.ts`) click the tab _Free_ first, because the
+  guided form is the first tab. The test that built a `GenerateResult` by hand has the new field `modelNotes`.
+- The placeholder of the description is "A bakery with two ovens. Show the loaves as 🍞." (it named the parcel center).
+- All packages are at version 1.5.0.
+
+### Known limitations
+
+- An emoji looks different on every system, cannot be tinted, and an exported image shows the emoji of the machine that
+  exported it (G7). A wish for a color can only be approximated by a tint (G8).
+- The notes of the model are not checked against the description (G9). Arrangement and equipment of the guided way are not
+  enforceable (G10). No uploaded images or SVG symbols (G11).
+
 ## 1.4.1: A prompt without leaks, an evaluation for experiments
 
 Increment N3. The fixed texts of the prompt for the language model gave away parts of the solutions of the examples, so a

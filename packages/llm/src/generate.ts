@@ -1,5 +1,7 @@
 import type { PetriNet } from '@pnm/core';
 import {
+  applyChoices,
+  choiceDeviations,
   fillArcs,
   fillMissing,
   genericDomainView,
@@ -9,13 +11,16 @@ import {
   type DomainDiagnostic,
   type DomainView,
   type Provenance,
+  type ViewChoices,
 } from '@pnm/domain';
+import { composeDescription } from './choices-text';
 import { compactNet } from './compact-net';
 import {
   emptyCandidate,
   inspect,
   isEmpty,
   mergeAnswer,
+  notesOf,
   type Candidate,
   type Inspection,
 } from './candidate';
@@ -60,6 +65,11 @@ export interface GenerateOptions {
   examples?: PromptExample[];
   /** Send the editor positions of the net and of the examples (default true). */
   positions?: boolean;
+  /**
+   * The binding choices of the guided way (N4). They go into the request, and afterwards the tool
+   * sets the entity, the looks and the displays to exactly this, whatever the model wrote.
+   */
+  choices?: ViewChoices;
   onProgress?: (progress: GenerateProgress) => void;
   signal?: AbortSignal;
   /** The clock in milliseconds since the epoch (tests). */
@@ -78,8 +88,10 @@ export interface GenerateResult {
   diagnostics: DomainDiagnostic[];
   /** True if the model's answer was not used at all and the view is the generic one. */
   fellBack: boolean;
-  /** Remarks for the person, for example a failed round. */
+  /** Remarks for the person, for example a failed round or a choice that replaced the model's. */
   notes: string[];
+  /** What the model said it could not do or only approximated (its `notes`, all rounds, once each). */
+  modelNotes: string[];
   model: string;
   startedAt: string;
   finishedAt: string;
@@ -120,7 +132,7 @@ function candidatePaths(candidate: Candidate): string[] {
 }
 
 /**
- * Asks the model for a domain view of the net, checks the answer with the rules V1 to V11 and sends
+ * Asks the model for a domain view of the net, checks the answer with the rules V1 to V12 and sends
  * the findings back as a repair request, at most `maxRounds` times in all. What is still wrong
  * afterwards is left out and filled in generically (`fillMissing`), so that the result always
  * passes the rules V1 to V5. Every entry carries its provenance: `llm` with the model, or `generic`.
@@ -151,16 +163,21 @@ export async function generateDomainView(
   progress(1, 'prompt');
   const first = buildPrompt({
     net,
-    description: options.description,
+    description:
+      options.description.trim() === '' && options.choices
+        ? composeDescription(options.choices)
+        : options.description,
     canvas,
     examples: options.examples ?? examplesFor(net),
     schema: answerSchema(),
     positions,
+    ...(options.choices ? { choices: options.choices } : {}),
   });
   const compact = compactNet(net, { positions });
 
   const rounds: RoundLog[] = [];
   const notes: string[] = [];
+  const modelNotes: string[] = [];
   let candidate: Candidate = emptyCandidate();
   let diagnostics: DomainDiagnostic[] = [];
   let inspection: Inspection | null = null;
@@ -198,6 +215,10 @@ export async function generateDomainView(
       break;
     }
     if (model === '') model = answer.model;
+    // The notes are no part of the view: they are taken out before anything is checked or stored.
+    for (const note of notesOf(answer.json)) {
+      if (!modelNotes.includes(note)) modelNotes.push(note);
+    }
 
     const merged = mergeAnswer(candidate, answer.json, kind === 'generate');
     let error: string | undefined;
@@ -264,6 +285,22 @@ export async function generateDomainView(
   view = keptDecor.length > 0 ? { ...withoutDecor, decor: keptDecor } : withoutDecor;
   view = fillArcs(net, view, { at: finishedAt });
 
+  // The choices of the guided way are binding: what the model wrote differently is replaced, and
+  // every replacement is told.
+  if (options.choices) {
+    const deviations = choiceDeviations(net, view, options.choices);
+    const applied = applyChoices(net, view, options.choices, {
+      at: finishedAt,
+      provenance: 'keep',
+    });
+    if (validateDomainView(net, applied.view).ok) {
+      view = applied.view;
+      notes.push(...deviations);
+    } else {
+      notes.push('The choices break a rule and were not applied; check them in the form.');
+    }
+  }
+
   let check = validateDomainView(net, view);
   if (!check.ok) {
     // Not expected: the steps above remove everything that breaks a rule.
@@ -300,6 +337,7 @@ export async function generateDomainView(
     diagnostics: check.diagnostics,
     fellBack,
     notes,
+    modelNotes,
     model: model === '' ? 'unknown' : model,
     startedAt,
     finishedAt,
@@ -311,7 +349,14 @@ export async function generateDomainView(
 /** The record that is stored with the net. The API key is not part of it. */
 export function toGenerationRecord(
   result: GenerateResult,
-  info: { description: string; baseUrl: string },
+  info: {
+    description: string;
+    baseUrl: string;
+    /** The way of the dialog; the choices and the title of the concept belong to the guided one. */
+    mode?: 'free' | 'guided';
+    choices?: ViewChoices;
+    concept?: string;
+  },
 ): DomainViewGeneration {
   return {
     model: result.model,
@@ -325,5 +370,9 @@ export function toGenerationRecord(
     filled: result.filled,
     dropped: result.dropped,
     ...(result.notes.length > 0 ? { notes: result.notes } : {}),
+    ...(info.mode !== undefined ? { mode: info.mode } : {}),
+    ...(info.choices !== undefined ? { choices: info.choices } : {}),
+    ...(info.concept !== undefined ? { concept: info.concept } : {}),
+    ...(result.modelNotes.length > 0 ? { modelNotes: result.modelNotes } : {}),
   };
 }

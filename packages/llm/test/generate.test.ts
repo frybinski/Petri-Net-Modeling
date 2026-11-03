@@ -477,6 +477,7 @@ describe('generation record', () => {
         diagnostics: [],
         fellBack: true,
         notes: [],
+        modelNotes: [],
         model: 'm',
         startedAt: 'a',
         finishedAt: 'b',

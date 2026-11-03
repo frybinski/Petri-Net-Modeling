@@ -1,8 +1,9 @@
-import { netHash } from '@pnm/domain';
+import type { Id } from '@pnm/core';
+import { netHash, type DomainView, type ViewChoices } from '@pnm/domain';
 import type { ChatProvider, GenerateResult, Provider, ProviderConfig } from '@pnm/llm';
 import { en } from '../i18n/en';
 import { useEditorStore } from '../store/editor-store';
-import { useGenerationStore } from '../store/generation-store';
+import { NO_CONCEPTS, useGenerationStore, type GenerationTab } from '../store/generation-store';
 import { useLlmStore } from '../store/llm-store';
 import { notify } from '../store/ui-store';
 import { isConfigured, type LlmSettings } from './llm-settings';
@@ -57,6 +58,59 @@ async function defaultCanvas(): Promise<{ width: number; height: number }> {
   return view ? view.meta.canvas : genericDomainView(net).meta.canvas;
 }
 
+const TAB_KEY = 'pnm.llm.generate-tab';
+
+/** The way that was used last (`guided` the first time). */
+export function storedTab(): GenerationTab {
+  try {
+    return localStorage.getItem(TAB_KEY) === 'free' ? 'free' : 'guided';
+  } catch {
+    return 'guided';
+  }
+}
+
+/** Switches between the guided and the free way, and remembers the choice. */
+export function chooseTab(tab: GenerationTab): void {
+  useGenerationStore.getState().patch({ tab });
+  try {
+    localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    // The choice is only a convenience.
+  }
+}
+
+/** The upper limits of places that an up-to-date analysis knows (invariants, coverability). */
+export async function knownBounds(): Promise<Record<Id, number>> {
+  // The analysis loads on demand, so it is not imported for the start of the app.
+  const [{ useAnalysisStore }, { analysisKey }] = await Promise.all([
+    import('../store/analysis-store'),
+    import('./analysis-key'),
+  ]);
+  const net = useEditorStore.getState().net;
+  const analysis = useAnalysisStore.getState();
+  const key = analysisKey(net);
+  const bounds: Record<Id, number> = {};
+  if (analysis.invariants?.key === key) Object.assign(bounds, analysis.invariants.value.bounds);
+  const coverability = analysis.space?.key === key ? analysis.space.value.coverability : null;
+  for (const [id, bound] of Object.entries(coverability?.bounds ?? {})) {
+    if (typeof bound === 'number') bounds[id] = Math.min(bound, bounds[id] ?? bound);
+  }
+  return bounds;
+}
+
+/** The view of the net if it has a valid one, else `null` (the choices then start from the net). */
+async function currentView(): Promise<DomainView | null> {
+  const { validateDomainView } = await import('@pnm/domain');
+  const net = useEditorStore.getState().net;
+  return validateDomainView(net, net.domainView).view ?? null;
+}
+
+/** The form of the guided way, prefilled from the net and its view. */
+async function prefilledChoices(): Promise<ViewChoices> {
+  const { defaultChoices } = await import('@pnm/domain');
+  return defaultChoices(useEditorStore.getState().net, await currentView(), await knownBounds());
+}
+
 /** Opens the dialog; a job that is still running is shown as it is. */
 export function openGenerateDialog(): void {
   if (editLocked()) return;
@@ -67,9 +121,23 @@ export function openGenerateDialog(): void {
   }
   const net = useEditorStore.getState().net;
   store.reset();
-  store.patch({ open: true, description: net.name.trim() });
+  store.patch({
+    open: true,
+    description: net.name.trim(),
+    tab: storedTab(),
+    choices: null,
+    concept: null,
+    suggestions: NO_CONCEPTS,
+  });
   void defaultCanvas().then(({ width, height }) => {
     useGenerationStore.getState().patch({ width, height });
+  });
+  void prefilledChoices().then((choices) => {
+    // The person may have closed the dialog or the net may have changed in the meantime.
+    const now = useGenerationStore.getState();
+    if (now.open && now.choices === null && useEditorStore.getState().net === net) {
+      now.patch({ choices });
+    }
   });
 }
 
@@ -121,11 +189,14 @@ export async function startGeneration(): Promise<void> {
     return;
   }
   const net = useEditorStore.getState().net;
-  const { description, width, height } = gen;
+  const { width, height } = gen;
+  const guided = gen.tab === 'guided' && gen.choices !== null;
+  const choices = guided ? gen.choices : null;
   const abort = new AbortController();
   controller = abort;
   gen.patch({
     stage: 'running',
+    runMode: guided ? 'guided' : 'free',
     steps: [],
     failure: null,
     result: null,
@@ -136,16 +207,26 @@ export async function startGeneration(): Promise<void> {
   try {
     const llm = await import('@pnm/llm');
     const provider: ChatProvider = await makeProvider(config);
+    // In the guided way the description is made of the form; the choices are binding.
+    const description = choices ? llm.composeDescription(choices) : gen.description;
     const result: GenerateResult = await llm.generateDomainView(net, provider, {
       description,
       canvas: { width, height },
       maxRounds: MAX_ROUNDS,
       signal: abort.signal,
+      ...(choices ? { choices } : {}),
       onProgress: (p) => {
         useGenerationStore.getState().progress(p.round, p.phase, p.diagnostics);
       },
     });
-    const record = llm.toGenerationRecord(result, { description, baseUrl: config.baseUrl });
+    const concept = useGenerationStore.getState().concept;
+    const record = llm.toGenerationRecord(result, {
+      description,
+      baseUrl: config.baseUrl,
+      mode: choices ? 'guided' : 'free',
+      ...(choices ? { choices } : {}),
+      ...(choices && concept !== null ? { concept } : {}),
+    });
     const store = useGenerationStore.getState();
     store.patch({ stage: 'result', result: { generation: result, record, net } });
     if (!store.open) {
@@ -176,6 +257,100 @@ export async function startGeneration(): Promise<void> {
   } finally {
     if (controller === abort) controller = null;
   }
+}
+
+/** Applies the form to the current view, or to the generic one if there is none: no model. */
+export async function applyChoicesWithoutLlm(): Promise<boolean> {
+  if (editLocked()) return false;
+  const { choices } = useGenerationStore.getState();
+  if (!choices) return false;
+  const domain = await import('@pnm/domain');
+  const editor = useEditorStore.getState();
+  const net = editor.net;
+  const at = new Date().toISOString();
+  const base = (await currentView()) ?? domain.genericDomainView(net, { at });
+  if (domain.choiceProblems(net, choices).length > 0) {
+    notify('error', en.llm.guided.problems);
+    return false;
+  }
+  const { view, changed } = domain.applyChoices(net, base, choices, { at, provenance: 'user' });
+  const normalized = domain.normalizeDomainView(view);
+  if (
+    changed.length === 0 &&
+    net.domainView !== undefined &&
+    sameJson(net.domainView, normalized)
+  ) {
+    notify('info', en.llm.guided.nothingToApply);
+    return false;
+  }
+  // One undo step; the record of an earlier generation stays with the net.
+  editor.setDomainView(normalized);
+  const store = useGenerationStore.getState();
+  store.setOpen(false);
+  store.reset();
+  notify('success', en.llm.guided.applied(changed.length));
+  return true;
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Asks the model for concepts that fill the form. The form is not changed until one is picked. */
+export async function suggestConceptsNow(): Promise<void> {
+  const gen = useGenerationStore.getState();
+  if (gen.suggestions.busy || !gen.choices) return;
+  const { settings, apiKey } = useLlmStore.getState();
+  if (!isConfigured(settings)) {
+    gen.patch({ suggestions: { ...NO_CONCEPTS, error: en.llm.notConfigured } });
+    return;
+  }
+  const net = useEditorStore.getState().net;
+  const { choices } = gen;
+  gen.patch({ suggestions: { ...NO_CONCEPTS, busy: true } });
+  try {
+    const llm = await import('@pnm/llm');
+    const provider = await makeProvider(providerConfig(settings, apiKey));
+    const result = await llm.suggestConcepts(provider, {
+      net,
+      setting: choices.setting,
+      additions: choices.additions,
+    });
+    useGenerationStore.getState().patch({
+      suggestions: { busy: false, concepts: result.concepts, notes: result.notes, error: null },
+    });
+  } catch (error) {
+    useGenerationStore.getState().patch({
+      suggestions: {
+        ...NO_CONCEPTS,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+}
+
+/** Fills the form from a concept; everything stays editable. */
+export function pickConcept(index: number): void {
+  const gen = useGenerationStore.getState();
+  const concept = gen.suggestions.concepts[index];
+  if (!concept) return;
+  // What the person wrote as additions stays; the rest of the form is the concept's.
+  const additions = gen.choices?.additions ?? concept.choices.additions;
+  // The form asks about the places it has rows for (a place that the view hides has none).
+  const rows = gen.choices;
+  const only = <T>(entries: Record<string, T>, known: Record<string, unknown> | undefined) =>
+    known === undefined
+      ? entries
+      : Object.fromEntries(Object.entries(entries).filter(([id]) => id in known));
+  gen.patch({
+    choices: {
+      ...concept.choices,
+      additions,
+      stages: only(concept.choices.stages, rows?.stages),
+      counters: only(concept.choices.counters, rows?.counters),
+    },
+    concept: concept.title,
+  });
 }
 
 /** Puts the generated view and its record into the document, as one undo step. */

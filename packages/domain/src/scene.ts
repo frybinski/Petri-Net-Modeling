@@ -18,6 +18,7 @@ import {
   type CounterEntry,
 } from './counter-graphic';
 import type { HistoryPoint } from './history';
+import { lookCommand } from './symbols';
 import type { Tone } from './palette';
 import {
   arcKey,
@@ -63,7 +64,7 @@ export type CellStyle = 'slot' | 'machine' | 'desk' | 'table';
  */
 export type CellState = 'free' | 'busy' | 'reserved' | 'off';
 
-interface Base {
+export interface CommandBase {
   layer: Layer;
   /** The place, transition or arc of the net the command belongs to. */
   elementId?: Id;
@@ -71,7 +72,7 @@ interface Base {
   decor?: number;
 }
 
-export type DrawCommand = Base &
+export type DrawCommand = CommandBase &
   (
     | {
         op: 'rect';
@@ -127,6 +128,13 @@ export type DrawCommand = Base &
         spacing?: number;
         halo?: boolean;
         alpha?: number;
+        /**
+         * The text is one emoji (N4), drawn in the emoji fonts and in its own colors; `tone` and
+         * `weight` do not matter. A `fraction` below 1 draws it as a partly filled symbol of a
+         * pictogram: faint as a whole, and the left part in full.
+         */
+        emoji?: boolean;
+        fraction?: number;
       }
     | { op: 'belt'; points: Point[]; width: number }
     | { op: 'lane'; points: Point[]; width: number }
@@ -217,7 +225,10 @@ export interface HitArea {
 export interface Scene {
   width: number;
   height: number;
-  sprite: Sprite;
+  /** The picture of the cases of the view; absent if the entity is an emoji. */
+  sprite?: Sprite;
+  /** The emoji of the cases of the view (N4); absent if the entity is a sprite. */
+  emoji?: string;
   layers: Record<Layer, DrawCommand[]>;
   hits: HitArea[];
 }
@@ -242,28 +253,6 @@ const BELT_WIDTH = 24;
 const BUFFER_WIDTH = 30;
 const LANE_WIDTH = 18;
 
-/**
- * The size of a case on the canvas, 14 to 22 px depending on how much room the picture needs. The
- * thin pictures of a frame and a bicycle are drawn larger, so that their tubes stay readable.
- */
-export function spriteSize(sprite: Sprite): number {
-  switch (sprite) {
-    case 'person':
-    case 'vehicle':
-      return 18;
-    case 'dot':
-      return 14;
-    case 'parcel':
-    case 'document':
-      return 16;
-    case 'bars':
-      return 18;
-    case 'frame':
-      return 20;
-    case 'bicycle':
-      return 24;
-  }
-}
 const PRIORITY = { arc: 0, area: 1, path: 2, card: 2, box: 2, point: 3, cell: 4 };
 
 // --- Text -------------------------------------------------------------------------------------
@@ -338,7 +327,7 @@ function appearanceContextOf(
   return { view, roles, inputs, outputs };
 }
 
-/** A case drawn as a sprite on a belt or lane, or on the slot of a station. */
+/** A case drawn as a sprite (or an emoji) on a belt or lane, or on the slot of a station. */
 function caseSprite(
   layer: Layer,
   elementId: Id,
@@ -346,18 +335,7 @@ function caseSprite(
   point: Point,
   direction?: Point,
 ): DrawCommand {
-  const oriented = look.sprite === 'person' || look.sprite === 'vehicle';
-  return {
-    layer,
-    elementId,
-    op: 'sprite',
-    sprite: look.sprite,
-    x: point[0],
-    y: point[1],
-    size: spriteSize(look.sprite),
-    ...(oriented && direction !== undefined ? { angle: directionAngle(direction) } : {}),
-    ...(look.tint !== undefined && { tint: look.tint }),
-  };
+  return lookCommand({ layer, elementId }, look, point, direction);
 }
 
 // --- Scene builder ----------------------------------------------------------------------------
@@ -606,10 +584,6 @@ function labelSpot(
   return { x: point[0] + nx * offset, y: point[1] + ny * offset, side: 'below' };
 }
 
-function directionAngle(direction: Point): number {
-  return Math.atan2(direction[1], direction[0]);
-}
-
 interface TokenSpots {
   spots: Array<{ point: Point; direction: Point }>;
   extra: number;
@@ -709,6 +683,7 @@ export function buildScene(
 ): Scene {
   const b = new Builder();
   const sprite = view.meta.entity.sprite;
+  const entityEmoji = view.meta.entity.emoji;
   const running = options.running ?? [];
   const countOf = (placeId: Id): number => marking[placeId]?.length ?? 0;
 
@@ -1294,7 +1269,8 @@ export function buildScene(
   const scene: Scene = {
     width: view.meta.canvas.width,
     height: view.meta.canvas.height,
-    sprite,
+    ...(sprite !== undefined && { sprite }),
+    ...(entityEmoji !== undefined && { emoji: entityEmoji }),
     layers: b.layers,
     hits: b.hits,
   };

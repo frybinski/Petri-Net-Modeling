@@ -9,6 +9,7 @@ import {
   type Layer,
   type Scene,
 } from './scene';
+import { EMOJI_FONT } from './emoji';
 import { isItemIcon, type DisplayIcon, type Point, type Sprite, type Tint } from './schema';
 
 export interface PaintOptions {
@@ -1284,6 +1285,34 @@ export function drawIcon(
   ctx.restore();
 }
 
+/**
+ * Draws an emoji (N4) with `fillText` in the emoji fonts, centered on its point, in its own
+ * colors. With a `fraction` below 1 it is a partly filled symbol of a pictogram, as in `drawIcon`.
+ */
+function drawEmoji(ctx: Ctx, command: Extract<DrawCommand, { op: 'text' }>): void {
+  ctx.font = `${command.size}px ${EMOJI_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) (ctx as Ctx & { letterSpacing: string }).letterSpacing = '0px';
+  const fraction = command.fraction ?? 1;
+  if (fraction >= 1) {
+    ctx.fillText(command.text, command.x, command.y);
+    return;
+  }
+  const size = command.size / 0.85;
+  ctx.save();
+  ctx.globalAlpha *= 0.28;
+  ctx.fillText(command.text, command.x, command.y);
+  ctx.restore();
+  if (fraction <= 0) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(command.x - size * 0.6, command.y - size, size * 0.1 + fraction * size, size * 2);
+  ctx.clip();
+  ctx.fillText(command.text, command.x, command.y);
+  ctx.restore();
+}
+
 // --- Commands ---------------------------------------------------------------------------------
 
 function paintCommand(
@@ -1422,6 +1451,10 @@ function paintCommand(
       break;
     }
     case 'text': {
+      if (command.emoji) {
+        drawEmoji(ctx, command);
+        break;
+      }
       ctx.font = `${command.weight} ${command.size}px ${command.mono ? palette.fontMono : palette.fontSans}`;
       ctx.textAlign = command.align;
       ctx.textBaseline = command.baseline;

@@ -120,6 +120,8 @@ test('a model repairs its view in round 2, the person uses it and sees where it 
   await expect(dialog).toHaveAttribute('data-stage', 'form');
   await expect(page.getByTestId('llm-replace-note')).toBeVisible();
   await expect(page.getByTestId('llm-provider-line')).toContainText('pw-model');
+  // The guided form comes first; the description is on the free tab (N4).
+  await page.getByTestId('llm-tab-free').click();
   await page.getByTestId('llm-description').fill('Parcel center, hall 2, three loading gates');
   await page.getByTestId('llm-start').click();
 

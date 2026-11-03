@@ -1,6 +1,6 @@
 {
   "name": "@pnm/io",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Import and export formats: event log CSV and XES, PNML, TikZ",
   "license": "MIT",

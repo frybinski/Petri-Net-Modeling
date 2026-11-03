@@ -5,7 +5,8 @@ import {
   paintBackdrop,
   paintLayers,
   SpriteCache,
-  spriteSize,
+  appearanceSize,
+  entityAppearance,
   staticLayoutState,
   visitedTransitions,
   type SpriteSample,
@@ -225,13 +226,13 @@ export function DomainCanvas() {
           .map((s) => `${s.caseId}@${Math.round(s.point[0])},${Math.round(s.point[1])}`)
           .join(';');
         if (canvas.dataset['cases'] !== cases) canvas.dataset['cases'] = cases;
-        // How the resting cases look (`<case>@<place or station>=<sprite>[/<tint>]`), for tests.
+        // How the resting cases look (`<case>@<place or station>=<sprite or emoji>[/<tint>]`), for tests.
         const looks = dynamic.sprites
           .filter((s) => s.caseId !== undefined && !s.moving)
           .slice(0, 40)
           .map(
             (s) =>
-              `${s.caseId}@${s.elementId ?? ''}=${s.appearance.sprite}${s.appearance.tint !== undefined ? `/${s.appearance.tint}` : ''}`,
+              `${s.caseId}@${s.elementId ?? ''}=${s.appearance.emoji ?? s.appearance.sprite}${s.appearance.tint !== undefined ? `/${s.appearance.tint}` : ''}`,
           )
           .join(';');
         if (canvas.dataset['looks'] !== looks) canvas.dataset['looks'] = looks;
@@ -602,7 +603,7 @@ export function DomainCanvas() {
     const found = hitSprite(
       animator.sprites,
       point,
-      spriteSize(view.meta.entity.sprite),
+      appearanceSize(entityAppearance(view.meta.entity)),
       3 / viewport.current.zoom,
     );
     return found?.caseId !== undefined ? found : null;
@@ -806,6 +807,7 @@ export function DomainCanvas() {
             tabIndex={0}
             data-testid="domain-canvas"
             data-hover={hover.id ?? ''}
+            data-entity={view ? (view.meta.entity.emoji ?? view.meta.entity.sprite) : undefined}
             data-editing={editing}
             className="absolute inset-0 h-full w-full touch-none outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
             style={{ cursor: editing && editor.cursor ? editor.cursor : cursor }}

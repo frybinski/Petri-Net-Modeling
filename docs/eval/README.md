@@ -32,17 +32,42 @@ These options are for comparing conditions, for example in the experiments of a 
 it did in 1.4.0 (the app's setting: both default examples and the editor positions). `--examples` still names the nets
 that are **evaluated**.
 
-| Option                      | Effect                                                                                                                                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--shots <ids>` / `none`    | The nets whose views are shown to the model as worked examples (default `parcel-center,smart-office`). The net that is evaluated is always left out. `none` is zero-shot.                                  |
-| `--no-positions`            | Sends no editor positions, neither of the net nor of the examples, and leaves out the sentence about them in the system text.                                                                              |
-| `--description <id>=<text>` | The description of the domain for one net; repeat the option for more nets. Built-in sentences exist for `parcel-center`, `smart-office` and `bike-frames`; a net without one gets "A process called ...". |
-| `--descriptions <file>`     | The same as a JSON file `{ "<id>": "<text>" }`. `--description` wins over the file.                                                                                                                        |
-| `--repeat <n>`              | Generates every net `n` times, independently (1 to 100). The report lists every run and a summary.                                                                                                         |
-| `--save-prompts`            | Writes the first request of every net (system and user text) next to the report.                                                                                                                           |
+| Option                      | Effect                                                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--shots <ids>` / `none`    | The nets whose views are shown to the model as worked examples (default `parcel-center,smart-office`). The net that is evaluated is always left out. `none` is zero-shot.                                         |
+| `--no-positions`            | Sends no editor positions, neither of the net nor of the examples, and leaves out the sentence about them in the system text.                                                                                     |
+| `--description <id>=<text>` | The description of the domain for one net; repeat the option for more nets. Built-in sentences exist for `parcel-center`, `smart-office` and `bike-frames`; a net without one gets "A process called ...".        |
+| `--descriptions <file>`     | The same as a JSON file `{ "<id>": "<text>" }`. `--description` wins over the file.                                                                                                                               |
+| `--repeat <n>`              | Generates every net `n` times, independently (1 to 100). The report lists every run and a summary.                                                                                                                |
+| `--save-prompts`            | Writes the first request of every net (system and user text) next to the report.                                                                                                                                  |
+| `--choices <file>`          | The guided way (1.5.0): a JSON file `{ "<id>": <choices> }` with the binding choices of the form for the nets in it. The nets that are not in the file run the free way, so both ways can be compared in one run. |
 
-An unknown net id in `--examples`, `--shots` or `--description`, a shot without a domain view, a description given twice
-and a bad file are refused before the first request (exit status 64).
+The choices of a net name only what they change; everything else is the default of the net (the generic view: the
+entity, the stages in the order of the flow, the counters as plain numbers). The fields are those of the form of the
+dialog (`setting`, `viewName`, `entity`, `stages`, `counters`, `layout`, `equipment`, `additions`), for example:
+
+```json
+{
+  "bike-frames": {
+    "setting": "A workshop for fairy tales",
+    "entity": { "singular": "Unicorn", "plural": "Unicorns", "emoji": "🦄" },
+    "stages": {
+      "p_welded": { "emoji": "🔥" },
+      "p_coated": { "sprite": "frame", "tint": "accent" }
+    },
+    "counters": { "p_co2": { "style": "pictogram", "per": 50, "icon": "co2", "history": true } },
+    "equipment": "zones"
+  }
+}
+```
+
+The choices go into the request as the section "Binding choices", and afterwards the tool sets the entity, the looks and
+the displays to exactly this (provenance stays the model's); every deviation of the model is a note in the report. The
+description of such a net is made of the setting and the additions, as in the app. The report names the way of each net
+under _Conditions_, and lists the notes of the model of every run (`Note of the model:`).
+
+An unknown net id in `--examples`, `--shots` or `--description`, a shot without a domain view, a description given twice,
+a bad file and choices that name an unknown place or break the rules V10 to V12 are refused before the first request (exit status 64).
 
 An ablation of what the model takes from the prompt: the bicycle frame example, with and without positions, with and
 without worked examples, three runs each. Every condition gets its own folder, because the file names carry the model and

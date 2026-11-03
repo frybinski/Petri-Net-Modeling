@@ -1,6 +1,6 @@
 # Projektplan: Werkzeug zur Modellierung höherer Petri-Netze
 
-Stand: 2026-11-03 · Status: Version 1.4.1 (M0–M6, D1–D5, N1 bis N3 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
+Stand: 2026-11-03 · Status: Version 1.5.0 (M0–M6, D1–D5, N1 bis N4 fertig; Echtzeit-Zusammenarbeit offen) · Ergänzt um die Domänenansicht (D1–D5)
 
 ## 1. Zielbild
 
@@ -241,6 +241,19 @@ Jeder Meilenstein endet mit einem lauffähigen, getesteten Stand.
   Referenzansicht (`compareViews`). Plan `docs/plan/N3_Umsetzungsplan.md`, Doku in `docs/domain-view.md` und
   `docs/eval/README.md`.
 
+### N4 · Freie Symbole, Wünsche an die Darstellung, geführt oder frei · fertig (1.5.0)
+- Emoji als freies Symbolvokabular für Gegenstand, Aussehen und Zählersymbol (Regel V12: genau ein Emoji, nie neben `sprite`
+  oder `icon`, nie mit `tint`), gezeichnet mit `fillText` überall, wo ein Symbol steht, als eigener Szeneneintrag
+  (`op: 'text'` mit `emoji: true`), im Inspektor mit „Emoji…“.
+- Wünsche in der Beschreibung werden befolgt, nicht erfüllbare als Hinweise (`notes`, höchstens fünf) des Modells
+  gemeldet: vor der Prüfung herausgenommen, über die Reparaturrunden gesammelt, im Ergebnisschritt und im Protokoll
+  gezeigt. `PROMPT_VERSION` 3; der Lecktest bleibt grün.
+- Im Generierungsdialog zwei Wege: „Guided“ (Formular aus Netz und Ansicht, Konzeptvorschläge des LLM als Karten,
+  verbindliche Wahl für Gegenstand, Aussehen und Zähler mit Hinweis je Abweichung des Modells, „Apply without LLM“ ohne
+  Änderung der Geometrie als ein Undo-Schritt) und „Free“. Das Eval-Skript hat `--choices <file>`. Plan
+  `docs/plan/N4_Umsetzungsplan.md`, Doku in `docs/domain-view.md`, `docs/limitations.md` (G7 bis G11) und
+  `docs/eval/README.md`.
+
 ## 5. Projektstruktur
 
 ```
@@ -285,7 +298,7 @@ Petri-Net-Modeling/
 
 ## 8. Stand und nächste Schritte
 
-Version 1.4.1 schließt M0 bis M6, D1 bis D5 und N1 bis N3 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
+Version 1.5.0 schließt M0 bis M6, D1 bis D5 und N1 bis N4 ab. Die Einschränkungen, die bis dahin bekannt waren, sind behoben oder
 stehen mit Begründung in `docs/limitations.md`; das Vorgehen steht in `docs/plan/Release-1.0_Umsetzungsplan.md`.
 
 M6 ist mit 1.2.0 fertig: ein kleiner Server (`apps/server`) liefert die App im KIT-Netz aus, vermittelt LLM-Anfragen, bietet
@@ -311,6 +324,15 @@ ersetzt, ein Test sichert das ab, und das Eval-Skript trennt für die Experiment
 was es aus dem Prompt übernimmt (`docs/plan/N3_Umsetzungsplan.md`). Läufe mit Prompt-Version 1 (bis 1.4.0) sind damit nicht
 unmittelbar mit späteren vergleichbar. Offen aus N3: Die englischen Entsprechungen des Lecktests werden von Hand gepflegt
 und decken keine Umschreibungen ab.
+
+N4 ist mit 1.5.0 fertig: Anlass war der Wunsch, die Marken als Einhörner darzustellen, der nichts änderte, weil nur acht feste
+Symbole existierten, das Antwortschema sie erzwang und das Modell nicht melden konnte, was es nicht umsetzen konnte. Jetzt
+gibt es Emoji als freies Symbolvokabular (Regel V12), Wünsche in der Beschreibung samt Hinweisen des Modells und im Dialog
+zwei Wege, geführt (verbindliche Wahl, Konzeptvorschläge, Anwenden ohne LLM) und frei, die sich in den Experimenten als zwei
+Arten der Erhebung von Nutzerwünschen vergleichen lassen (`docs/plan/N4_Umsetzungsplan.md`). Läufe mit Prompt-Version 2
+(1.4.1) sind mit denen der Version 3 nicht unmittelbar vergleichbar. Offen aus N4: Emoji sehen je System anders aus und
+lassen sich nicht einfärben, die Hinweise des Modells werden nicht gegen die Beschreibung geprüft, Anordnung und Ausstattung
+des geführten Wegs wirken nur über den Prompt, und hochgeladene Bilder oder SVG-Symbole gibt es nicht (G7 bis G11).
 
 Offen sind optionale Bausteine:
 

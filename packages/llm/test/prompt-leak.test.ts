@@ -1,13 +1,24 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNetText, type PetriNet } from '@pnm/core';
-import { QUANTITY_ICONS, SPRITES, TINTS, type DomainView } from '@pnm/domain';
+import {
+  DISPLAY_ICONS,
+  EQUIPMENT_CHOICES,
+  LAYOUT_CHOICES,
+  QUANTITY_ICONS,
+  SPRITES,
+  TINTS,
+  defaultChoices,
+  type DomainView,
+} from '@pnm/domain';
 import { describe, expect, it } from 'vitest';
 import {
   answerSchema,
+  buildConceptPrompt,
   buildPrompt,
   buildRepairPrompt,
   compactNet,
+  conceptSchema,
   repairSystemText,
   systemText,
 } from '../src';
@@ -131,8 +142,16 @@ function contains(text: string, term: string): boolean {
  */
 function withoutEnumerations(text: string): string {
   let result = text;
-  for (const list of [SPRITES, QUANTITY_ICONS, TINTS]) {
+  for (const list of [
+    SPRITES,
+    QUANTITY_ICONS,
+    TINTS,
+    DISPLAY_ICONS,
+    LAYOUT_CHOICES,
+    EQUIPMENT_CHOICES,
+  ]) {
     result = result.split(list.join(', ')).join(' ');
+    result = result.split(list.map((name) => `"${name}"`).join(', ')).join(' ');
     for (const name of list) result = result.split(`"${name}"`).join(' ');
   }
   return result;
@@ -171,8 +190,22 @@ function checkedTexts(): Array<{ what: string; text: string }> {
     net: compactNet(probe),
     canvas,
   });
+  // The guided way (N4): the section of the binding choices and the request for concepts.
+  const guided = buildPrompt({
+    net: probe,
+    description: 'A probe.',
+    canvas,
+    examples: [],
+    schema: answerSchema(),
+    choices: defaultChoices(probe, null),
+  });
+  const concepts = buildConceptPrompt({ net: probe });
   return [
     { what: 'system text', text: systemText() },
+    { what: 'frame of the first request with choices', text: fixedFrame(guided.user) },
+    { what: 'system text of the concept request', text: concepts.system },
+    { what: 'frame of the concept request', text: concepts.user },
+    { what: 'JSON Schema of the concepts', text: JSON.stringify(conceptSchema()) },
     { what: 'repair system text', text: repairSystemText() },
     { what: 'frame of the first request', text: fixedFrame(first.user) },
     { what: 'frame of the repair request', text: repair.user },

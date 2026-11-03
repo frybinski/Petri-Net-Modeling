@@ -269,6 +269,12 @@ export function RecordSummary({ record }: { record: DomainViewGeneration }) {
         ? en.llm.logPromptVersionOld(1)
         : String(record.promptVersion),
     ],
+    ...(record.mode !== undefined
+      ? ([[en.llm.logWay, en.llm.logWays[record.mode] ?? record.mode]] as Array<[string, string]>)
+      : []),
+    ...(record.concept !== undefined
+      ? ([[en.llm.logConcept, record.concept]] as Array<[string, string]>)
+      : []),
     [en.llm.logServer, record.baseUrl],
     [en.llm.logStarted, record.startedAt.replace('T', ' ').slice(0, 19) + ' UTC'],
     [

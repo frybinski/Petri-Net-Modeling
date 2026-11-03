@@ -179,13 +179,15 @@ a file (the unknown key is dropped), so saving there loses them.
 `domainView` is an optional mapping that says how the net is drawn as a hall, a floor plan or a generic process picture:
 where each place and transition is, as what it is drawn, and some scenery. It contains no behaviour (no durations,
 weights, rates or conditions). `@pnm/core` reads, keeps and writes the value without looking at it (`setDomainView`
-changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V11) and draws it. The
+changes it); the package `@pnm/domain` defines the schema, checks it against the net (rules V1 to V12) and draws it. The
 file format version stays `1.0`; files without the field are valid.
 
 `domainViewGeneration` is an optional record next to the view that says how a language model generated it: model, the version of the prompt
 (`promptVersion`, absent in records of 1.4.0 and before, which count as version 1), server
 (without credentials), time, the description of the domain, the first prompt, the log of the rounds (rule findings per
-round) and the lists of entries that were filled in generically or dropped. It is never part of the view itself, so the
+round), the lists of entries that were filled in generically or dropped and, since 1.5.0, the way (`mode`: `guided` or
+`free`), the binding `choices` and the title of the `concept` of the guided way, and the `modelNotes` (what the model said
+it could not do). It is never part of the view itself, so the
 view stays strict, and it never contains an API key. `@pnm/core` passes it through like `domainView`; `@pnm/llm`
 defines and reads it. Removing the view removes the record.
 

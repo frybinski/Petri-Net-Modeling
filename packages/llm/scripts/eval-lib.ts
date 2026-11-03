@@ -3,9 +3,18 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNetText, type PetriNet } from '@pnm/core';
-import type { DomainView } from '@pnm/domain';
+import {
+  choiceProblems,
+  defaultChoices,
+  stagePlaces,
+  counterPlaces,
+  viewChoicesSchema,
+  type DomainView,
+  type ViewChoices,
+} from '@pnm/domain';
 import {
   PROMPT_VERSION,
+  composeDescription,
   compareViews,
   createProvider,
   errorMessage,
@@ -50,6 +59,12 @@ export interface EvalOptions {
   descriptions?: Record<string, string>;
   /** A JSON file `{ "<id>": "<text>" }`; the entries of `descriptions` win. */
   descriptionsFile?: string;
+  /**
+   * A JSON file `{ "<id>": <choices> }` (N4): the nets in it run the guided way with these
+   * binding choices, the others the free way. Each entry is merged over the default choices of
+   * the net, so that it can name only what it changes.
+   */
+  choicesFile?: string;
   /** How often every net is generated, independently (default 1). */
   repeat?: number;
   /** Write the first request of every net next to the report. */
@@ -81,6 +96,10 @@ export interface EvalRow {
   fellBack: boolean;
   seconds: number;
   tokens: number;
+  /** `guided` if the run used binding choices (`--choices`), else `free`. */
+  way?: 'free' | 'guided';
+  /** What the model said it could not do or only approximated (its `notes`). */
+  modelNotes?: string[];
   error?: string;
   viewFile?: string;
   /** Against the view stored in the repository; absent if the net has none or the run failed. */
@@ -97,6 +116,8 @@ export interface PromptInfo {
   shots: string[];
   descriptionSource: 'custom' | 'built-in' | 'none';
   description: string;
+  /** The way of the net: free text, or the guided form with binding choices (`--choices`). */
+  way?: 'free' | 'guided';
 }
 
 export interface EvalOutcome {
@@ -129,6 +150,9 @@ Generates the domain view of the parcel center and the smart office with a langu
   --descriptions <file> the same as a JSON file { "<id>": "<text>" }; --description wins
   --repeat <n>          generate every net n times, independently; the report lists every run and
                         a summary
+  --choices <file>      the guided way (N4): a JSON file { "<id>": <choices> } with the binding
+                        choices per net, merged over the defaults of the net (see docs/eval). The nets
+                        that are not in the file run the free way, so both can be compared.
   --save-prompts        write the first request (system and user text) of every net next to the report
   --out-dir <dir>       default <repository>/docs/eval
   --date <YYYY-MM-DD>   for the file names, default today
@@ -182,6 +206,7 @@ export function parseArgs(
     'examples',
     'shots',
     'descriptions',
+    'choices',
     'repeat',
     'out-dir',
     'date',
@@ -241,6 +266,7 @@ export function parseArgs(
     descriptions[id] = text;
   }
   const descriptionsFile = values.get('descriptions');
+  const choicesFile = values.get('choices');
   return {
     help,
     strict: flags.has('strict'),
@@ -252,6 +278,7 @@ export function parseArgs(
       ...(flags.has('no-positions') ? { positions: false } : {}),
       ...(descriptionArgs.length > 0 ? { descriptions } : {}),
       ...(descriptionsFile ? { descriptionsFile } : {}),
+      ...(choicesFile ? { choicesFile } : {}),
       ...(repeat !== undefined ? { repeat } : {}),
       ...(flags.has('save-prompts') ? { savePrompts: true } : {}),
       ...(apiKey ? { apiKey } : {}),
@@ -328,6 +355,83 @@ export function resolveDescriptions(options: {
     ...(options.descriptionsFile ? readDescriptionsFile(options.descriptionsFile) : {}),
     ...options.descriptions,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads the file of choices (`--choices`): `{ "<id>": <choices> }`. An entry names only what it
+ * changes; the rest is the default of the net (the generic view). Throws with a message for the
+ * person if the file, an id, a place or a field is wrong, or if the choices break the rules V10
+ * to V12 of the form.
+ */
+export function readChoicesFile(
+  path: string,
+  nets: ReadonlyMap<string, PetriNet>,
+): Map<string, ViewChoices> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    throw new Error(`Cannot read the choices file ${path}: ${errorMessage(error)}`, {
+      cause: error,
+    });
+  }
+  if (!isRecord(parsed)) {
+    throw new Error(`The choices file ${path} must be a JSON object { "<id>": <choices> }`);
+  }
+  const result = new Map<string, ViewChoices>();
+  for (const [id, entry] of Object.entries(parsed)) {
+    const net = nets.get(id);
+    if (!net) {
+      throw new Error(
+        `--choices: "${id}" is not one of the evaluated nets (${[...nets.keys()].join(', ')})`,
+      );
+    }
+    if (!isRecord(entry)) throw new Error(`The choices of "${id}" in ${path} must be an object`);
+    const base = defaultChoices(net, null);
+    const stageIds = new Set(stagePlaces(net));
+    const counterIds = new Set(counterPlaces(net));
+    for (const key of Object.keys(isRecord(entry['stages']) ? entry['stages'] : {})) {
+      if (!stageIds.has(key)) {
+        throw new Error(`The choices of "${id}": "${key}" is not a place that holds cases`);
+      }
+    }
+    for (const key of Object.keys(isRecord(entry['counters']) ? entry['counters'] : {})) {
+      if (!counterIds.has(key)) {
+        throw new Error(`The choices of "${id}": "${key}" is not a place of an amount or a sink`);
+      }
+    }
+    const counters = Object.fromEntries(
+      Object.entries(base.counters).map(([key, counter]) => {
+        const own = isRecord(entry['counters']) ? entry['counters'][key] : undefined;
+        return [key, isRecord(own) ? { ...counter, ...own } : counter];
+      }),
+    );
+    const merged = {
+      ...base,
+      ...entry,
+      stages: { ...base.stages, ...(isRecord(entry['stages']) ? entry['stages'] : {}) },
+      counters,
+    };
+    const checked = viewChoicesSchema.safeParse(merged);
+    if (!checked.success) {
+      const issue = checked.error.issues[0];
+      throw new Error(
+        `The choices of "${id}" in ${path} are invalid at ${issue?.path.join('.') ?? '(root)'}: ${issue?.message ?? ''}`,
+      );
+    }
+    const problems = choiceProblems(net, checked.data);
+    if (problems.length > 0) {
+      throw new Error(
+        `The choices of "${id}" break the rules: ${problems.map((p) => `${p.rule} at ${p.path}: ${p.message}`).join('; ')}`,
+      );
+    }
+    result.set(id, checked.data);
+  }
+  return result;
 }
 
 /** Throws if an id names no example net, or a shot has no view. */
@@ -522,7 +626,7 @@ export function renderReport(
     '',
     `Date: ${date} · Server: ${conditions.baseUrl} · Temperature: ${conditions.temperature} · JSON mode: ${conditions.jsonMode} · At most ${conditions.maxRounds} rounds · Prompt version: ${PROMPT_VERSION}`,
     '',
-    'Acceptance A6: the view of the model passes the rules V1 to V11 (no errors) after at most three rounds, without the tool having to fill in or drop entries. "Filled" counts generic entries including arcs that the model left out; "filled (not arcs)" counts places and transitions only.',
+    'Acceptance A6: the view of the model passes the rules V1 to V12 (no errors) after at most three rounds, without the tool having to fill in or drop entries. "Filled" counts generic entries including arcs that the model left out; "filled (not arcs)" counts places and transitions only.',
     '',
     '## Conditions',
     '',
@@ -531,6 +635,11 @@ export function renderReport(
     `- Editor positions sent: ${conditions.positions ? 'yes' : 'no'}`,
     `- Temperature: ${conditions.temperature} · JSON mode: ${conditions.jsonMode} · At most ${conditions.maxRounds} rounds`,
     `- Runs per net: ${runs}`,
+    ...(prompts.some((info) => info.way === 'guided')
+      ? [
+          `- Way: ${prompts.map((info) => `${info.example} ${info.way === 'guided' ? 'guided (binding choices of --choices)' : 'free'}`).join(', ')}`,
+        ]
+      : []),
   ];
   for (const info of prompts) {
     lines.push(
@@ -644,6 +753,7 @@ export function renderReport(
     if (result.filled.length > 0) lines.push(`- Filled generically: ${result.filled.join(', ')}`);
     if (result.dropped.length > 0) lines.push(`- Dropped as invalid: ${result.dropped.join(', ')}`);
     for (const note of result.notes) lines.push(`- Note: ${note}`);
+    for (const note of result.modelNotes) lines.push(`- Note of the model: ${note}`);
   }
   lines.push('');
   return lines.join('\n');
@@ -681,6 +791,13 @@ export async function runEval(options: EvalOptions): Promise<EvalOutcome> {
   const conditionOptions: ConditionOptions = { ...options, repeat };
   const shotList = options.shots ?? DEFAULT_EXAMPLES;
   const shots = shotList.map((id) => ({ id, example: loadShot(options.examplesDir, id) }));
+  // The guided way: the choices of the file, checked before the first request.
+  const choices = options.choicesFile
+    ? readChoicesFile(
+        options.choicesFile,
+        new Map(options.examples.map((id) => [id, loadExampleNet(options.examplesDir, id).net])),
+      )
+    : new Map<string, ViewChoices>();
 
   const provider = createProvider({
     baseUrl: options.baseUrl,
@@ -702,10 +819,23 @@ export async function runEval(options: EvalOptions): Promise<EvalOutcome> {
     const { net, reference } = loadExampleNet(options.examplesDir, id);
     const custom = descriptions[id];
     const builtIn = EXAMPLE_SENTENCES[id];
-    const description =
-      custom !== undefined ? custom : builtIn !== undefined ? `${net.name}. ${builtIn}` : '';
-    const descriptionSource =
-      custom !== undefined ? 'custom' : builtIn !== undefined ? 'built-in' : 'none';
+    const guided = choices.get(id);
+    const way = guided ? 'guided' : 'free';
+    // In the guided way the description is made of the form, as the app does.
+    const description = guided
+      ? composeDescription(guided)
+      : custom !== undefined
+        ? custom
+        : builtIn !== undefined
+          ? `${net.name}. ${builtIn}`
+          : '';
+    const descriptionSource = guided
+      ? 'custom'
+      : custom !== undefined
+        ? 'custom'
+        : builtIn !== undefined
+          ? 'built-in'
+          : 'none';
     // The net itself is never a worked example of its own prompt (compared by structure).
     const examples = withoutOwnExample(
       net,
@@ -718,6 +848,7 @@ export async function runEval(options: EvalOptions): Promise<EvalOutcome> {
         const result = await generateDomainView(net, provider, {
           description,
           examples,
+          ...(guided ? { choices: guided } : {}),
           ...(options.positions === false ? { positions: false } : {}),
           ...(options.maxRounds !== undefined ? { maxRounds: options.maxRounds } : {}),
           onProgress: (p) => {
@@ -745,6 +876,7 @@ export async function runEval(options: EvalOptions): Promise<EvalOutcome> {
             shots: shownIds,
             descriptionSource,
             description,
+            way,
           };
           prompts.set(id, info);
           if (options.savePrompts) {
@@ -762,7 +894,12 @@ export async function runEval(options: EvalOptions): Promise<EvalOutcome> {
         const viewFile = `${stem}-${id}${repeat > 1 ? `-run${run}` : ''}.json`;
         writeFileSync(join(options.outDir, viewFile), `${JSON.stringify(result.view, null, 2)}\n`);
         files.push(join(options.outDir, viewFile));
-        const row = { ...rowOf(id, run, net, result, reference), viewFile };
+        const row = {
+          ...rowOf(id, run, net, result, reference),
+          way: way as 'free' | 'guided',
+          ...(result.modelNotes.length > 0 ? { modelNotes: result.modelNotes } : {}),
+          viewFile,
+        };
         rows.push(row);
         details.set(detailKey(row), result);
         options.log(

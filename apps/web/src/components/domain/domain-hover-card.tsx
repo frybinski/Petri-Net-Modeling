@@ -148,7 +148,10 @@ export function DomainHoverCard({ model, anchor }: { model: DomainCardModel; anc
           <>
             <dt className="text-muted">{en.domain.cardLook}</dt>
             <dd className="m-0 font-medium text-fg" data-testid="domain-card-look">
-              {en.domain.sprites[model.look.sprite] ?? model.look.sprite}
+              {model.look.emoji ??
+                (model.look.sprite !== undefined
+                  ? (en.domain.sprites[model.look.sprite] ?? model.look.sprite)
+                  : '')}
               {model.look.tint !== undefined
                 ? `, ${(en.domain.tints[model.look.tint] ?? model.look.tint).toLowerCase()}`
                 : ''}

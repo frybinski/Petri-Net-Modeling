@@ -1,6 +1,6 @@
 {
   "name": "petri-net-modeling",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Web-based modeling tool for higher Petri nets",
   "license": "MIT",

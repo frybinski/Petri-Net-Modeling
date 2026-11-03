@@ -7,7 +7,7 @@ is a second view next to the net editor, drawn on a Canvas 2D from the net, a **
 The principle, which every part of the design follows: **the view shows, the net decides.** A mapping says _where_ and
 _as what_ an element is drawn. It contains no durations, weights, rates or conditions (the net has them), and nothing
 in it changes how the net behaves. The mapping is data that a person, a tool or a language model can write; it is
-checked against the net instead of trusted (rules V1 to V11 below).
+checked against the net instead of trusted (rules V1 to V12 below).
 
 The code lives in `packages/domain` (`@pnm/domain`). It depends on `@pnm/core` and `@pnm/layout` and has no React
 dependency; the core does not depend on it.
@@ -71,7 +71,9 @@ left corner. `Point` is `[x, y]`, `Rect` is `[x, y, width, height]`.
 
 `entity.sprite` is the picture of a case: `parcel`, `person`, `vehicle`, `document`, `dot`, `frame` (a bicycle frame in
 the diamond shape, without wheels), `bicycle` or `bars` (bundled tubes or bars). It is the look of every case that lies
-on a place without an `appearance` of its own (see [Looks of cases](#looks-of-cases)).
+on a place without an `appearance` of its own (see [Looks of cases](#looks-of-cases)). Instead of a sprite the entity can
+be a single **emoji** (`"entity": { "singular": "Einhorn", "plural": "Einhörner", "emoji": "🦄" }`), see
+[Emoji](#emoji).
 
 ### Places
 
@@ -147,6 +149,37 @@ A case is drawn with the `appearance` of the place it lies on: `{ "sprite": "fra
   a coated frame an indigo one (`accent`, also while it is checked and when it is reworked) and the shipped frame a
   `parcel`. A frame that is reworked becomes grey again on `Geschweißt`.
 
+### Emoji
+
+A sprite is one of eight pictures. Where none fits (unicorns, loaves of bread, trees), an **emoji** is the free
+vocabulary (N4): `meta.entity`, `appearance` and `display` take `"emoji": "🦄"` in place of `sprite` or `icon`.
+
+```jsonc
+"meta": { "entity": { "singular": "Loaf", "plural": "Loaves", "emoji": "🍞" } }
+"p_oven": { "kind": "conveyor", "path": [...], "appearance": { "emoji": "🔥" } }
+"p_sold": { "kind": "sink", "box": [...], "display": { "style": "pictogram", "per": 5, "emoji": "🍞" } }
+```
+
+- **Exactly one of `sprite` or `emoji`** (in `display`: of `icon` or `emoji`; both are optional there). A `tint` belongs to
+  a `sprite` only: an emoji has its own colors and cannot be tinted.
+- **What counts as one emoji.** Exactly one grapheme cluster (`Intl.Segmenter`) that contains an `Extended_Pictographic`
+  character (with a variation selector, a skin tone or a ZWJ sequence such as 👩‍⚕️ or ❤️), a flag (two regional indicators,
+  🇩🇪) or a keycap (1️⃣). A letter, a digit alone, several emoji, an empty text and a word are not allowed (`"ab"`,
+  `"🦄🦄"`, `""`, `"a🦄"`).
+- **Rule V12** reports every violation, at the field (`meta.entity.emoji`, `places.p.appearance.emoji`,
+  `places.p.display.emoji`, `…appearance.tint`). V10 and V11 hold for an emoji as for a sprite: an `appearance` (with an
+  emoji) only on places that hold cases, a `display` (with an emoji) only on counters.
+- **Drawing.** An emoji is a text command (`op: 'text'` with `emoji: true`) in the scene, drawn with `fillText` in the
+  fonts `"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif` wherever a sprite or an icon would stand:
+  on belts, in slots and in motion, at the change of the look at the end of a firing, in the pictogram (the last symbol
+  partly filled), in the legend, on the flow dots, in the hover card and in the PNG export. The scene can be tested
+  without a canvas: the text and the position of the emoji are in the draw command.
+- **Which one to take.** The built-in symbols come first where one fits: they look the same on every system, are
+  readable in the light and the dark theme and can be tinted. An emoji looks different on every operating system and
+  font, and an exported image shows the emoji of the machine that exported it ([limitations.md](limitations.md), G7).
+- **Older versions** reject a view with `emoji` (the schema is strict; `Unknown field "emoji"`, rule V1) and offer the
+  generic view. The file format stays `1.0`, and views without emoji open everywhere.
+
 ### Transitions
 
 | Kind                         | Fields                                        | Picture                                                                      |
@@ -212,6 +245,7 @@ V1 passes, so it can still be drawn if other rules fail.
 | V10  | The `display` of a counter: `max` and `per` are positive, `low` is not above `max`, the `icon` fits the role (below), and it is only on counters.                  | error    |
 | V10  | `max` is below the `capacity` of the place: the container can overflow although the net allows it.                                                                 | warning  |
 | V11  | `appearance` only on places that hold cases: not on resources, quantities, pools, slots or hidden entries.                                                         | error    |
+| V12  | An `emoji` is exactly one emoji; it does not stand next to a `sprite` or an `icon`, and a `tint` does not stand next to an `emoji`.                                | error    |
 
 The tests contain for every rule an example that triggers exactly this rule (`packages/domain/test/validate.test.ts` and
 `validate-display.test.ts`).
@@ -449,7 +483,7 @@ bundle and the frame callback about 1 ms (measured in Node and in Chromium, see 
 ## Generating a view with an LLM
 
 A language model can propose the mapping, and the checking program decides whether it is used. This is the division of
-labour of the whole design: the model suggests, the rules V1 to V11 judge, and the net alone defines the behaviour. No
+labour of the whole design: the model suggests, the rules V1 to V12 judge, and the net alone defines the behaviour. No
 model takes part in a simulation; it is asked once, before, and the result is an ordinary mapping (ADR 0010).
 
 The code lives in `packages/llm` (`@pnm/llm`). It needs only `fetch`, so it runs in the browser and in Node, and it
@@ -466,11 +500,12 @@ depends on `@pnm/core`, `@pnm/domain` and `zod`.
    office, shortened, never one that has the structure of the net itself). The prompts are in English; labels take the
    language of the names in the net. One line of the rules covers the role `quantity`: a counter (`pool`, `source` or
    `sink`), labelled with the unit, or `hidden`; the worked examples do not change. The texts have a version,
-   `PROMPT_VERSION` (2 since 1.4.1; the prompt of 1.4.0 and before is version 1), which is stored in the record and shown
-   in the log.
+   `PROMPT_VERSION` (3 since 1.5.0, 2 in 1.4.1; the prompt of 1.4.0 and before is version 1), which is stored in the
+   record and shown in the log. See [Wishes, emoji and notes](#wishes-emoji-and-notes) for what version 3 adds.
 2. **Answer.** The reply is read as JSON, also from a Markdown code block or from the first complete object in a text.
    The tool sets `netHash` and writes provenance `llm` with the model name and the time on every entry.
-3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V11.
+3. **Check.** The answer is merged entry by entry and checked with the rules V1 to V12. The optional `notes` of the
+   answer are taken out first (see below).
 4. **Repair.** If there are errors, they go back as a repair request: each finding with its rule, path and text, and the
    entries it is about. The model returns only a partial object (`places`, `transitions`, `arcs`, `decor` with the
    corrected entries), which replaces exactly those entries. Warnings (V6, V8) do not trigger a repair. At most three
@@ -480,7 +515,76 @@ depends on `@pnm/core`, `@pnm/domain` and `zod`.
    fails after the first round (network, answer that is no JSON), the loop ends and the gaps are filled with a note;
    only a failure in round 1 is an error for the person.
 6. **Record.** The result carries a log of the rounds (mode of the JSON request, tokens, findings, time, what was
-   written), the prompt of the first request, the model, the server and the paths that were filled or dropped.
+   written), the prompt of the first request, the model, the server, the paths that were filled or dropped and the notes
+   of the model.
+
+### Wishes, emoji and notes
+
+The description of the domain may contain **wishes about the look**: which symbols to use, colors, the arrangement
+("show the loaves as 🍞", "the tokens are unicorns"). Up to 1.4.1 the description was only context, the answer schema
+allowed eight sprites, and the model had no way to say what it could not do; a wish for unicorns changed nothing.
+Since 1.5.0 (prompt version 3):
+
+- The system text says that the description may hold wishes, to follow them as far as the format allows (they go before
+  the model's own taste but never before the rules 1 to 10), to prefer a built-in symbol where one fits, to write an
+  `emoji` where none does (exactly one, never next to `sprite` or `icon`, never with a `tint`) and that a color can only
+  be approximated by a tint. The examples in these rules (a library whose books are shown as 📚) come from a domain that no
+  example net uses; the leak test stays green.
+- The answer may contain **`notes`**: at most five short sentences in the language of the description that name the
+  wishes the model could not fulfil or only approximated, and why. The JSON Schema of the answer allows the field
+  (`maxItems` 5). The tool takes it out **before** the answer is checked or stored, so a `notes` key can never make a view
+  invalid and is never part of a view. The notes of all rounds (a repair answer may add some) are collected without
+  duplicates; each is cut to 300 characters. The result step of the dialog shows them in a box _Notes from the model_
+  above the preview (nothing is shown if there are none), the generation record stores them (`modelNotes`), and the log
+  shows them. A note is a statement of the model: the tool does not check whether it is true.
+- A finding of rule V12 goes back to the model in the repair round like any other.
+
+### The guided way
+
+The dialog has two ways in, as two variants of collecting what a person wants: **Guided** (a form with choices; the first
+tab at the first opening, the last choice is remembered) and **Free** (the description, with wishes). Both produce the
+same format and pass the same rules.
+
+![The guided form with three concepts as cards and the form filled from the first one](images/review/n4_generate-guided-form_light.png)
+
+**The form** is prefilled from the net and the current view, if the net has a valid one (else from the net alone):
+
+| Field          | Content                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setting        | Theme and name of the view (the net name to begin with)                                                                                                                                                                                                                                                                                   |
+| The cases      | Singular, plural and the symbol: a sprite or an emoji                                                                                                                                                                                                                                                                                     |
+| Stages         | One row for each place that holds cases (role `case` or `source`) in the order of the flow: like the entity, a sprite with a color, or an emoji                                                                                                                                                                                           |
+| Amounts, sinks | One block for each quantity place and each sink of cases: number, fill level (`max` from the capacity, else a known bound of the analysis, else a round number above twice the marking) or pictogram (`per` for about 10 to 20 symbols at the expected amount), the symbol (a built-in one that fits the role, or an emoji) and the curve |
+| Arrangement    | Flow from left to right, from top to bottom, or as in the net editor                                                                                                                                                                                                                                                                      |
+| Equipment      | Plain, with zones and labels, or as a floor plan with rooms                                                                                                                                                                                                                                                                               |
+| Additions      | Free text                                                                                                                                                                                                                                                                                                                                 |
+
+The fields are checked against V10 to V12 at once (`choiceProblems`), the error stands at the field and **Generate** and
+**Apply without LLM** stay off while there is one.
+
+**Suggest concepts** sends one short request (`suggestConcepts` in `@pnm/llm`; the net without positions, the lists of
+symbols and the additions, a JSON Schema) and shows up to three **concepts** as cards: a title, one sentence, the setting
+and the symbol of the cases. A click fills the form, and everything stays editable (the additions you typed stay). Every
+invalid part of a concept (an emoji that is not one, an unknown place or sprite, a symbol that does not fit the role) is
+left out before the card is shown and noted on it. This prompt follows the same hygiene as the main one (no example of
+an example net in the fixed text); the leak test covers it too.
+
+**The choices are binding.** Generating sends them as a section _Binding choices_ of the request (the exact `appearance`
+and `display` of each place), and after the answer the tool sets the entity, the looks of the stages and the displays of the
+counters to exactly the choice (`applyChoices`), whatever the model wrote. Each deviation of the model is a note _Choice
+applied: …_ in the result. Provenance of the entries stays the model's. **Arrangement and equipment cannot be enforced**:
+they act through the prompt only, and the dialog says so. The setting is not forced either; the model gets it as the
+description.
+
+![The result of a guided generation: the note of the model above the preview, and the choices that replaced the model's](images/review/n4_generate-result_light.png)
+
+**Apply without LLM** sets the choices on the current view, or on the generic view if there is none, and **changes no
+geometry** (kinds, paths, boxes, labels and decor stay). It is one undo step, the changed entries get the provenance
+`user`, and it works without a provider (on GitHub Pages, for example). The record of an earlier generation stays.
+
+The generation record stores the way (`mode`: `guided` or `free`), the choices, the title of the concept that was picked,
+and the notes of the model; the log in the app shows them. `pnpm --filter @pnm/llm eval -- --choices <file>` runs the
+guided way from a JSON file, see [eval/README.md](eval/README.md).
 
 ### Provider
 
@@ -495,20 +599,25 @@ dialog explains what to check.
 
 ### In the app
 
-- _Generate with LLM…_ in the tab _Domain view_ (and in the empty domain view) opens a dialog for the description of
-  the domain, the canvas size and shows the provider. It is disabled while a simulation runs, and starting a simulation
+- _Generate with LLM…_ in the tab _Domain view_ (and in the empty domain view) opens a dialog with the tabs _Guided_
+  and _Free_ (see above), the canvas size and the provider. The placeholder of the description shows that wishes are
+  possible. It is disabled while a simulation runs, and starting a simulation
   stops a running generation.
 - A list shows the progress (prompt, waiting for the model in round _n_ of 3, checking, sending the findings back,
   filling) and can be cancelled; _Continue in background_ closes the dialog and the status bar shows the round.
 - The result has a preview of the view, the number of entries from the model, filled and dropped, the remaining
   findings, the log of the rounds and the prompt (with a copy button). _Use this view_ replaces the mapping and the
   record in one undo step (a note warns if the current view has entries by a person); _Discard_ drops the result.
+- The inspector of the domain view has an input _Emoji…_ next to the picture pickers of the entity, of the look of a
+  stage and of the symbol of a counter. The text is checked at once (V12, at the field), a picture from the list takes the
+  emoji away again, and every change is one undo step.
 - The panel shows _Generated by `<model>` on `<date>`_ with a link to the log, a badge _LLM_ at entries from the model,
   and the hover card says `LLM (<model>)`.
 
 ### What the prompt contains, and what it must not
 
-- **The net,** the description, the canvas and the schema of the answer, in the user text. The editor positions of the
+- **The net,** the description, the canvas and the schema of the answer, in the user text; in the guided way also the
+  section _Binding choices_. The editor positions of the
   nodes (scaled to 0..1) go with the net and the examples as a hint for the layout, and one sentence of the system text
   says so. The app always sends them. The evaluation can leave them out (`--no-positions`); the sentence is then left
   out too (`systemText({ positions: false })`), so that the prompt does not speak of something that is not there.
@@ -534,7 +643,8 @@ dialog explains what to check.
 
 The mapping stays strict: no field is added to it. The record goes in the net document under `domainViewGeneration`
 (see [format.md](format.md)), is written right after the view and removed together with it. It contains the model, the version of the prompt (`promptVersion`; a record of 1.4.0 and before has none and counts as
-version 1), the server address without user name, password, query or fragment, the description, the prompt, the log and
+version 1), the way (`mode`), the binding choices and the concept of the guided way, the notes of the model
+(`modelNotes`; all four are absent in a record of 1.4.1 and before), the server address without user name, password, query or fragment, the description, the prompt, the log and
 the paths. The
 **API key is never stored** in a net, an export or a log; the app keeps it in its own `localStorage` entry apart from the
 other settings, so anyone who can use that browser profile can read it.

@@ -1,8 +1,10 @@
 import {
+  EMOJI_FONT,
   TINT_TONES,
   drawIcon,
   drawSprite,
   spriteSize,
+  type Appearance,
   type DisplayIcon,
   type ScenePalette,
   type Sprite,
@@ -62,4 +64,28 @@ export function tintOption(tint: Tint | null, label: string): PictureOption {
       ctx.stroke();
     },
   };
+}
+
+/** The value of the option that stands for the emoji in use (it matches no built-in symbol). */
+export const EMOJI_VALUE = '__emoji';
+
+/** The preview of an emoji, drawn with `fillText` as the painter draws it in the view. */
+export function emojiOption(emoji: string, label: string): PictureOption {
+  return {
+    value: EMOJI_VALUE,
+    label,
+    draw: (ctx, size) => {
+      ctx.font = `${Math.round(size * 0.62)}px ${EMOJI_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, size / 2, size / 2 + 1);
+    },
+  };
+}
+
+/** The preview of how a case looks: its emoji or its sprite. */
+export function lookOption(look: Appearance, label: string, tint?: Tint): PictureOption {
+  return look.emoji !== undefined
+    ? emojiOption(look.emoji, label)
+    : spriteOption(look.sprite, label, tint);
 }

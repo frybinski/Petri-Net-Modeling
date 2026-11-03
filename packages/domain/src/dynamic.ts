@@ -23,7 +23,6 @@ import {
   cellSize,
   cellStyleOf,
   counterBoxLayout,
-  spriteSize,
   withHighlight,
   type CellState,
   type DrawCommand,
@@ -32,6 +31,7 @@ import {
   type Shape,
 } from './scene';
 import type { Appearance, Point, Rect } from './schema';
+import { lookCommand, symbolCommand } from './symbols';
 import {
   DEFAULT_THRESHOLDS,
   queueLevel,
@@ -486,20 +486,7 @@ export function buildDynamicScene(
       });
     }
     const draw = (look: Appearance, alpha?: number): void => {
-      const size = spriteSize(look.sprite);
-      layers.tokens.push({
-        layer: 'tokens',
-        op: 'sprite',
-        sprite: look.sprite,
-        x: item.point[0],
-        y: item.point[1],
-        size,
-        ...((look.sprite === 'person' || look.sprite === 'vehicle') && {
-          angle: Math.atan2(item.direction[1], item.direction[0]),
-        }),
-        ...(look.tint !== undefined && { tint: look.tint }),
-        ...(alpha !== undefined && { alpha }),
-      });
+      layers.tokens.push(lookCommand({ layer: 'tokens' }, look, item.point, item.direction, alpha));
     };
     if (item.blend) {
       draw(item.blend.from);
@@ -524,19 +511,15 @@ export function buildDynamicScene(
     const { point, progress } = flowPoint(flow, now);
     const [x, y] = point;
     const fade = progress > 0.8 ? 1 - (progress - 0.8) * 3 : 1;
-    if (flow.icon !== undefined) {
+    const hasSymbol = flow.icon !== undefined || flow.emoji !== undefined;
+    if (hasSymbol) {
       // The symbol of the amount runs along the connector, a cloud of CO2 rises while it goes.
       const rise = flow.icon === 'co2' && flow.direction === 'in' ? -7 * progress : 0;
-      layers.tokens.push({
-        layer: 'tokens',
-        elementId: flow.placeId,
-        op: 'icon',
-        icon: flow.icon,
-        x,
-        y: y + rise,
-        size: 15,
-        alpha: fade,
-      });
+      layers.tokens.push(
+        symbolCommand({ layer: 'tokens', elementId: flow.placeId }, flow, x, y + rise, 15, {
+          alpha: fade,
+        }),
+      );
     } else {
       layers.tokens.push({
         layer: 'tokens',
@@ -554,7 +537,7 @@ export function buildDynamicScene(
       elementId: flow.placeId,
       op: 'badge',
       x,
-      y: y - (flow.icon !== undefined ? 17 : 13),
+      y: y - (hasSymbol ? 17 : 13),
       text: flowLabel(flow),
       accent: flow.direction === 'in',
     });
