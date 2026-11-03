@@ -24,6 +24,9 @@ the app still sends the editor positions and the two default examples. The plan 
   level; CO₂e, residual waste and shipped frames as pictograms). They are hospital examples now too ("the beds of a ward",
   "treated patients or used test kits"), and the leak test knows _emission(s)_, _residual waste_ and _shipped goods_ (it
   fails on the earlier wording).
+- **An empty section of worked examples.** Without examples (`--shots none`) the first request still had the heading
+  _Worked examples_ and the sentence "These show the format …" with nothing after them. The section is left out now when
+  there are no examples; the default request with the two examples is unchanged.
   **Earlier evaluation runs (prompt version 1) contained the hint "Parcel sorting center / Hall 2", and those of 1.4.0 also
   the stages of the bicycle frame example;** they should not be compared with runs of 1.4.1 without saying so.
 
@@ -58,7 +61,7 @@ the app still sends the editor positions and the two default examples. The plan 
   `withoutOwnExample` is exported.
 - Documentation: what the prompt contains and what it must not ([docs/domain-view.md](docs/domain-view.md)), the options and
   how to state a run in a paper ([docs/eval/README.md](docs/eval/README.md)).
-- **Tests.** The leak test, tests of `compareViews`, of the prompt version and the positions, of every new option of the script (reading, errors, shots, positions, descriptions, repeat, saved prompts, hashes, conditions, similarity; also as a command line run against a simulated server) and of the log in the app. In all: 2421 unit and component tests (2382 before), 23 tests of the release scripts and 126 Playwright tests (115 in the project `chromium`, 11 in `server`; unchanged). The golden tests of N1 and N2 are unchanged and green.
+- **Tests.** The leak test, tests of `compareViews`, of the prompt version and the positions, of every new option of the script (reading, errors, shots, positions, descriptions, repeat, saved prompts, hashes, conditions, similarity; also as a command line run against a simulated server) and of the log in the app. In all: 2422 unit and component tests (2382 before), 23 tests of the release scripts and 126 Playwright tests (115 in the project `chromium`, 11 in `server`; unchanged). The golden tests of N1 and N2 are unchanged and green.
 
 ### Changed
 

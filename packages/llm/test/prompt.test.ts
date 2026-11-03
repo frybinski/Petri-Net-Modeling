@@ -142,6 +142,20 @@ describe('buildPrompt', () => {
     expect(plain.user).toContain('A process called "Paketzentrum".');
   });
 
+  it('leaves the section of worked examples out without examples (zero-shot)', () => {
+    const zero = buildPrompt({
+      net,
+      description: '',
+      canvas: { width: 800, height: 600 },
+      examples: [],
+      schema: {},
+    });
+    expect(zero.user).not.toContain('## Worked examples');
+    expect(zero.user).not.toContain('These show the format');
+    expect(zero.user).toContain('## Task');
+    expect(prompt.user).toContain('## Worked examples');
+  });
+
   it('explains the role quantity in one line of the rules, and leaves the examples as they were', () => {
     const lines = prompt.system.split('\n').filter((line) => line.includes('quantity'));
     expect(lines).toHaveLength(1);

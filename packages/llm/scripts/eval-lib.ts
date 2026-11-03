@@ -25,7 +25,7 @@ export const EXAMPLE_SENTENCES: Record<string, string> = {
   'smart-office':
     'An open-plan office: people enter through a turnstile, work at desks, meet in rooms and fetch coffee.',
   'bike-frames':
-    'A bicycle frame factory: tubes are cut, welded and powder coated, the frames are inspected, reworked or scrapped and shipped; material, scrap, waste and emissions are counted.',
+    'A bicycle frame factory: tubes are cut, welded and powder coated, the frames are inspected, reworked if needed and shipped; offcuts are recycled; material, scrap, waste and emissions are counted.',
 };
 export const DEFAULT_EXAMPLES = ['parcel-center', 'smart-office'];
 

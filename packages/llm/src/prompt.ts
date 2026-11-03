@@ -156,10 +156,15 @@ export function buildPrompt(input: PromptInput): Prompt {
     '## JSON Schema of your answer',
     JSON.stringify(schema),
     '',
-    '## Worked examples',
-    'These show the format and the level of detail. Do not copy their geometry.',
-    '',
-    ...examples.flatMap((example, i) => [exampleText(example, i, positions), '']),
+    // Without examples (zero-shot) the section is left out, so that no sentence points at nothing.
+    ...(examples.length > 0
+      ? [
+          '## Worked examples',
+          'These show the format and the level of detail. Do not copy their geometry.',
+          '',
+          ...examples.flatMap((example, i) => [exampleText(example, i, positions), '']),
+        ]
+      : []),
     '## Task',
     `Write the domain view for the net "${net.name}" above. Answer with the JSON object only.`,
   ].join('\n');
