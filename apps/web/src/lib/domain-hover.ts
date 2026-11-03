@@ -48,7 +48,7 @@ export interface DomainCardModel {
   /** A counter with a pictogram: what one symbol stands for. */
   scale?: { per: number; unit: string };
   /** The appearance of the cases on a place: the sprite and the tint. */
-  look?: { sprite: string; tint?: string };
+  look?: { sprite?: string; emoji?: string; tint?: string };
 }
 
 /** What the running simulation knows about the elements. Absent while editing. */
@@ -158,7 +158,9 @@ function graphicCard(entry: PlaceView, name: string, count: number): Partial<Dom
   }
   if ('appearance' in entry && entry.appearance) {
     result.look = {
-      sprite: entry.appearance.sprite,
+      ...(entry.appearance.emoji !== undefined
+        ? { emoji: entry.appearance.emoji }
+        : { sprite: entry.appearance.sprite }),
       ...(entry.appearance.tint !== undefined && { tint: entry.appearance.tint }),
     };
   }

@@ -41,6 +41,8 @@ import { locateJsonPath, splitPath } from '../../lib/json-path';
 import { openGenerateDialog } from '../../lib/domain-generation';
 import { getViewApi } from '../../lib/view-api';
 import { selectedEntry } from '../../lib/domain-edit';
+import { EMOJI_VALUE } from '../../lib/domain-picture-options';
+import { EmojiField } from './domain-emoji-field';
 import { useDomainEditStore } from '../../store/domain-edit-store';
 import { useEditorStore } from '../../store/editor-store';
 import { useExportStore } from '../../store/export-store';
@@ -666,7 +668,10 @@ export function DomainPanel() {
             value={view.meta.entity.singular}
             disabled={locked}
             onCommit={(singular) => {
-              updateViewMeta((meta) => ({ ...meta, entity: { ...meta.entity, singular } }));
+              updateViewMeta((meta) => ({
+                ...meta,
+                entity: { ...meta.entity, singular },
+              }));
             }}
           />
           <TextField
@@ -674,23 +679,54 @@ export function DomainPanel() {
             value={view.meta.entity.plural}
             disabled={locked}
             onCommit={(plural) => {
-              updateViewMeta((meta) => ({ ...meta, entity: { ...meta.entity, plural } }));
+              updateViewMeta((meta) => ({
+                ...meta,
+                entity: { ...meta.entity, plural },
+              }));
             }}
           />
           <SelectField
             label={en.domain.sprite}
-            value={view.meta.entity.sprite}
+            value={
+              view.meta.entity.emoji !== undefined
+                ? EMOJI_VALUE
+                : (view.meta.entity.sprite ?? 'dot')
+            }
             disabled={locked}
-            options={SPRITES.map((sprite) => ({
-              value: sprite,
-              label: en.domain.sprites[sprite] ?? sprite,
-            }))}
+            options={[
+              ...SPRITES.map((sprite) => ({
+                value: sprite,
+                label: en.domain.sprites[sprite] ?? sprite,
+              })),
+              ...(view.meta.entity.emoji !== undefined
+                ? [{ value: EMOJI_VALUE, label: en.domain.emojiOptionOf(view.meta.entity.emoji) }]
+                : []),
+            ]}
             onChange={(value) => {
               const sprite = SPRITES.find((s) => s === value);
-              if (sprite)
-                updateViewMeta((meta) => ({ ...meta, entity: { ...meta.entity, sprite } }));
+              if (sprite) {
+                updateViewMeta((meta) => ({
+                  ...meta,
+                  entity: { singular: meta.entity.singular, plural: meta.entity.plural, sprite },
+                }));
+              }
             }}
             data-testid="domain-sprite"
+          />
+          <EmojiField
+            value={view.meta.entity.emoji}
+            disabled={locked}
+            onCommit={(emoji) => {
+              updateViewMeta((meta) => ({
+                ...meta,
+                entity: {
+                  singular: meta.entity.singular,
+                  plural: meta.entity.plural,
+                  ...(emoji !== undefined ? { emoji } : { sprite: 'dot' as const }),
+                },
+              }));
+            }}
+            data-testid="domain-emoji"
           />
           <div className="grid grid-cols-2 gap-2">
             <NumberField
